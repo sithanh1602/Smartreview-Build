@@ -1,0 +1,14 @@
+node_modules
+dist
+.cache
+package-lock.json
+test-results
+playwright-report
+
+datasets/
+
+.env
+.env.*
+.local/
+
+storage/

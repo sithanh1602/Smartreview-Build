@@ -1,0 +1,85 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  --color-ink: #f3f6fa;
+  --color-panel: #ffffff;
+  --color-line: #cbd5e1;
+  --color-muted: #526278;
+  --color-accent: #087f73;
+}
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+  body {
+    @apply m-0 bg-ink text-slate-900 antialiased;
+  }
+  button,
+  a,
+  input,
+  select {
+    -webkit-tap-highlight-color: transparent;
+  }
+  button:not(:disabled),
+  select {
+    cursor: pointer;
+  }
+  button:disabled {
+    @apply cursor-not-allowed opacity-50;
+  }
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-accent;
+  }
+  input,
+  select,
+  textarea,
+  progress {
+    accent-color: var(--color-accent);
+  }
+  select option {
+    @apply bg-panel;
+  }
+  ::selection {
+    @apply bg-accent/20;
+  }
+  ::-webkit-scrollbar {
+    width: 7px;
+    height: 7px;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-slate-400;
+  }
+  input::placeholder,
+  textarea::placeholder {
+    @apply text-slate-500;
+  }
+  input[type='file']::file-selector-button {
+    @apply mr-3 cursor-pointer border-0 border-r border-line bg-slate-100 px-3 py-2 font-medium text-slate-800;
+  }
+  table {
+    @apply bg-white;
+  }
+  thead {
+    @apply bg-slate-100;
+  }
+  tbody tr:hover {
+    @apply bg-slate-50;
+  }
+}
+
+@layer components {
+  .panel {
+    @apply rounded-none border border-line bg-panel;
+  }
+  .button {
+    @apply inline-flex min-h-10 items-center justify-center gap-2 rounded-none border border-line bg-white px-4 py-2 text-sm font-semibold transition hover:border-accent hover:bg-accent/5;
+  }
+  .eyebrow {
+    @apply text-[11px] font-semibold tracking-[0.14em] text-muted uppercase;
+  }
+  .field {
+    @apply min-h-11 w-full rounded-none border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 transition hover:border-slate-400 focus:border-accent;
+  }
+}

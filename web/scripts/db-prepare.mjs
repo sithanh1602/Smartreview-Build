@@ -1,0 +1,15 @@
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import { randomBytes } from 'node:crypto';
+import { fileURLToPath } from 'node:url';
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const local = path.join(root, '.local');
+await fs.mkdir(local, { recursive: true, mode: 0o700 });
+const user = 'smartreview_app_' + randomBytes(3).toString('hex');
+const password = randomBytes(32).toString('hex');
+const env = `DB_HOST=127.0.0.1\nDB_PORT=3306\nDB_NAME=smartreview\nDB_USER=${user}\nDB_PASSWORD=${password}\nTEST_DB_NAME=smartreview_test\n`;
+await fs.writeFile(path.join(root, '.env'), env, { flag: 'wx', mode: 0o600 });
+const sql = `CREATE DATABASE IF NOT EXISTS smartreview CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;\nCREATE DATABASE IF NOT EXISTS smartreview_test CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;\nCREATE USER IF NOT EXISTS '${user}'@'127.0.0.1' IDENTIFIED BY '${password}';\nGRANT ALL PRIVILEGES ON smartreview.* TO '${user}'@'127.0.0.1';\nGRANT ALL PRIVILEGES ON smartreview_test.* TO '${user}'@'127.0.0.1';\n`;
+await fs.writeFile(path.join(local, 'mysql-init.sql'), sql, { flag: 'wx', mode: 0o600 });
+console.log('Prepared private .env and .local/mysql-init.sql for MySQL port 3306.');
+console.log(`Run once: sudo mysql < '${path.join(local, 'mysql-init.sql')}'`);

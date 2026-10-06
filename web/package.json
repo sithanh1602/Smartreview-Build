@@ -1,0 +1,44 @@
+{
+  "name": "smartreview-web",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "prepare:data": "node scripts/prepare.mjs",
+    "dev": "node scripts/dev.mjs",
+    "dev:ui": "vite --host 127.0.0.1",
+    "dev:api": "node --watch server/index.mjs",
+    "build": "vite build",
+    "start": "node server/index.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "test:ui": "playwright test",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "import": "node scripts/import.mjs",
+    "import:demo": "node scripts/prepare.mjs",
+    "test:core": "node --test tests/core.test.mjs",
+    "db:migrate": "node scripts/migrate.mjs",
+    "db:prepare": "node scripts/db-prepare.mjs"
+  },
+  "dependencies": {
+    "ajv": "^8.20.0",
+    "busboy": "^1.6.0",
+    "fast-xml-parser": "^5.11.2",
+    "mysql2": "^3.24.5",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "react-router-dom": "7.9.4",
+    "sharp": "^0.35.5"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.56.1",
+    "@tailwindcss/vite": "4.1.16",
+    "@vitejs/plugin-react": "^5.1.0",
+    "prettier": "^3.6.2",
+    "tailwindcss": "4.1.16",
+    "vite": "7.1.12"
+  },
+  "engines": {
+    "node": ">=22.12"
+  }
+}

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<annotations><version>1.1</version><meta><task><name>Human QA sample</name></task></meta>
+<image id="0" name="street.svg" width="800" height="480">
+  <box label="car" source="manual" xtl="585" ytl="240" xbr="840" ybr="365" occluded="0"><attribute name="review_note">Box extends beyond image</attribute></box>
+  <box label="car" source="manual" xtl="140" ytl="285" xbr="300" ybr="380" occluded="0"/>
+  <box label="person" source="manual" xtl="400" ytl="180" xbr="400" ybr="310" occluded="0"/>
+  <polygon label="road" points="0,260;800,260;800,480;0,480" source="manual"/>
+</image></annotations>

@@ -1,0 +1,38 @@
+{
+  "schema_version": "1.0.0",
+  "dataset": {
+    "id": "human-upload",
+    "name": "Human annotation sample"
+  },
+  "media": [
+    {
+      "id": "image-0",
+      "name": "street.png",
+      "type": "image",
+      "width": 160,
+      "height": 100
+    }
+  ],
+  "frames": [
+    {
+      "id": "image-0:0",
+      "media_id": "image-0",
+      "index": 0,
+      "image": "street.png"
+    }
+  ],
+  "annotations": [
+    {
+      "id": "image-0-box-0",
+      "frame_id": "image-0:0",
+      "label": "car",
+      "geometry": {
+        "type": "bbox",
+        "x": 145,
+        "y": 40,
+        "width": 30,
+        "height": 40
+      }
+    }
+  ]
+}

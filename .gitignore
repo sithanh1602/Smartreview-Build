@@ -1,0 +1,36 @@
+# Local credentials and private setup files
+.env
+.env.*
+!.env.example
+.local/
+*.sql
+!web/server/db/migrations/*.sql
+
+# Dependencies and generated files
+.venv/
+node_modules/
+dist/
+__pycache__/
+*.py[cod]
+.cache/
+*.log
+test-results/
+playwright-report/
+
+# Local datasets, uploads, model weights and backups
+/data/
+/outputs/
+/backups/
+/web/datasets/
+/web/storage/
+*.pt
+*.pth
+*.onnx
+
+# Local tooling and editor files
+.agents/
+.codex/
+.aws/
+.vscode/
+.idea/
+.DS_Store
