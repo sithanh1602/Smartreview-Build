@@ -9,7 +9,7 @@ import { loadDataset } from '../server/repository.mjs';
 import { ReviewStore } from '../server/reviews/store.mjs';
 import { migrate } from '../server/db/migrate.mjs';
 import { testPool, cleanRevision } from './db-helpers.mjs';
-import { createApp } from '../server/app.mjs';
+import { createApp } from './app-helper.mjs';
 const region = {
   id: 'missing-1',
   label: 'car',

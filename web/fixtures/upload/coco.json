@@ -1,0 +1,14 @@
+{
+  "images": [{ "id": 7, "file_name": "street.png", "width": 160, "height": 100 }],
+  "categories": [{ "id": 42, "name": "delivery_vehicle", "supercategory": "vehicle" }],
+  "annotations": [
+    {
+      "id": 100,
+      "image_id": 7,
+      "category_id": 42,
+      "bbox": [145, 40, 30, 40],
+      "area": 1200,
+      "iscrowd": 0
+    }
+  ]
+}

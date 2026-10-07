@@ -192,3 +192,13 @@ Xem [hướng dẫn AI Check](docs/ai-check.md) để cấu hình và hiểu gi�
 ## Kiểm tra theo ảnh
 
 Mở dự án → **Kiểm tra toàn bộ ảnh** để xem tất cả box, đánh dấu đối tượng thiếu và lưu tiến độ theo ảnh. Chạy `npm run db:migrate` để thêm bảng mới trước khi dùng. Xem [hướng dẫn](docs/frame-review.md).
+
+## Import COCO Detection
+
+Trong New Project, chọn **COCO Detection · JSON (bbox)**, chọn JSON annotation
+và ảnh tương ứng. Không cần chuyển sang SmartReview JSON. Hỗ trợ class tùy ý,
+ảnh không có annotation và thư mục ảnh con. Xem [phạm vi COCO và CLI](docs/projects-import.md#coco-detection).
+
+## Đăng nhập và hai vai trò
+
+Sau `npm run db:migrate`, tạo tài khoản bằng `npm run user:create -- --username thanh-review --role reviewer` hoặc `--role annotator`. Terminal sẽ hỏi mật khẩu ẩn. Reviewer vào Projects; annotator vào trang `/annotation` và không được gọi các API reviewer. Xem [hướng dẫn tài khoản, phiên và triển khai HTTPS](docs/auth.md).

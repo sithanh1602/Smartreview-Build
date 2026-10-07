@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures.js';
 const geometry = { type: 'bbox', x: 5, y: 5, width: 30, height: 30 };
 const finding = {
   id: 'a',

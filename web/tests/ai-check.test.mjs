@@ -82,6 +82,7 @@ test('AI job persists result, rejects overlapping runs, detects restart and revi
     };
     const projects = {
       storageRoot: root,
+      deleting: new Set(),
       context: async () => ({ dataset: d }),
     };
     const service = new AiService(projects, { python, model });

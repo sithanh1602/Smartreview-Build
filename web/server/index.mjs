@@ -5,6 +5,7 @@ import { ReviewStore } from './reviews/store.mjs';
 import { loadDataset } from './repository.mjs';
 import { createApp } from './app.mjs';
 import { datasetPath, webRoot } from './config.mjs';
+import { AuthService } from './auth/service.mjs';
 try {
   let dataset;
   try {
@@ -22,7 +23,21 @@ try {
   );
   await projects.recover();
   if (dataset) await projects.registerDemo(dataset, reviews, datasetPath);
-  const app = createApp({ dataset, reviews, projects, distRoot: path.join(webRoot, 'dist') });
+  const auth = new AuthService(pool);
+  await auth.cleanup();
+  const sessionCleanup = setInterval(
+    () => auth.cleanup().catch(() => console.error('Session cleanup failed.')),
+    60 * 60 * 1000,
+  );
+  sessionCleanup.unref();
+  const app = createApp({
+    dataset,
+    reviews,
+    projects,
+    auth,
+    secureCookies: process.env.AUTH_COOKIE_SECURE === 'true',
+    distRoot: path.join(webRoot, 'dist'),
+  });
   app.on('error', (e) => {
     console.error(e.message);
     process.exit(1);
@@ -35,6 +50,7 @@ try {
   for (const signal of ['SIGINT', 'SIGTERM'])
     process.on(signal, () =>
       app.close(async () => {
+        clearInterval(sessionCleanup);
         await pool.end();
         process.exit(0);
       }),

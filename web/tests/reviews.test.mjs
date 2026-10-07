@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
 import path from 'node:path';
 import { loadDataset } from '../server/repository.mjs';
-import { createApp } from '../server/app.mjs';
+import { createApp } from './app-helper.mjs';
 import { webRoot } from '../server/config.mjs';
 import { ReviewStore } from '../server/reviews/store.mjs';
 import { migrate } from '../server/db/migrate.mjs';
@@ -58,7 +58,12 @@ test('migration can run twice and initial metrics come from persisted risk refer
   assert.equal(m.medium, 8);
   assert.equal(m.review_progress, 0);
   const [rows] = await pool.query('SELECT version FROM schema_migrations');
-  assert.equal(rows.length, 2);
+  assert.deepEqual(rows.map((r) => r.version).sort(), [
+    '001_review.sql',
+    '002_projects.sql',
+    '003_frame_reviews.sql',
+    '004_auth.sql',
+  ]);
 });
 test('create review persists Unicode, correction and accurate UTC timestamp; restart retains it', async () => {
   const res = await call('/api/risk-cases/2-422/review', 'POST', payload());

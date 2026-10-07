@@ -4,7 +4,15 @@ import { ReviewError, matchesReview } from '../shared/review.mjs';
 import http from 'node:http';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-export function createHandler({ dataset, reviews, distRoot, projects }) {
+import { cookie, checkOrigin, handleAuth } from './auth/http.mjs';
+export function createHandler({
+  dataset,
+  reviews,
+  distRoot,
+  projects,
+  auth,
+  secureCookies = false,
+}) {
   const json = (res, status, data) => {
     res.writeHead(status, {
       'Content-Type': 'application/json; charset=utf-8',
@@ -15,12 +23,30 @@ export function createHandler({ dataset, reviews, distRoot, projects }) {
   return async (req, res) => {
     try {
       const url = new URL(req.url, 'http://localhost');
+      if (await handleAuth(req, res, url.pathname, { auth, json, secureCookies })) return;
+      if (url.pathname === '/api/health' && req.method === 'GET')
+        return json(res, 200, { ok: true });
+      if (url.pathname.startsWith('/api/')) {
+        if (!auth) throw new ReviewError(503, 'Dịch vụ đăng nhập chưa sẵn sàng.');
+        req.user = await auth.authenticate(cookie(req, 'sr_access'));
+        if (!['GET', 'HEAD'].includes(req.method)) checkOrigin(req);
+        if (url.pathname === '/api/annotator/home') {
+          if (req.user.role !== 'annotator') throw new ReviewError(403, 'Chỉ dành cho annotator.');
+          if (req.method !== 'GET') throw new ReviewError(405, 'Use GET.');
+          return json(res, 200, {
+            user: req.user,
+            message: 'Khu vực annotation đang được phát triển.',
+          });
+        }
+        if (req.user.role !== 'reviewer')
+          throw new ReviewError(403, 'Bạn không có quyền truy cập chức năng reviewer.');
+      }
       if (
         await handleProjects(req, res, url, {
           projects,
           json,
           dispatch: (context, request, response) =>
-            createHandler({ ...context, distRoot })(request, response),
+            createHandler({ ...context, distRoot, auth, secureCookies })(request, response),
         })
       )
         return;
@@ -31,8 +57,6 @@ export function createHandler({ dataset, reviews, distRoot, projects }) {
         res.setHeader('Allow', 'GET, HEAD');
         return json(res, 405, { error: 'Read-only API' });
       }
-      if (p === '/api/health')
-        return json(res, 200, { ok: true, dataset_id: dataset?.meta.dataset_id ?? null });
       if (!dataset && p.startsWith('/api/'))
         return json(res, 409, {
           error: 'Chưa có dataset mặc định. Mở Projects để tạo và import dataset.',
@@ -104,7 +128,7 @@ export function createHandler({ dataset, reviews, distRoot, projects }) {
         }[path.extname(asset).toLowerCase()];
         res.writeHead(200, {
           'Content-Type': type,
-          'Cache-Control': 'no-cache',
+          'Cache-Control': 'no-store',
           'Content-Security-Policy': "default-src 'none'; sandbox",
         });
         return res.end(req.method === 'HEAD' ? undefined : data);
@@ -144,5 +168,7 @@ export function createHandler({ dataset, reviews, distRoot, projects }) {
 }
 
 export function createApp(options) {
+  if (process.env.NODE_ENV === 'production' && !options.secureCookies)
+    throw new Error('Production requires HTTPS and AUTH_COOKIE_SECURE=true.');
   return http.createServer(createHandler(options));
 }

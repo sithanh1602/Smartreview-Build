@@ -1,5 +1,6 @@
+import { loginContext } from './fixtures.js';
 import { hint } from '../../src/lib/englishHints.js';
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures.js';
 import path from 'node:path';
 const fixture = path.resolve('fixtures/upload');
 async function importProject(page, name, format = 'cvat-images') {
@@ -24,7 +25,14 @@ async function importProject(page, name, format = 'cvat-images') {
       exact: true,
     })
     .setInputFiles(
-      path.join(fixture, format === 'cvat-images' ? 'annotations.xml' : 'dataset.json'),
+      path.join(
+        fixture,
+        format === 'cvat-images'
+          ? 'annotations.xml'
+          : format === 'coco-detection'
+            ? 'coco.json'
+            : 'dataset.json',
+      ),
     );
   await page
     .getByLabel(hint('Media images'), {
@@ -45,6 +53,20 @@ async function importProject(page, name, format = 'cvat-images') {
   await expect(page.getByTestId('metric-Risk Cases')).toHaveText('1');
   return page.url();
 }
+test('COCO Detection can be selected, imported and reviewed with custom categories', async ({
+  page,
+}) => {
+  const url = await importProject(page, 'Custom COCO', 'coco-detection');
+  await expect(page.getByTestId('metric-Tracks')).toHaveText(hint('N/A'));
+  await page.goto(url + '/review/coco-100');
+  await expect(page.getByLabel('Annotations in frame')).toContainText('delivery_vehicle');
+  await expect(page.getByTestId('annotation-box')).toHaveCount(1);
+  await page.getByRole('radio', { name: hint('Unsure'), exact: true }).check();
+  await page.getByRole('button', { name: hint('Save Review'), exact: true }).click();
+  await expect(page.getByText(hint('Đã lưu vào MySQL.'), { exact: true })).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole('radio', { name: hint('Unsure'), exact: true })).toBeChecked();
+});
 test('create CVAT project, import, review, reload, second identical JSON project stays independent', async ({
   page,
   browser,
@@ -138,6 +160,7 @@ test('create CVAT project, import, review, reload, second identical JSON project
     .click();
   await expect(page.getByTestId('metric-Reviewed')).toHaveText('1');
   const fresh = await browser.newContext();
+  await loginContext(fresh);
   const tab = await fresh.newPage();
   await tab.goto(a);
   await expect(tab.getByTestId('metric-Reviewed')).toHaveText('1');

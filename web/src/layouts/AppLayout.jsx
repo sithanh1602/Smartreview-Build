@@ -3,6 +3,7 @@ import React from 'react';
 import { NavLink, Outlet, useParams } from 'react-router-dom';
 import { DatasetProvider, useDataset } from '../app/DatasetProvider';
 import { Icon } from '../components/Icon';
+import { AccountMenu } from '../features/auth/AuthGate';
 function Shell() {
   const { data, error, loading, projectId, reviewPath } = useDataset();
   return (
@@ -46,6 +47,7 @@ function Shell() {
           </nav>
         </div>
         <div className="flex items-center gap-3 text-xs text-muted">
+          <AccountMenu />
           <span
             className={`h-1.5 w-1.5 rounded-none ${error ? 'bg-rose-400' : loading ? 'bg-amber-400' : 'bg-accent'}`}
           />

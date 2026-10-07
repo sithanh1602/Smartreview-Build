@@ -30,6 +30,8 @@ export default async function teardown() {
       }
       for (const { revision } of records.filter((r) => r.revision))
         await cleanRevision(pool, revision);
+      for (const { user } of records.filter((r) => r.user))
+        await pool.execute('DELETE FROM users WHERE id=?', [user]);
       for (const { storage } of records.filter((r) => r.storage)) {
         if (
           path.dirname(storage) !== os.tmpdir() ||

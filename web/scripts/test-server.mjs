@@ -9,6 +9,7 @@ import { createApp } from '../server/app.mjs';
 import { ReviewStore } from '../server/reviews/store.mjs';
 import { migrate } from '../server/db/migrate.mjs';
 import { testPool } from '../tests/db-helpers.mjs';
+import { AuthService } from '../server/auth/service.mjs';
 if (!process.env.SMARTREVIEW_TEST_RUN) throw new Error('Missing unique browser test run ID');
 const manifest = path.join(
   os.tmpdir(),
@@ -17,6 +18,15 @@ const manifest = path.join(
 const record = (data) => fs.appendFile(manifest, JSON.stringify(data) + '\n');
 const pool = testPool();
 await migrate(pool);
+const auth = new AuthService(pool);
+for (const role of ['reviewer', 'annotator']) {
+  const user = await auth.createUser({
+    username: `test_${role}_${process.env.SMARTREVIEW_TEST_RUN.slice(0, 8)}_${process.env.PORT}`,
+    password: process.env.SMARTREVIEW_TEST_PASSWORD,
+    role,
+  });
+  await record({ user: user.id });
+}
 const dataset = await loadDataset(datasetPath);
 dataset.meta.dataset_id = createHash('sha256')
   .update(process.env.SMARTREVIEW_TEST_RUN + dataset.meta.dataset_id)
@@ -50,7 +60,13 @@ await demoReviews.initialize();
 const demoId = await projects.registerDemo(demoDataset, demoReviews, datasetPath);
 projectIds.push(demoId);
 await record({ project: demoId });
-const server = createApp({ dataset, reviews, projects, distRoot: path.join(webRoot, 'dist') });
+const server = createApp({
+  dataset,
+  reviews,
+  projects,
+  auth,
+  distRoot: path.join(webRoot, 'dist'),
+});
 server.listen(Number(process.env.PORT), '127.0.0.1');
 let stopped = false;
 for (const signal of ['SIGINT', 'SIGTERM'])

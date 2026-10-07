@@ -1,6 +1,7 @@
 import { hint } from '../../lib/englishHints';
 import React from 'react';
 import { Link, Outlet } from 'react-router-dom';
+import { AccountMenu } from '../auth/AuthGate';
 export function ProjectLayout() {
   return (
     <div className="min-h-screen">
@@ -12,6 +13,7 @@ export function ProjectLayout() {
           {hint('Projects')}
         </Link>
         <span className="ml-auto text-xs text-muted">{hint('ANNOTATION QA')}</span>
+        <AccountMenu />
       </header>
       <main className="mx-auto max-w-[1400px] px-5 py-9 lg:px-8">
         <Outlet />

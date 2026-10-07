@@ -4,7 +4,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import { ProjectService } from '../server/projects/service.mjs';
-import { createApp } from '../server/app.mjs';
+import { createApp } from './app-helper.mjs';
 import { loadDataset } from '../server/repository.mjs';
 import { ReviewStore } from '../server/reviews/store.mjs';
 import { migrate } from '../server/db/migrate.mjs';
@@ -176,6 +176,31 @@ test('CVAT XML upload uses existing importer and risk engine', async () => {
   assert.equal(r.body.metadata.total_cases, 1);
   assert.equal(r.body.metadata.total_tracks, 0);
 });
+test('COCO upload uses category names, scoped scene API and persisted review', async () => {
+  const p = await create('coco-detection');
+  const text = await fs.readFile(new URL('../fixtures/upload/coco.json', import.meta.url), 'utf8');
+  const result = await upload(p, text);
+  assert.equal(result.status, 201, JSON.stringify(result.body));
+  const { body: dashboard } = await call(`/api/projects/${p.id}/dashboard`);
+  assert.equal(dashboard.dataset.total_annotations, 1);
+  const q = new URLSearchParams({ media: 'image-7', dataset: dashboard.dataset.dataset_id });
+  const { body: scene } = await call(`/api/projects/${p.id}/annotations?${q}`);
+  assert.equal(scene.annotations[0].class_name, 'delivery_vehicle');
+  assert.equal((await fetch(base + scene.annotations[0].image_url)).status, 200);
+  assert.equal(
+    (
+      await call(`/api/projects/${p.id}/cases/coco-100/review`, 'POST', {
+        dataset_revision: dashboard.dataset.dataset_id,
+        decision: 'ERROR',
+        error_type: 'BBOX',
+        corrected_value: null,
+        note: 'COCO review',
+      })
+    ).status,
+    201,
+  );
+  assert.equal((await call(`/api/projects/${p.id}/dashboard`)).body.metrics.reviewed, 1);
+});
 test('identical datasets in separate projects isolate cases, decisions, assets and metrics', async () => {
   const a = await create(),
     b = await create();
@@ -330,7 +355,7 @@ test('project workflow works with no default demo dataset or model output', asyn
   try {
     const health = await fetch(origin + '/api/health');
     assert.equal(health.status, 200);
-    assert.equal((await health.json()).dataset_id, null);
+    assert.equal((await health.json()).ok, true);
     assert.equal((await fetch(origin + '/api/projects')).status, 200);
     assert.equal((await fetch(origin + '/api/meta')).status, 409);
   } finally {

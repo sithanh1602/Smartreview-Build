@@ -1,3 +1,4 @@
+import { SessionImage } from '../auth/SessionImage';
 import React, { useRef, useState } from 'react';
 export function WholeFrameViewer({
   frame,
@@ -141,7 +142,8 @@ export function WholeFrameViewer({
               setDraft(null);
             }}
           >
-            <image
+            <SessionImage
+              key={frame.image_url}
               href={frame.image_url}
               width={frame.width}
               height={frame.height}

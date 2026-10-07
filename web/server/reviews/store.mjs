@@ -71,7 +71,7 @@ export class ReviewStore {
     );
     return rows[0] ? serialize(rows[0]) : null;
   }
-  async save(item, input, mode) {
+  async save(item, input, mode, reviewerId = null) {
     const c = await this.pool.getConnection();
     try {
       await c.beginTransaction();
@@ -88,13 +88,13 @@ export class ReviewStore {
       const values = [input.decision, input.error_type, input.corrected_value, input.note];
       if (mode === 'create')
         await c.execute(
-          'INSERT INTO review_decisions(decision,error_type,corrected_value,note,risk_case_id,reviewed_at) VALUES (?,?,?,?,?,UTC_TIMESTAMP(3))',
-          [...values, id],
+          'INSERT INTO review_decisions(decision,error_type,corrected_value,note,risk_case_id,reviewer_id,reviewed_at) VALUES (?,?,?,?,?,?,UTC_TIMESTAMP(3))',
+          [...values, id, reviewerId],
         );
       else
         await c.execute(
-          'UPDATE review_decisions SET decision=?,error_type=?,corrected_value=?,note=?,version=version+1,reviewed_at=UTC_TIMESTAMP(3) WHERE risk_case_id=?',
-          [...values, id],
+          'UPDATE review_decisions SET decision=?,error_type=?,corrected_value=?,note=?,reviewer_id=?,version=version+1,reviewed_at=UTC_TIMESTAMP(3) WHERE risk_case_id=?',
+          [...values, reviewerId, id],
         );
       const [[saved]] = await c.execute(
         `SELECT ${fields} FROM review_decisions d WHERE d.risk_case_id=?`,

@@ -18,6 +18,8 @@
     "import:demo": "node scripts/prepare.mjs",
     "test:core": "node --test tests/core.test.mjs",
     "db:migrate": "node scripts/migrate.mjs",
+    "user:create": "node scripts/user.mjs",
+    "user:update": "node scripts/user.mjs --update",
     "db:prepare": "node scripts/db-prepare.mjs"
   },
   "dependencies": {

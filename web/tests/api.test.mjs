@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import { loadDataset } from '../server/repository.mjs';
-import { createApp } from '../server/app.mjs';
+import { createApp } from './app-helper.mjs';
 import { webRoot, projectRoot } from '../server/config.mjs';
 let app, base, dataset;
 before(async () => {

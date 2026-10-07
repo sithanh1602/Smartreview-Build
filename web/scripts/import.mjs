@@ -15,7 +15,7 @@ const { values } = parseArgs({
 });
 if (!values.format || !values.input || !values.out)
   throw new Error(
-    'Usage: npm run import -- --format cvat-images|smartreview-json --input FILE --out NEW_DIRECTORY [--images IMAGE_DIRECTORY] [--id DATASET_ID]',
+    'Usage: npm run import -- --format cvat-images|coco-detection|smartreview-json --input FILE --out NEW_DIRECTORY [--images IMAGE_DIRECTORY] [--id DATASET_ID]',
   );
 const data = importAnnotations(values.format, await fs.readFile(values.input, 'utf8'), {
   ...(values.id ? { id: values.id } : {}),
@@ -27,12 +27,13 @@ try {
   for (const frame of data.frames) {
     if (!frame.image) continue;
     const base = await fs.realpath(
-      values.format === 'cvat-images'
+      ['cvat-images', 'coco-detection'].includes(values.format)
         ? values.images || path.dirname(values.input)
         : path.dirname(values.input),
     );
-    const relative =
-      values.format === 'cvat-images' ? frame.image.slice('images/'.length) : frame.image;
+    const relative = ['cvat-images', 'coco-detection'].includes(values.format)
+      ? frame.image.slice('images/'.length)
+      : frame.image;
     const source = await fs.realpath(path.resolve(base, relative));
     if (!source.startsWith(base + path.sep)) throw new Error('Image path escapes input directory');
     const target = path.join(destination, frame.image);

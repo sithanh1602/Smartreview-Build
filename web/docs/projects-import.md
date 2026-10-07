@@ -4,7 +4,7 @@
 
 Mở `/projects` → **+ New Project** → tên/mô tả/format → chọn annotation và ảnh → **Create & Import** → dashboard → **Start Review** → Save Review.
 
-Hai importer hiện có được dùng lại: **CVAT for images 1.1 XML** (box/polygon/polyline) và **SmartReview JSON schema 1.0.0**. Không chạy YOLO/ByteTrack khi upload. Confidence, track và model metadata vẫn optional. JSON cần đúng schema chuẩn, không phải một mảng bbox tùy ý.
+Các importer được hỗ trợ: COCO Detection JSON (bbox), **CVAT for images 1.1 XML** (box/polygon/polyline) và **SmartReview JSON schema 1.0.0**. Không chạy YOLO/ByteTrack khi upload. Confidence, track và model metadata vẫn optional. JSON cần đúng schema chuẩn, không phải một mảng bbox tùy ý.
 
 Phase này upload ảnh PNG/JPEG/WebP/GIF tĩnh. Không nhận video gốc, ZIP, SVG hoặc CVAT video tracks. JSON có media type video được nhận nếu upload đủ các frame ảnh được tham chiếu. Demo video cũ vẫn dùng các ảnh đã trích như trước. Schema/engine và importer CLI cũ giữ nguyên; chỉ boundary upload web thêm validation media.
 
@@ -99,7 +99,7 @@ Không upload cả XML và JSON cùng lúc. Với dữ liệu của bạn, expor
 
 `npm run build && npm test`: core/schema/importer, demo regression, reviews và Projects API với MySQL test riêng. `npm run test:ui`: browser create/import/review/reload, hai project độc lập, retry, legacy UI và mobile. Browser teardown dùng manifest UUID để dọn đúng rows/storage của lượt test, không dùng DB ứng dụng.
 
-Chưa làm auth/team/permission, project edit/reimport UI, video extraction khi upload, ZIP, COCO/MOT/YOLO importer mới, cloud storage, worker queue, CVAT API, auto-correction, thuật toán risk mới, 3D hay deployment. Dataset lớn hơn giới hạn cần phase xử lý nền/pagination. Các cảnh báo dependency Vite/React Router hiện có được ghi trong bàn giao, không tự nâng toàn bộ frontend trong phase này.
+Chưa làm auth/team/permission, project edit/reimport UI, video extraction khi upload, ZIP, MOT/YOLO importer mới, cloud storage, worker queue, CVAT API, auto-correction, thuật toán risk mới, 3D hay deployment. Dataset lớn hơn giới hạn cần phase xử lý nền/pagination. Các cảnh báo dependency Vite/React Router hiện có được ghi trong bàn giao, không tự nâng toàn bộ frontend trong phase này.
 
 ## Xóa project
 
@@ -110,3 +110,32 @@ Demo mặc định được bảo vệ; chờ import và AI Check hoàn tất tr
 Database dùng transaction. File chuyển tạm vào `storage/.trash`, được khôi phục
 nếu transaction thất bại, rồi dọn sau commit. Nếu dọn thất bại, giao diện thông
 báo file còn chờ dọn trong `.trash`.
+
+## COCO Detection
+
+Chọn **COCO Detection · JSON (bbox)** khi tạo project. Upload một JSON có
+`images`, `categories`, `annotations` và tất cả ảnh trong `images`, kể cả ảnh
+không có annotation. `category_id` được ánh xạ bằng `categories[].name`;
+không dùng danh sách class COCO cố định. ID phải là số nguyên không âm an toàn.
+BBox dùng `[x, y, width, height]` theo pixel gốc, không clamp hoặc chuẩn hóa tọa độ.
+
+Hỗ trợ đường dẫn ảnh tương đối và thư mục con. Từ chối ID/file_name trùng,
+reference thiếu, bbox sai cấu trúc, kích thước ảnh sai và đường dẫn không an toàn.
+Không tạo confidence/track_id. `iscrowd`, `area`, segmentation/keypoints và các
+thuộc tính annotation được giữ trong `attributes.coco`; chỉ bbox được kiểm tra
+và hiển thị. JSON nguồn vẫn được lưu nguyên trong thư mục upload.
+Không hỗ trợ COCO prediction arrays hoặc panoptic; annotation phải có bbox.
+
+Web giữ giới hạn 1000 ảnh / 200 MB, annotation 10 MB, 100000 annotations;
+bbox có width/height không dương bị từ chối theo validation upload hiện có.
+CLI giữ các box này để core QA đánh dấu. Không cần migration database.
+
+Thử với `fixtures/upload/coco.json` và `fixtures/upload/street.png`.
+
+```bash
+npm run import -- --format coco-detection \
+  --input /path/to/instances.json --images /path/to/images \
+  --out datasets/my-coco --id my-coco
+```
+
+Đặc tả tham khảo: https://cocodataset.org/#format-data

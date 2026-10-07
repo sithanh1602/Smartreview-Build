@@ -49,7 +49,7 @@ export async function handleReview(req, res, p, { dataset, reviews, json }) {
   }
   const mode = req.method === 'POST' ? 'create' : 'update';
   const input = validateReview(await body(req), mode, dataset.meta.dataset_id);
-  const review = await reviews.save(item, input, mode);
+  const review = await reviews.save(item, input, mode, req.user?.id);
   // Successful persistence must remain successful even if a subsequent metrics fetch fails.
   json(res, mode === 'create' ? 201 : 200, { review });
   return true;

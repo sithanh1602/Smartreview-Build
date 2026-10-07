@@ -1,3 +1,4 @@
+import { SessionImage } from '../auth/SessionImage';
 import { hint } from '../../lib/englishHints';
 import React, { useState } from 'react';
 import { AnnotationOverlay } from './AnnotationOverlay';
@@ -62,7 +63,8 @@ export function FrameViewer({
             className="absolute inset-0 h-full w-full"
             preserveAspectRatio="xMidYMid meet"
           >
-            <image
+            <SessionImage
+              key={observation.image_url}
               href={observation.image_url}
               width={imageWidth}
               height={imageHeight}

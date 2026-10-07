@@ -203,7 +203,9 @@ export class ProjectService {
       for (const f of data.frames) {
         if (!f.image) throw new ReviewError(422, `Frame ${f.id} thiếu image reference.`);
         const ref = safePath(
-          row.format === 'cvat-images' ? f.image.slice('images/'.length) : f.image,
+          ['cvat-images', 'coco-detection'].includes(row.format)
+            ? f.image.slice('images/'.length)
+            : f.image,
         );
         // Exact relative path first; a unique basename allows selecting a flat set of files.
         const matches = [...uploaded.media.keys()].filter(

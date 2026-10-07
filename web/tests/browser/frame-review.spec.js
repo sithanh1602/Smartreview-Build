@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures.js';
 import fs from 'node:fs/promises';
 const data = {
   schema_version: '1.0.0',
@@ -41,6 +41,9 @@ async function create(request) {
   const base = 'http://127.0.0.1:3110';
   const response = await fetch(`${base}/api/projects/${project.id}/import`, {
     method: 'POST',
+    headers: {
+      Cookie: (await request.storageState()).cookies.map((c) => `${c.name}=${c.value}`).join('; '),
+    },
     body: form,
   });
   expect(response.status).toBe(201);
@@ -57,6 +60,7 @@ test('all boxes, empty image, draw missing region, save/reload and unsaved navig
   await expect(page.getByText(/Ảnh chưa có annotation/)).toBeVisible();
   await expect(page.getByRole('button', { name: 'Vẽ vùng thiếu', exact: true })).toBeEnabled();
   await page.getByRole('button', { name: 'Vẽ vùng thiếu', exact: true }).click();
+  await page.getByRole('img').scrollIntoViewIfNeeded();
   const coords = await page.getByRole('img').evaluate((svg) => {
     const m = svg.getScreenCTM();
     const p = (x, y) => {

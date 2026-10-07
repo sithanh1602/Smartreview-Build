@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import './server/env.mjs';
-const runId = randomUUID();
+const runId = process.env.SMARTREVIEW_TEST_RUN || randomUUID();
 process.env.SMARTREVIEW_TEST_RUN = runId;
+process.env.SMARTREVIEW_TEST_PASSWORD ||= randomUUID() + randomUUID();
 import { defineConfig } from '@playwright/test';
 export default defineConfig({
   testDir: './tests/browser',

@@ -68,6 +68,7 @@ export function ImportForm({ project, onImported }) {
         idRef.current = id;
       }
       const form = new FormData();
+      await request('/auth/me');
       form.append('annotation', annotation);
       for (const f of media)
         form.append(
@@ -162,9 +163,17 @@ export function ImportForm({ project, onImported }) {
             onChange={(e) => setFormat(e.target.value)}
           >
             <option value="cvat-images">CVAT for images 1.1 · XML</option>
+            <option value="coco-detection">COCO Detection · JSON (bbox)</option>
             <option value="smartreview-json">{hint('SmartReview Schema 1.0.0 · JSON')}</option>
           </select>
         </label>
+        {format === 'coco-detection' && (
+          <p className="text-sm text-muted">
+            Chọn COCO JSON chứa images, categories, annotations và bbox [x, y, width, height], cùng
+            tất cả ảnh được khai báo. Chỉ kiểm tra bbox; segmentation/keypoints được giữ trong
+            metadata, không dùng để kiểm tra. Không nhận COCO prediction hoặc panoptic.
+          </p>
+        )}
         <p className="text-sm leading-6 text-muted">
           {hint(
             'Dataset đã có annotation, không cần chạy model. Hỗ trợ ảnh PNG, JPEG, WebP, GIF; box, polygon và polyline từ CVAT images. Video/ZIP/SVG và CVAT tracks chưa được hỗ trợ qua upload.',

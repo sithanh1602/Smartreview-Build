@@ -1,5 +1,4 @@
-export async function request(path, options = {}) {
-  const response = await fetch(`/api${path}`, options);
+async function parseResponse(response) {
   let data;
   try {
     data = await response.json();
@@ -18,6 +17,50 @@ export async function request(path, options = {}) {
     throw error;
   }
   return data;
+}
+let refreshPending;
+const expired = () => window.dispatchEvent(new Event('smartreview:session-expired'));
+export function withSessionLock(fn) {
+  return globalThis.navigator?.locks ? navigator.locks.request('smartreview-session', fn) : fn();
+}
+export async function authRequest(path, data) {
+  const response = await fetch(`/api/auth/${path}`, {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data || {}),
+  });
+  return parseResponse(response);
+}
+export function refreshSession() {
+  if (!refreshPending) {
+    refreshPending = withSessionLock(async () => {
+      const current = await fetch('/api/auth/me', {
+        credentials: 'same-origin',
+        cache: 'no-store',
+      });
+      if (current.ok) return parseResponse(current);
+      if (current.status !== 401) return parseResponse(current);
+      return authRequest('refresh');
+    })
+      .catch((error) => {
+        if (error.status === 401) expired();
+        throw error;
+      })
+      .finally(() => {
+        refreshPending = null;
+      });
+  }
+  return refreshPending;
+}
+export async function request(path, options = {}) {
+  let response = await fetch(`/api${path}`, { ...options, credentials: 'same-origin' });
+  if (response.status === 401) {
+    await refreshSession();
+    response = await fetch(`/api${path}`, { ...options, credentials: 'same-origin' });
+    if (response.status === 401) expired();
+  }
+  return parseResponse(response);
 }
 export async function getDataset(signal, scope = 'suspicious', prefix = '') {
   const [meta, cases, reviews, metrics] = await Promise.all([

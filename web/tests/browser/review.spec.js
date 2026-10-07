@@ -1,5 +1,6 @@
+import { loginContext } from './fixtures.js';
 import { hint } from '../../src/lib/englishHints.js';
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures.js';
 test('overview → real case → context → case navigation → refresh', async ({ page }) => {
   const errors = [];
   page.on('pageerror', (error) => errors.push(error.message));
@@ -232,6 +233,7 @@ test('review decision persists across reload and a fresh browser context, then c
     }),
   ).toHaveValue('car');
   const context = await browser.newContext();
+  await loginContext(context);
   const other = await context.newPage();
   await other.goto('http://127.0.0.1:3110/review/2-422');
   await expect(
