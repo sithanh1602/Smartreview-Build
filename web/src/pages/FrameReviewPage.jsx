@@ -1,3 +1,4 @@
+import { Spinner } from '../components/Spinner';
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, Navigate, useBlocker, useNavigate, useParams } from 'react-router-dom';
 import { request } from '../lib/api';
@@ -32,6 +33,7 @@ function Workspace({ projectId }) {
   if (!data)
     return (
       <div role={error ? 'alert' : 'status'}>
+        {!error && <Spinner />}
         {error || 'Đang tải danh sách ảnh…'}
         {error && (
           <button className="button ml-3" onClick={() => setAttempt((a) => a + 1)}>
@@ -279,6 +281,7 @@ function FrameEditor({ projectId, frameId, onSaved, previous, next }) {
   if (!data)
     return (
       <section className="panel p-6" role={error ? 'alert' : 'status'}>
+        {!error && <Spinner />}
         {error || 'Đang tải ảnh và annotation…'}
         {error && (
           <button className="button ml-3" onClick={() => setAttempt((a) => a + 1)}>
@@ -493,6 +496,7 @@ function FrameEditor({ projectId, frameId, onSaved, previous, next }) {
           disabled={!ready || saving}
           onClick={save}
         >
+          {saving && <Spinner />}
           {saving ? 'Đang lưu…' : 'Lưu đánh giá ảnh'}
         </button>
         {dirty && <span className="ml-3 text-xs text-amber-800">Có thay đổi chưa lưu</span>}

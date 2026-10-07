@@ -1,3 +1,4 @@
+import { Spinner } from '../components/Spinner';
 import React, { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { request } from '../lib/api';
@@ -71,6 +72,7 @@ function AiWorkspace({ projectId }) {
           disabled={!report?.available || running || busy}
           onClick={start}
         >
+          {(running || busy) && <Spinner />}
           {running
             ? 'Đang kiểm tra…'
             : busy
@@ -88,7 +90,12 @@ function AiWorkspace({ projectId }) {
           </button>
         </div>
       )}
-      {!report && !error && <p role="status">Đang tải trạng thái AI…</p>}
+      {!report && !error && (
+        <p role="status">
+          <Spinner />
+          Đang tải trạng thái AI…
+        </p>
+      )}
       {report && !report.available && (
         <p className="panel p-5">
           Chưa tìm thấy Python hoặc model cục bộ. Xem hướng dẫn cấu hình trong docs/ai-check.md.
@@ -106,6 +113,7 @@ function AiWorkspace({ projectId }) {
       {running && (
         <section className="panel p-6" role="status">
           <p>
+            <Spinner />
             Đã xử lý {report.completed}/{report.total} ảnh. Bạn có thể rời trang rồi quay lại.
           </p>
           <progress className="mt-4 w-full" value={report.completed} max={report.total} />

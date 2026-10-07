@@ -15,7 +15,8 @@ import { LoginPage } from '../pages/LoginPage';
 import { AnnotationHomePage } from '../pages/AnnotationHomePage';
 
 export const router = createBrowserRouter([
-  { path: '/login', element: <LoginPage /> },
+  { path: '/login', element: <LoginPage key="login" /> },
+  { path: '/register', element: <LoginPage key="register" register /> },
   {
     element: <AuthGate role="annotator" />,
     children: [{ path: '/annotation', element: <AnnotationHomePage /> }],

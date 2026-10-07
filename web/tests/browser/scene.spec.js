@@ -178,3 +178,58 @@ test('Traffic frame 422 stays Risk 70 and context switches never mix frames', as
     page.getByText('temporal.class_inconsistency', { exact: true }).first(),
   ).toBeVisible();
 });
+
+test('review zoom, pan and reset preserve annotation geometry and selection', async ({
+  page,
+  request,
+}) => {
+  const id = await sceneProject(request);
+  await page.goto(`/projects/${id}/review/object-2`);
+  const viewer = page
+    .locator('svg')
+    .filter({ has: page.locator('image') })
+    .first();
+  await expect(viewer.getByTestId('annotation-box')).toHaveCount(4);
+  const original = await viewer.getAttribute('viewBox');
+  const originalRect = await viewer.locator('[data-active="true"] rect').first().getAttribute('x');
+  const plus = page.getByRole('button', { name: 'Phóng to ảnh', exact: true });
+  const minus = page.getByRole('button', { name: 'Thu nhỏ ảnh', exact: true });
+  await expect(minus).toBeDisabled();
+  await plus.click();
+  await expect(page.getByLabel('Mức thu phóng')).toHaveText('150%');
+  const zoomed = (await viewer.getAttribute('viewBox')).split(' ').map(Number);
+  expect(zoomed[2]).toBeCloseTo(Number(original.split(' ')[2]) / 1.5);
+  expect(await viewer.locator('[data-active="true"] rect').first().getAttribute('x')).toBe(
+    originalRect,
+  );
+  const box = await viewer.boundingBox();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width / 2 + 40, box.y + box.height / 2 + 20, { steps: 6 });
+  await page.mouse.up();
+  await expect
+    .poll(async () => (await viewer.getAttribute('viewBox')).split(' ')[0])
+    .not.toBe(String(zoomed[0]));
+  await page.getByRole('button', { name: 'Đặt lại zoom' }).click();
+  await expect(viewer).toHaveAttribute('viewBox', original);
+  await viewer.getByRole('button', { name: 'Inspect person (object-1)', exact: true }).focus();
+  await page.keyboard.press('Enter');
+  await expect(viewer.locator('[data-selected="true"]')).toHaveAttribute(
+    'data-annotation-id',
+    'object-1',
+  );
+  await expect(viewer.locator('[data-active="true"]')).toHaveAttribute(
+    'data-annotation-id',
+    'object-2',
+  );
+  for (let i = 0; i < 6; i++) await plus.click();
+  await expect(page.getByLabel('Mức thu phóng')).toHaveText('800%');
+  await expect(plus).toBeDisabled();
+  await minus.click();
+  await expect(page.getByLabel('Mức thu phóng')).toHaveText('533%');
+  await page.getByRole('button', { name: 'Phóng to vật thể', exact: true }).click();
+  await expect(page.getByLabel('Mức thu phóng')).toHaveText('100%');
+  await expect(viewer).not.toHaveAttribute('viewBox', original);
+  await page.getByRole('button', { name: 'Toàn cảnh', exact: true }).click();
+  await expect(viewer).toHaveAttribute('viewBox', original);
+});

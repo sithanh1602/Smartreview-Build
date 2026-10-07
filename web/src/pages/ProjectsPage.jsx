@@ -1,3 +1,4 @@
+import { Spinner } from '../components/Spinner';
 import { hint } from '../lib/englishHints';
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -42,7 +43,10 @@ export function ProjectsPage() {
           </button>
         </div>
       ) : rows === null ? (
-        <p role="status">{hint('Đang tải projects…')}</p>
+        <p role="status" className="panel p-6 text-muted">
+          <Spinner />
+          {hint('Đang tải projects…')}
+        </p>
       ) : !rows.length ? (
         <div className="panel p-10 text-muted">
           {hint('Chưa có project. Chọn + New Project để bắt đầu.')}

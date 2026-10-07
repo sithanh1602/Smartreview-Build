@@ -29,11 +29,20 @@ export async function handleAuth(req, res, pathname, { auth, json, secureCookies
     json(res, 200, { user: await auth.authenticate(cookie(req, 'sr_access')) });
     return true;
   }
-  if (!['/api/auth/login', '/api/auth/refresh', '/api/auth/logout'].includes(pathname))
+  if (
+    !['/api/auth/register', '/api/auth/login', '/api/auth/refresh', '/api/auth/logout'].includes(
+      pathname,
+    )
+  )
     throw new ReviewError(404, 'Unknown authentication route.');
   if (req.method !== 'POST') throw new ReviewError(405, 'Use POST.');
   checkOrigin(req);
   const body = await readJson(req);
+  if (pathname === '/api/auth/register') {
+    const user = await auth.register(body, req.socket.remoteAddress || 'unknown');
+    json(res, 201, { user });
+    return true;
+  }
   if (pathname === '/api/auth/logout') {
     await auth.logout(cookie(req, 'sr_access'), cookie(req, 'sr_refresh'));
     cookies(res, null, secureCookies);
