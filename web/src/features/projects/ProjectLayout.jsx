@@ -1,3 +1,4 @@
+import { Spinner } from '../../components/Spinner';
 import { hint } from '../../lib/englishHints';
 import React from 'react';
 import { Link, Outlet } from 'react-router-dom';
@@ -35,6 +36,7 @@ export function ProjectStatus({ status }) {
     <span
       className={`rounded-none border px-3 py-1 text-xs ${status === 'READY' ? 'border-accent/30 text-accent' : status === 'FAILED' ? 'border-rose-400/30 text-rose-700' : 'border-amber-400/30 text-amber-800'}`}
     >
+      {['UPLOADING', 'VALIDATING', 'NORMALIZING', 'ANALYZING'].includes(status) && <Spinner />}
       {hint(statusLabel[status] || status)}
     </span>
   );

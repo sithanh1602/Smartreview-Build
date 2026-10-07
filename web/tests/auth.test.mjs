@@ -180,3 +180,66 @@ test('rejects role injection, wrong passwords, cross-origin writes and brute for
     ]);
   }
 });
+
+test('registration validates input, fixes role, hashes password and supports login', async () => {
+  const username = 'signup_' + randomUUID();
+  const ipBucket = tokenHash('register:ip:127.0.0.1');
+  try {
+    for (const data of [
+      null,
+      [],
+      { username, password: 'short' },
+      { username: 'bad name', password },
+      { username, password, role: 'reviewer' },
+    ]) {
+      assert.equal((await call('/api/auth/register', 'POST', '', data)).status, 400);
+    }
+    assert.equal((await call('/api/auth/register', 'GET')).status, 405);
+    assert.equal(
+      (
+        await call(
+          '/api/auth/register',
+          'POST',
+          '',
+          { username, password },
+          { Origin: 'https://other.invalid' },
+        )
+      ).status,
+      403,
+    );
+    const res = await call('/api/auth/register', 'POST', '', {
+      username: username.toUpperCase(),
+      password,
+    });
+    assert.equal(res.status, 201);
+    assert.deepEqual(res.headers.getSetCookie(), []);
+    const body = await res.json();
+    assert.equal(body.user.username, username);
+    assert.equal(body.user.role, 'annotator');
+    assert.deepEqual(Object.keys(body.user).sort(), ['id', 'role', 'username']);
+    const [[row]] = await pool.execute('SELECT password_hash FROM users WHERE username=?', [
+      username,
+    ]);
+    assert.match(row.password_hash, /^scrypt\$/);
+    assert.equal(
+      (await call('/api/auth/register', 'POST', '', { username, password })).status,
+      409,
+    );
+    const signedIn = await login({ username });
+    assert.equal(signedIn.status, 200);
+    assert.equal((await call('/api/annotator/home', 'GET', jar(signedIn))).status, 200);
+    assert.equal((await call('/api/projects', 'GET', jar(signedIn))).status, 403);
+    await pool.execute('UPDATE auth_login_limits SET attempts=10 WHERE bucket=?', [ipBucket]);
+    assert.equal(
+      (await call('/api/auth/register', 'POST', '', { username, password })).status,
+      429,
+    );
+  } finally {
+    await pool.execute('DELETE FROM users WHERE username=?', [username]);
+    await pool.execute('DELETE FROM auth_login_limits WHERE bucket IN (?,?,?)', [
+      ipBucket,
+      tokenHash('register:account:' + username),
+      tokenHash('account:' + username),
+    ]);
+  }
+});

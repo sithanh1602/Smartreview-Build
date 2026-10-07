@@ -74,7 +74,20 @@ export function AuthProvider({ children }) {
     return () => channel.close();
   }, []);
   return (
-    <Context.Provider value={{ user, loading, error, login, logout, retry: restore }}>
+    <Context.Provider
+      value={{
+        user,
+        loading,
+        error,
+        login,
+        logout,
+        retry: () => {
+          setLoading(true);
+          setError('');
+          restore();
+        },
+      }}
+    >
       {children}
     </Context.Provider>
   );

@@ -1,3 +1,4 @@
+import { Spinner } from '../../components/Spinner';
 import { SessionImage } from '../auth/SessionImage';
 import React, { useRef, useState } from 'react';
 export function WholeFrameViewer({
@@ -121,7 +122,10 @@ export function WholeFrameViewer({
         >
           {!loaded && (
             <p role="status" className="absolute inset-0 grid place-items-center">
-              Đang tải ảnh…
+              <span>
+                <Spinner />
+                Đang tải ảnh…
+              </span>
             </p>
           )}
           <svg

@@ -1,3 +1,4 @@
+import { Spinner } from '../components/Spinner';
 import { hint } from '../lib/englishHints';
 import React, { useEffect, useState } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
@@ -26,7 +27,13 @@ export function ProjectDashboardPage() {
       });
     return () => c.abort();
   }, [projectId, p]);
-  if (loading) return <p role="status">Đang tải project…</p>;
+  if (loading)
+    return (
+      <p role="status" className="panel p-6 text-muted">
+        <Spinner />
+        Đang tải project…
+      </p>
+    );
   if (error)
     return (
       <div role="alert">
@@ -61,6 +68,7 @@ export function ProjectDashboardPage() {
         <ImportForm key={p.id} project={p} onImported={retry} />
       ) : p.status !== 'READY' ? (
         <p role="status" className="panel p-8">
+          <Spinner />
           {hint('Đang xử lý dataset. Trạng thái tự cập nhật; bạn có thể quay lại Projects.')}
         </p>
       ) : failure ? (
@@ -71,7 +79,10 @@ export function ProjectDashboardPage() {
           </button>
         </p>
       ) : !dashboard ? (
-        <p role="status">Đang tải thống kê…</p>
+        <p role="status" className="panel p-6 text-muted">
+          <Spinner />
+          Đang tải thống kê…
+        </p>
       ) : (
         <>
           <div className="grid gap-5 lg:grid-cols-3">

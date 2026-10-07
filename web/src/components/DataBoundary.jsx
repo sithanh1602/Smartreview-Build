@@ -1,3 +1,4 @@
+import { Spinner } from './Spinner';
 import { hint } from '../lib/englishHints';
 import React from 'react';
 import { useDataset } from '../app/DatasetProvider';
@@ -6,6 +7,7 @@ export function DataBoundary({ children }) {
   if (loading)
     return (
       <div role="status" className="panel m-6 p-10 text-muted">
+        <Spinner />
         {hint('Đang tải các case và dữ liệu video…')}
       </div>
     );

@@ -1,3 +1,4 @@
+import { Spinner } from '../../components/Spinner';
 import React from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import { homeFor, useAuth } from './AuthProvider';
@@ -6,6 +7,7 @@ export function AuthGate({ role }) {
   if (loading)
     return (
       <p role="status" className="p-8">
+        <Spinner />
         Đang kiểm tra phiên đăng nhập…
       </p>
     );
@@ -45,6 +47,7 @@ export function AccountMenu() {
           }
         }}
       >
+        {busy && <Spinner />}
         {busy ? 'Đang đăng xuất…' : 'Đăng xuất'}
       </button>
       {error && (
