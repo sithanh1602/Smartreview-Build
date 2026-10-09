@@ -3,6 +3,7 @@ import path from 'node:path';
 import { parseArgs } from 'node:util';
 import { importAnnotations } from '../core/importers/index.mjs';
 import { analyzeDataset } from '../core/risk/engine.mjs';
+import { applyEnvRisk, parseImageTable } from '../core/importers/signals.mjs';
 
 const { values } = parseArgs({
   options: {
@@ -10,16 +11,19 @@ const { values } = parseArgs({
     input: { type: 'string' },
     out: { type: 'string' },
     images: { type: 'string' },
+    metadata: { type: 'string' },
     id: { type: 'string' },
   },
 });
 if (!values.format || !values.input || !values.out)
   throw new Error(
-    'Usage: npm run import -- --format cvat-images|coco-detection|smartreview-json --input FILE --out NEW_DIRECTORY [--images IMAGE_DIRECTORY] [--id DATASET_ID]',
+    'Usage: npm run import -- --format cvat-images|coco-detection|smartreview-json --input FILE --out NEW_DIRECTORY [--images IMAGE_DIRECTORY] [--metadata IMAGES_CSV] [--id DATASET_ID]',
   );
 const data = importAnnotations(values.format, await fs.readFile(values.input, 'utf8'), {
   ...(values.id ? { id: values.id } : {}),
 });
+if (values.metadata)
+  applyEnvRisk(data, parseImageTable(await fs.readFile(values.metadata, 'utf8')));
 const destination = path.resolve(values.out);
 // A new directory is required, preserving every earlier import.
 await fs.mkdir(destination, { recursive: false });

@@ -146,7 +146,7 @@ export function ReviewDecisionForm({ item }) {
             />
           </label>
           <button
-            className="button w-full border-accent/40 text-accent"
+            className="sr-button w-full border-accent/40 text-accent"
             type="submit"
             disabled={!decision || saving}
           >

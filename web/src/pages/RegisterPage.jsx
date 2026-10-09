@@ -1,50 +1,45 @@
 import React, { useState } from 'react';
-import { Link, Navigate, useLocation } from 'react-router-dom';
+import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { Alert, Button, FieldError, Form, Input, Label, Spinner, TextField } from '@heroui/react';
 import { homeFor, useAuth } from '../features/auth/AuthProvider';
 import { AuthLayout, AuthLoading, PasswordField, fieldError } from '../features/auth/AuthLayout';
-export function LoginPage() {
-  const { user, loading, login, error: sessionError, retry } = useAuth();
-  const registered = useLocation().state?.registered;
-  const [username, setUsername] = useState(registered || '');
+import { authRequest } from '../lib/api';
+
+// Cùng quy tắc với backend (docs/auth.md): tên 3–64 ký tự chữ, số, _ . -; mật khẩu 12–128 ký tự.
+const checkUsername = (value) =>
+  value && !/^[A-Za-z0-9_.-]{3,64}$/.test(value)
+    ? 'Tên đăng nhập gồm 3–64 ký tự: chữ, số, dấu _ . hoặc -'
+    : null;
+const checkPassword = (value) =>
+  value && value.length < 12 ? 'Mật khẩu cần ít nhất 12 ký tự.' : null;
+
+export function RegisterPage() {
+  const { user, loading } = useAuth();
+  const navigate = useNavigate();
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   if (loading) return <AuthLoading />;
   if (user) return <Navigate to={homeFor(user)} replace />;
   return (
     <AuthLayout
-      title="Đăng nhập"
+      title="Tạo tài khoản"
       footer={
         <>
-          Chưa có tài khoản?{' '}
-          <Link
-            to="/register"
-            className="font-semibold text-foreground underline underline-offset-4"
-          >
-            Đăng ký
+          Đã có tài khoản?{' '}
+          <Link to="/login" className="font-semibold text-foreground underline underline-offset-4">
+            Đăng nhập
           </Link>
         </>
       }
     >
-      {registered && !error && !sessionError && (
-        <Alert status="success" className="mb-5">
-          <Alert.Indicator />
-          <Alert.Content>
-            <Alert.Title>Đã tạo tài khoản</Alert.Title>
-          </Alert.Content>
-        </Alert>
-      )}
-      {(error || sessionError) && (
+      {error && (
         <Alert status="danger" role="alert" className="mb-5">
           <Alert.Indicator />
           <Alert.Content>
-            <Alert.Description>{error || sessionError}</Alert.Description>
-            {sessionError && (
-              <Button size="sm" variant="danger-soft" className="mt-2" onPress={retry}>
-                Kết nối lại
-              </Button>
-            )}
+            <Alert.Description>{error}</Alert.Description>
           </Alert.Content>
         </Alert>
       )}
@@ -55,11 +50,10 @@ export function LoginPage() {
           setBusy(true);
           setError('');
           try {
-            await login(username, password);
+            await authRequest('register', { username, password });
+            navigate('/login', { replace: true, state: { registered: username } });
           } catch (e) {
-            setError(e.message);
-          } finally {
-            setPassword('');
+            setError(e.status === 404 ? 'Máy chủ chưa mở chức năng đăng ký.' : e.message);
             setBusy(false);
           }
         }}
@@ -72,8 +66,9 @@ export function LoginPage() {
           maxLength={64}
           value={username}
           onChange={setUsername}
+          validate={checkUsername}
           isDisabled={busy}
-          autoFocus={!registered}
+          autoFocus
         >
           <Label>Tên đăng nhập</Label>
           <Input />
@@ -83,16 +78,29 @@ export function LoginPage() {
           label="Mật khẩu"
           missing="Nhập mật khẩu."
           name="password"
-          autoComplete="current-password"
+          autoComplete="new-password"
           maxLength={128}
           value={password}
           onChange={setPassword}
+          validate={checkPassword}
           isDisabled={busy}
-          autoFocus={Boolean(registered)}
+        />
+        <PasswordField
+          label="Xác nhận mật khẩu"
+          missing="Nhập lại mật khẩu."
+          name="confirm"
+          autoComplete="new-password"
+          maxLength={128}
+          value={confirm}
+          onChange={setConfirm}
+          validate={(value) =>
+            value && value !== password ? 'Mật khẩu xác nhận không khớp.' : null
+          }
+          isDisabled={busy}
         />
         <Button type="submit" variant="primary" size="lg" fullWidth isDisabled={busy}>
           {busy && <Spinner size="sm" color="current" />}
-          {busy ? 'Đang đăng nhập…' : 'Đăng nhập'}
+          {busy ? 'Đang tạo tài khoản…' : 'Đăng ký'}
         </Button>
       </Form>
     </AuthLayout>

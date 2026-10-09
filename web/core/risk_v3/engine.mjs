@@ -1,6 +1,6 @@
 import { normalizeDataset } from '../schema/normalize.mjs';
 import { POLICY, POLICY_VERSION, MIN_SIDE, canonicalLabel, labelGroup } from './policy.mjs';
-import { iou, isLabel } from './checks/shared.mjs';
+import { iou } from './checks/shared.mjs';
 import { temporalChecks } from './checks/temporal.mjs';
 import { confidenceChecks } from './checks/confidence.mjs';
 import { generalChecks } from './checks/general.mjs';
@@ -10,7 +10,7 @@ import { imageRules } from './image-rules.mjs';
 export const checks = [...temporalChecks, ...confidenceChecks, ...generalChecks, ...labelChecks];
 export { imageRules };
 export const severity = (score) => (score >= 70 ? 'high' : score >= 40 ? 'medium' : 'low');
-export const ENGINE_VERSION = '4.0.0';
+export const ENGINE_VERSION = '3.0.0';
 
 // draft: model box at or above the working score. manual: no score, drawn by a person.
 // grey: below the working score, a hint of a missed object rather than a label.
@@ -49,6 +49,7 @@ function describe(annotation, index) {
             : 'draft';
   return box;
 }
+const isLabel = (box) => box.state === 'draft' || box.state === 'manual';
 // The strongest finding that names an error speaks for the box.
 const leading = (findings) =>
   findings.reduce((top, f) => (f.error_type && (!top || f.score > top.score) ? f : top), null);
@@ -85,7 +86,6 @@ export function analyzeDataset(input, { minScore = 30 } = {}) {
       frame,
       media: media.get(frame.media_id),
       box: boxes.get(current.id),
-      frameBoxes: byFrame.get(current.frame_id),
       env_risk: Number.isFinite(risk) ? risk : undefined,
     };
   });
@@ -131,7 +131,7 @@ export function analyzeDataset(input, { minScore = 30 } = {}) {
         stat.skip_reasons[result.reason] = (stat.skip_reasons[result.reason] || 0) + 1;
       return { check_id: check.id, check_version: check.version, ...result };
     });
-    const findings = foldWeak(evaluations.filter((e) => e.status === 'flagged'));
+    const findings = evaluations.filter((e) => e.status === 'flagged');
     const score = Math.min(
       100,
       findings.reduce((sum, f) => sum + f.score, 0),
@@ -196,42 +196,15 @@ export function analyzeDataset(input, { minScore = 30 } = {}) {
     ),
     frames: frameReports,
     results,
-    // Bonus labels are scored but kept out of the main queue.
-    cases: queue(results.filter((r) => r.score >= minScore && r.group !== 'bonus')),
-    advisory_cases: queue(results.filter((r) => r.score >= minScore && r.group === 'bonus')),
+    cases: results
+      .filter((r) => r.score >= minScore)
+      .sort(
+        (a, b) =>
+          b.score - a.score ||
+          a.reference.frame_index - b.reference.frame_index ||
+          a.id.localeCompare(b.id),
+      ),
   };
-}
-const queue = (items) =>
-  items.sort(
-    (a, b) =>
-      b.score - a.score ||
-      a.reference.frame_index - b.reference.frame_index ||
-      a.id.localeCompare(b.id),
-  );
-// A low score, a frame cut and a poor image all describe one thing, a weak box. Together they
-// are one finding that counts once, at its strongest member; structural findings still add up.
-const WEAK = new Set(checks.filter((c) => c.family === 'weak').map((c) => c.id));
-function foldWeak(findings) {
-  const weak = findings.filter((f) => WEAK.has(f.check_id));
-  if (weak.length < 2) return findings;
-  const error = weak.find((f) => f.error_type)?.error_type;
-  const merged = {
-    check_id: 'confidence.weak_box',
-    check_version: '1.0.0',
-    status: 'flagged',
-    score: Math.max(...weak.map((f) => f.score)),
-    reason: weak.map((f) => f.reason).join(' · '),
-    evidence: {
-      signals: weak.map(({ check_id, score, reason, evidence }) => ({
-        check_id,
-        score,
-        reason,
-        evidence,
-      })),
-    },
-    ...(error && { error_type: error }),
-  };
-  return findings.flatMap((f) => (f === weak[0] ? [merged] : weak.includes(f) ? [] : [f]));
 }
 
 // The tier is decided here, with no reviewer in the loop: a frame is auto-accepted only when

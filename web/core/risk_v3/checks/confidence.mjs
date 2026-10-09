@@ -32,7 +32,6 @@ const marginEvidence = (current, second, threshold) => ({
 const lowScore = staticCheck({
   id: 'confidence.low_score',
   only: 'draft',
-  family: 'weak',
   test: ({ box }) =>
     box.confidence < POLICY.lowScore &&
     flag(20, `Confidence thấp: ${box.confidence.toFixed(2)}`, {

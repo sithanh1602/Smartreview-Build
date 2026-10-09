@@ -30,14 +30,14 @@ export function ProjectsPage() {
             {hint('Import dữ liệu đã gán nhãn, kiểm tra chất lượng và lưu quyết định review.')}
           </p>
         </div>
-        <Link className="button border-accent/40 text-accent" to="/projects/new">
+        <Link className="sr-button border-accent/40 text-accent" to="/projects/new">
           {hint('+ New Project')}
         </Link>
       </div>
       {error ? (
         <div role="alert" className="panel p-6">
           {error}
-          <button className="button ml-4" onClick={() => setAttempt((a) => a + 1)}>
+          <button className="sr-button ml-4" onClick={() => setAttempt((a) => a + 1)}>
             Thử lại
           </button>
         </div>

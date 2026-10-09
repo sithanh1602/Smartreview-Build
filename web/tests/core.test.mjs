@@ -4,7 +4,7 @@ import fs from 'node:fs/promises';
 import { normalizeDataset } from '../core/schema/normalize.mjs';
 import { importCvatImages } from '../core/importers/cvat-images.mjs';
 import { importAnnotations } from '../core/importers/index.mjs';
-import { analyzeDataset } from '../core/risk/engine.mjs';
+import { analyzeDataset } from '../core/risk_v1/engine.mjs';
 
 const xml = await fs.readFile(
   new URL('../fixtures/human/annotations.xml', import.meta.url),

@@ -28,7 +28,7 @@ function Overview() {
         </div>
         <Link
           to={`/review${query}`}
-          className="button border-accent/30 bg-accent text-ink hover:bg-accent/90"
+          className="sr-button border-accent/30 bg-accent text-ink hover:bg-accent/90"
         >
           {hint('Bắt đầu review ')}
           <Icon name="arrow" />
@@ -73,7 +73,7 @@ function Overview() {
             {!cases.length && (
               <div className="p-8 text-sm text-muted">
                 <p>{hint('Không có suspicious case trong các check hiện tại.')}</p>
-                <Link to="/review?scope=all" className="button mt-4">
+                <Link to="/review?scope=all" className="sr-button mt-4">
                   {hint('Xem tất cả annotations')}
                 </Link>
               </div>

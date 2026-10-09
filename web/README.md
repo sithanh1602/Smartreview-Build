@@ -8,12 +8,38 @@ Annotated data / optional model output
     → Modular Risk Engine → Review UI → MySQL / Human Decisions → Metrics
 ```
 
-## Projects + Import qua giao diện
+## 1. Kết nối MySQL trên server (SSH tunnel)
+
+Không cần cài MySQL trên máy. App dùng MySQL trên server qua SSH tunnel, nên luôn cần hai terminal.
+
+**Terminal 1** — mở tunnel và giữ nguyên trong lúc chạy:
 
 ```bash
-# Chỉ cần nếu MySQL đang dừng:
-sudo systemctl start mysql
-cd ~/smartreview/web
+ssh -N -p 24700 -o ExitOnForwardFailure=yes -o ServerAliveInterval=30 \
+  -L 127.0.0.1:13306:127.0.0.1:3306 root@103.57.220.211
+```
+
+Lệnh sẽ hỏi **password SSH** của server. Password được gửi qua kênh riêng của nhóm; không ghi vào README, `.env` hay commit. Nhập đúng thì terminal đứng yên, không in gì — đó là tunnel đang chạy.
+
+**Terminal 2** — chạy app như bình thường:
+
+```bash
+cd web
+cp .env.example .env    # chỉ lần đầu; không ghi đè nếu đã có .env
+npm ci                  # chỉ lần đầu
+npm run dev
+```
+
+Nhớ tạo `.env` từ `.env.example` trước khi `npm run dev`. Tunnel đưa MySQL của server về cổng local **13306**, nên trong `.env` phải đặt `DB_PORT=13306` (mặc định trong `.env.example` là 3306) và điền `DB_USER`/`DB_PASSWORD` của DB trên server. Không dùng tiền tố `VITE_` cho credential.
+
+Mở **http://127.0.0.1:5173**. Dừng bằng Ctrl+C ở cả hai terminal.
+
+## Projects + Import qua giao diện
+
+Mở tunnel ở terminal 1 như mục 1, rồi:
+
+```bash
+cd web
 npm ci
 npm run db:migrate
 npm run build
@@ -28,28 +54,12 @@ Thử ngay: chọn `fixtures/upload/annotations.xml` + `fixtures/upload/street.p
 
 Ảnh PNG/JPEG/WebP/GIF tĩnh, không upload video/ZIP/SVG. Tối đa 1000 ảnh / 200 MB tổng; mỗi ảnh 20 MB / 25 MP; annotation 10 MB. MySQL lưu metadata/reviews; file nằm trong `storage/projects/`. Traffic Demo được đăng ký tự động và giữ review đã lưu trước đây.
 
-## 1. Setup MySQL trên Ubuntu (cổng 3306)
-
-Máy hiện tại đã có MySQL 8.4 và database riêng `smartreview`, `smartreview_test`; credential thật chỉ nằm trong `.env` (không commit). Không cần tạo lại.
-
-Trên máy mới đã cài MySQL:
-
-```bash
-cd ~/smartreview/web
-npm ci
-npm run db:prepare
-sudo mysql < .local/mysql-init.sql
-npm run db:migrate
-```
-
-`db:prepare` tạo `.env` và file SQL riêng tư, password ngẫu nhiên, quyền chỉ trong hai database SmartReview. Nó từ chối ghi đè `.env` đã có. SQL dùng CREATE DATABASE/USER IF NOT EXISTS, không DROP hoặc sửa database khác. File `.local/mysql-init.sql` chứa credential nên không chia sẻ/commit.
-
-Nếu đã có tài khoản DB do bạn tự quản lý, tạo `.env` từ `.env.example` và điền `DB_HOST`/DB*PORT/DB_NAME/DB_USER/DB_PASSWORD, rồi chạy migration. Database phải được admin tạo trước. Không dùng `VITE*` cho credential.
-
 ## 2. Chạy backend và frontend
 
+Cần tunnel ở mục 1 đang mở; migration, app và `npm test` đều kết nối DB qua tunnel này.
+
 ```bash
-cd ~/smartreview/web
+cd web
 npm run db:migrate
 npm run build
 npm run dev

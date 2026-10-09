@@ -14,7 +14,7 @@ export function DataBoundary({ children }) {
       <div role="alert" className="panel m-6 p-8">
         <h1 className="mb-2 text-xl">Chưa kết nối được dữ liệu</h1>
         <p className="mb-5 text-muted">{error}</p>
-        <button className="button" onClick={retry}>
+        <button className="sr-button" onClick={retry}>
           Thử lại
         </button>
       </div>

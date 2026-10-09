@@ -9,6 +9,7 @@ export function ImportForm({ project, onImported }) {
     [description, setDescription] = useState(project?.description || ''),
     [format, setFormat] = useState(project?.format || 'cvat-images');
   const [annotation, setAnnotation] = useState(null),
+    [metadata, setMetadata] = useState(null),
     [media, setMedia] = useState([]),
     [busy, setBusy] = useState(false),
     [message, setMessage] = useState(''),
@@ -40,6 +41,7 @@ export function ImportForm({ project, onImported }) {
     }
     if (
       annotation.size > 10 * 1024 * 1024 ||
+      metadata?.size > 10 * 1024 * 1024 ||
       media.length > 1000 ||
       media.some((f) => f.size > 20 * 1024 * 1024) ||
       annotation.size + media.reduce((n, f) => n + f.size, 0) > 200 * 1024 * 1024
@@ -70,6 +72,7 @@ export function ImportForm({ project, onImported }) {
       const form = new FormData();
       await request('/auth/me');
       form.append('annotation', annotation);
+      if (metadata) form.append('metadata', metadata);
       for (const f of media)
         form.append(
           'media',
@@ -190,6 +193,19 @@ export function ImportForm({ project, onImported }) {
           />
         </label>
         <label className="block text-sm">
+          {hint('Image metadata CSV (optional)')}
+          <input
+            aria-label={hint('Image metadata CSV (optional)')}
+            className="field mt-2"
+            type="file"
+            accept=".csv"
+            onChange={(e) => setMetadata(e.target.files[0] || null)}
+          />
+          <span className="mt-1 block text-xs text-muted">
+            File như images.csv: mỗi ảnh một dòng, có cột file_name và env_risk (0–1).
+          </span>
+        </label>
+        <label className="block text-sm">
           {hint('Media images')}
           <input
             aria-label={hint('Media images')}
@@ -219,7 +235,7 @@ export function ImportForm({ project, onImported }) {
           Đã chọn {media.length}
           {hint(' ảnh · tối đa 1000 ảnh / 200 MB tổng; 20 MB mỗi ảnh; annotation 10 MB.')}
         </p>
-        <button className="button border-accent/40 text-accent" type="submit">
+        <button className="sr-button border-accent/40 text-accent" type="submit">
           {busy ? 'Đang xử lý…' : project ? hint('Import Dataset') : hint('Create & Import')}
         </button>
       </fieldset>

@@ -1,5 +1,5 @@
-import { POLICY, NORMAL_RATIO } from '../policy.mjs';
-import { iou } from '../ai-compare.mjs';
+import { POLICY } from '../policy.mjs';
+import { iou } from '../../risk/ai-compare.mjs';
 
 export { iou };
 export const skip = (reason) => ({ status: 'skipped', reason });
@@ -12,14 +12,6 @@ export const flag = (score, reason, evidence, error_type = null, suggested_label
   ...(error_type && { error_type }),
   ...(suggested_label && { suggested_label }),
 });
-export const isLabel = (box) => box.state === 'draft' || box.state === 'manual';
-// Cut by the frame so far that at least about half of the object lies outside the image.
-export function cutByFrame(box, media) {
-  const [low, high] = NORMAL_RATIO[box.label] || [0.2, 5];
-  const side = box.x1 <= POLICY.edgePx || box.x2 >= media.width - POLICY.edgePx,
-    vertical = box.y1 <= POLICY.edgePx || box.y2 >= media.height - POLICY.edgePx;
-  return (side && box.ratio > 2 * high) || (vertical && box.ratio < low / 2);
-}
 export function temporalReady({ previous, current, next, frames }) {
   if (current.track_id === undefined) return 'missing_track_id';
   if (!previous || !next) return 'missing_neighbors';
@@ -52,20 +44,11 @@ const UNAVAILABLE = {
 };
 // Static rules judge labels only: boxes that are valid, large enough and not grey-zone.
 // `only` narrows a rule to model drafts or to human-drawn boxes.
-export function staticCheck({
-  id,
-  labels,
-  only,
-  relational = false,
-  family,
-  version = '1.0.0',
-  test,
-}) {
+export function staticCheck({ id, labels, only, relational = false, test }) {
   return {
     id,
-    version,
+    version: '1.0.0',
     relational,
-    family,
     run(context) {
       const { box } = context;
       if (UNAVAILABLE[box.state]) return skip(UNAVAILABLE[box.state]);

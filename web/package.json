@@ -23,6 +23,8 @@
     "db:prepare": "node scripts/db-prepare.mjs"
   },
   "dependencies": {
+    "@heroui/react": "^3.2.6",
+    "@heroui/styles": "^3.2.6",
     "ajv": "^8.20.0",
     "busboy": "^1.6.0",
     "fast-xml-parser": "^5.11.2",

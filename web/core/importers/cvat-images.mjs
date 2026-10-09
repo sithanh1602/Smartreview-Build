@@ -1,5 +1,6 @@
 import { XMLParser, XMLValidator } from 'fast-xml-parser';
 import { normalizeDataset, SCHEMA_VERSION } from '../schema/normalize.mjs';
+import { applySignals } from './signals.mjs';
 
 const list = (value) => (value == null ? [] : Array.isArray(value) ? value : [value]);
 
@@ -87,7 +88,7 @@ export function importCvatImages(
             list(shape.attribute).map((v) => [v.name, v['#text'] ?? '']),
           ),
         };
-        data.annotations.push(a);
+        data.annotations.push(applySignals(a));
       }
     }
   }

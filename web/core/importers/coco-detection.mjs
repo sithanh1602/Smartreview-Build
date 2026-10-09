@@ -1,4 +1,5 @@
 import { normalizeDataset, SCHEMA_VERSION } from '../schema/normalize.mjs';
+import { applySignals, readEnvRisk } from './signals.mjs';
 
 const object = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 function index(items, field) {
@@ -69,6 +70,8 @@ export function importCocoDetection(text, { id = 'coco-detection', name = 'COCO 
       height: image.height,
     });
     data.frames.push({ id: `${mediaId}:0`, media_id: mediaId, index: 0, image: `images/${file}` });
+    const risk = readEnvRisk(image, image.attributes);
+    if (risk !== undefined) (data.dataset.metadata.env_risk ||= {})[`${mediaId}:0`] = risk;
   }
   for (const a of annotations.values()) {
     if (!images.has(a.image_id))
@@ -79,14 +82,20 @@ export function importCocoDetection(text, { id = 'coco-detection', name = 'COCO 
       throw new Error(`COCO annotation ${a.id}: bbox cần [x, y, width, height] với 4 số hữu hạn.`);
     const [x, y, width, height] = a.bbox;
     const { bbox, ...original } = a;
-    data.annotations.push({
-      id: `coco-${a.id}`,
-      frame_id: `image-${a.image_id}:0`,
-      label: categories.get(a.category_id).name,
-      geometry: { type: 'bbox', x, y, width, height },
-      source: { kind: 'import', name: 'COCO Detection' },
-      attributes: { coco: original },
-    });
+    data.annotations.push(
+      applySignals(
+        {
+          id: `coco-${a.id}`,
+          frame_id: `image-${a.image_id}:0`,
+          label: categories.get(a.category_id).name,
+          geometry: { type: 'bbox', x, y, width, height },
+          source: { kind: 'import', name: 'COCO Detection' },
+          attributes: { coco: original },
+        },
+        a,
+        a.attributes,
+      ),
+    );
   }
   return normalizeDataset(data);
 }

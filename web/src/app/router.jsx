@@ -12,10 +12,12 @@ import { ReviewPage } from '../pages/ReviewPage';
 import { NotFoundPage } from '../pages/NotFoundPage';
 import { AuthGate } from '../features/auth/AuthGate';
 import { LoginPage } from '../pages/LoginPage';
+import { RegisterPage } from '../pages/RegisterPage';
 import { AnnotationHomePage } from '../pages/AnnotationHomePage';
 
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
+  { path: '/register', element: <RegisterPage /> },
   {
     element: <AuthGate role="annotator" />,
     children: [{ path: '/annotation', element: <AnnotationHomePage /> }],

@@ -3,6 +3,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { importAnnotations, importers } from '../../core/importers/index.mjs';
+import { applyEnvRisk, parseImageTable } from '../../core/importers/signals.mjs';
 import { normalizeDataset } from '../../core/schema/normalize.mjs';
 import { loadDataset } from '../repository.mjs';
 import { ReviewStore } from '../reviews/store.mjs';
@@ -192,6 +193,8 @@ export class ProjectService {
       let data;
       try {
         data = importAnnotations(row.format, text, { id, name: row.name });
+        if (uploaded.metadata)
+          applyEnvRisk(data, parseImageTable(await fs.readFile(uploaded.metadata, 'utf8')));
       } catch (e) {
         throw new ReviewError(422, e.message.slice(0, 1000));
       }

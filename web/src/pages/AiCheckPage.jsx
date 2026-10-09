@@ -67,7 +67,7 @@ function AiWorkspace({ projectId }) {
           </p>
         </div>
         <button
-          className="button border-accent text-accent"
+          className="sr-button border-accent text-accent"
           disabled={!report?.available || running || busy}
           onClick={start}
         >
@@ -83,7 +83,7 @@ function AiWorkspace({ projectId }) {
       {error && (
         <div role="alert" className="panel mb-4 p-4 text-rose-700">
           {error}
-          <button className="button ml-3" onClick={() => setAttempt((a) => a + 1)}>
+          <button className="sr-button ml-3" onClick={() => setAttempt((a) => a + 1)}>
             Tải lại
           </button>
         </div>
@@ -186,14 +186,14 @@ function AiWorkspace({ projectId }) {
                   </h2>
                   <div className="flex gap-2">
                     <button
-                      className="button"
+                      className="sr-button"
                       disabled={index === 0}
                       onClick={() => setSelected(findings[index - 1].id)}
                     >
                       ← Trước
                     </button>
                     <button
-                      className="button"
+                      className="sr-button"
                       disabled={index === findings.length - 1}
                       onClick={() => setSelected(findings[index + 1].id)}
                     >
@@ -230,7 +230,7 @@ function AiWorkspace({ projectId }) {
                   trước khi lưu quyết định.
                 </p>
                 <Link
-                  className="button mt-5"
+                  className="sr-button mt-5"
                   to={`/projects/${projectId}/review/${encodeURIComponent(current.annotation_id)}?scope=all`}
                   state={{
                     aiFinding: current,

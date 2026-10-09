@@ -34,7 +34,7 @@ function Workspace({ projectId }) {
       <div role={error ? 'alert' : 'status'}>
         {error || 'Đang tải danh sách ảnh…'}
         {error && (
-          <button className="button ml-3" onClick={() => setAttempt((a) => a + 1)}>
+          <button className="sr-button ml-3" onClick={() => setAttempt((a) => a + 1)}>
             Thử lại
           </button>
         )}
@@ -281,7 +281,7 @@ function FrameEditor({ projectId, frameId, onSaved, previous, next }) {
       <section className="panel p-6" role={error ? 'alert' : 'status'}>
         {error || 'Đang tải ảnh và annotation…'}
         {error && (
-          <button className="button ml-3" onClick={() => setAttempt((a) => a + 1)}>
+          <button className="sr-button ml-3" onClick={() => setAttempt((a) => a + 1)}>
             Thử lại
           </button>
         )}
@@ -298,11 +298,11 @@ function FrameEditor({ projectId, frameId, onSaved, previous, next }) {
         >
           <p>Có thay đổi chưa lưu. Rời ảnh sẽ bỏ các thay đổi này.</p>
           <div className="mt-3 flex gap-3">
-            <button className="button" onClick={() => blocker.reset()}>
+            <button className="sr-button" onClick={() => blocker.reset()}>
               Ở lại để lưu
             </button>
             <button
-              className="button"
+              className="sr-button"
               onClick={() => {
                 dirtyRef.current = false;
                 blocker.proceed();
@@ -318,10 +318,10 @@ function FrameEditor({ projectId, frameId, onSaved, previous, next }) {
           {data.frame.media_name} · Frame {data.frame.index}
         </h2>
         <div className="flex gap-2">
-          <button className="button" disabled={!previous || saving} onClick={previous}>
+          <button className="sr-button" disabled={!previous || saving} onClick={previous}>
             ← Ảnh trước
           </button>
-          <button className="button" disabled={!next || saving} onClick={next}>
+          <button className="sr-button" disabled={!next || saving} onClick={next}>
             Ảnh sau →
           </button>
         </div>
@@ -363,7 +363,7 @@ function FrameEditor({ projectId, frameId, onSaved, previous, next }) {
       </label>
       {selectedAnnotation && (
         <Link
-          className="button mt-3"
+          className="sr-button mt-3"
           to={`/projects/${projectId}/review/${encodeURIComponent(selectedAnnotation.id)}?scope=all`}
         >
           Đánh giá nhãn / khung đã có →
@@ -377,7 +377,7 @@ function FrameEditor({ projectId, frameId, onSaved, previous, next }) {
         </p>
         <div className="mt-3 flex flex-wrap gap-3">
           <button
-            className="button"
+            className="sr-button"
             disabled={!ready || regions.length >= 50}
             aria-pressed={drawing}
             onClick={() => setDrawing((v) => !v)}
@@ -385,7 +385,7 @@ function FrameEditor({ projectId, frameId, onSaved, previous, next }) {
             {drawing ? 'Dừng vẽ vùng thiếu' : 'Vẽ vùng thiếu'}
           </button>
           <button
-            className="button"
+            className="sr-button"
             disabled={!ready || regions.length >= 50}
             onClick={() =>
               add({
@@ -489,7 +489,7 @@ function FrameEditor({ projectId, frameId, onSaved, previous, next }) {
           </select>
         </label>
         <button
-          className="button mt-4 border-accent text-accent"
+          className="sr-button mt-4 border-accent text-accent"
           disabled={!ready || saving}
           onClick={save}
         >
@@ -506,7 +506,7 @@ function FrameEditor({ projectId, frameId, onSaved, previous, next }) {
         <div role="alert" className="mt-3 text-rose-700">
           {error}
           <button
-            className="button mt-3"
+            className="sr-button mt-3"
             disabled={saving}
             onClick={() => {
               if (!dirty || window.confirm('Bỏ thay đổi chưa lưu và tải lại bản đã lưu?'))

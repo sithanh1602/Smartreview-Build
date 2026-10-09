@@ -29,7 +29,7 @@ export function DeleteProjectButton({ project, onDeleted }) {
     <div>
       <button
         type="button"
-        className="button border-rose-300 text-rose-700"
+        className="sr-button border-rose-300 text-rose-700"
         disabled={busy}
         onClick={remove}
       >

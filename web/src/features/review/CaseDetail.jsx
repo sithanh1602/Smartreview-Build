@@ -130,7 +130,7 @@ export function CaseDetail({ item, index, count, onNavigate, aiFinding }) {
             </div>
             <div className="flex items-center gap-2">
               <button
-                className="button px-2"
+                className="sr-button px-2"
                 aria-label={hint('Case trước')}
                 disabled={index <= 0}
                 onClick={() => onNavigate(-1)}
@@ -141,7 +141,7 @@ export function CaseDetail({ item, index, count, onNavigate, aiFinding }) {
                 {index + 1} / {count}
               </span>
               <button
-                className="button px-2"
+                className="sr-button px-2"
                 aria-label={hint('Case tiếp theo')}
                 disabled={index >= count - 1}
                 onClick={() => onNavigate(1)}
@@ -178,21 +178,21 @@ export function CaseDetail({ item, index, count, onNavigate, aiFinding }) {
             </div>
             <div className="flex flex-wrap gap-2">
               <button
-                className={`button min-h-8 py-1 text-xs ${allAnnotations ? 'border-accent text-accent' : ''}`}
+                className={`sr-button min-h-8 py-1 text-xs ${allAnnotations ? 'border-accent text-accent' : ''}`}
                 aria-pressed={allAnnotations}
                 onClick={() => setAllAnnotations(true)}
               >
                 All annotations
               </button>
               <button
-                className={`button min-h-8 py-1 text-xs ${!allAnnotations ? 'border-accent text-accent' : ''}`}
+                className={`sr-button min-h-8 py-1 text-xs ${!allAnnotations ? 'border-accent text-accent' : ''}`}
                 aria-pressed={!allAnnotations}
                 onClick={() => setAllAnnotations(false)}
               >
                 Risk only
               </button>
               <button
-                className={`button min-h-8 py-1 text-xs ${showBox ? 'text-accent' : ''}`}
+                className={`sr-button min-h-8 py-1 text-xs ${showBox ? 'text-accent' : ''}`}
                 aria-pressed={showBox}
                 onClick={() => setShowBox((v) => !v)}
               >
@@ -200,7 +200,7 @@ export function CaseDetail({ item, index, count, onNavigate, aiFinding }) {
                 {observation.geometry.type === 'bbox' ? hint('BBox') : hint('Geometry')}
               </button>
               <button
-                className="button min-h-8 py-1 text-xs"
+                className="sr-button min-h-8 py-1 text-xs"
                 aria-pressed={zoom}
                 disabled={
                   observation.geometry.type !== 'bbox' ||
@@ -223,7 +223,7 @@ export function CaseDetail({ item, index, count, onNavigate, aiFinding }) {
               <p role="alert" className="text-xs text-rose-700">
                 Không tải được toàn bộ annotation: {currentScene.error} Đang hiển thị annotation
                 đang xem.{' '}
-                <button className="button" onClick={() => setSceneAttempt((v) => v + 1)}>
+                <button className="sr-button" onClick={() => setSceneAttempt((v) => v + 1)}>
                   Tải lại annotations
                 </button>
               </p>
@@ -384,7 +384,7 @@ export function CaseDetail({ item, index, count, onNavigate, aiFinding }) {
         </section>
         <ReviewDecisionForm key={item.id} item={item} />
         <section className="panel p-5">
-          <button className="button mt-4 w-full text-xs" onClick={copyReference}>
+          <button className="sr-button mt-4 w-full text-xs" onClick={copyReference}>
             <Icon name="copy" />
             Sao chép thông tin
           </button>

@@ -169,7 +169,7 @@ function ReviewWorkspace() {
                 ? 'Case có thể đã thay đổi sau khi chạy lại Risk Engine.'
                 : 'Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm.'}
             </p>
-            <Link className="button mt-6" to={reviewPath}>
+            <Link className="sr-button mt-6" to={reviewPath}>
               {hint('Về hàng đợi review')}
             </Link>
           </section>
