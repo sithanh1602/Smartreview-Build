@@ -1,0 +1,48 @@
+name: smartreview
+
+services:
+  db:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: smartreview
+      MYSQL_USER: smartreview_app
+      MYSQL_PASSWORD: ${DOCKER_DB_PASSWORD:?Run node docker/setup.mjs first}
+      MYSQL_ROOT_PASSWORD: ${DOCKER_DB_ROOT_PASSWORD:?Run node docker/setup.mjs first}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "MYSQL_PWD=\"$$MYSQL_PASSWORD\" mysql --protocol=TCP -h 127.0.0.1 -u \"$$MYSQL_USER\" -D \"$$MYSQL_DATABASE\" -e 'SELECT 1' >/dev/null 2>&1"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+
+  web:
+    build: .
+    image: smartreview:local
+    init: true
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # Local HTTP. Set production + secure cookies only behind HTTPS.
+      NODE_ENV: ${DOCKER_NODE_ENV:-development}
+      AUTH_COOKIE_SECURE: ${DOCKER_AUTH_COOKIE_SECURE:-false}
+      HOST: 0.0.0.0
+      PORT: 3100
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_NAME: smartreview
+      DB_USER: smartreview_app
+      DB_PASSWORD: ${DOCKER_DB_PASSWORD:?Run node docker/setup.mjs first}
+      SMARTREVIEW_STORAGE: /app/web/storage
+    ports:
+      - "127.0.0.1:${DOCKER_HTTP_PORT:-3100}:3100"
+    volumes:
+      - project_storage:/app/web/storage
+
+volumes:
+  mysql_data:
+  project_storage:

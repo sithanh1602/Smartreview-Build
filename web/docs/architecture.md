@@ -58,10 +58,14 @@ Engine tạo lịch sử theo `(media_id, track_id)` và sort frame index. Tempo
 | `geometry.bbox_validity`       | Bbox + dimensions ảnh      | width/height ≤ 0; hoặc vượt ảnh > 0.1 px                              | 70 / 40 |
 | `geometry.bbox_area`           | Temporal + 3 bbox dương    | sai lệch diện tích với trung bình hai bên ≥ 50%                       | 15      |
 | `geometry.bbox_position`       | Temporal + 3 bbox dương    | khoảng cách tâm so với trung bình hai bên / đường chéo hiện tại ≥ 0.5 | 15      |
+| `geometry.bbox_duplicate`      | Ảnh đơn (profile 2.1.0+)   | Bbox trùng lặp cao (IoU ≥ 0.85); phân biệt cùng nhãn vs khác nhãn     | 50 / 45 |
+| `geometry.bbox_tiny`           | Ảnh đơn (profile 2.1.0+)   | Kích thước cạnh < 4px hoặc diện tích < 0.001% ảnh                     | 35      |
+| `geometry.bbox_aspect`         | Ảnh đơn (profile 2.1.0+)   | Tỷ lệ cạnh bất thường (tỷ lệ dài/rộng ≥ 20:1)                         | 25      |
+| `geometry.bbox_size_outlier`   | Ảnh đơn (profile 2.1.0+)   | Diện tích lệch bất thường theo phân phối lớp (z ≥ 4, n ≥ 20 mẫu)      | 30      |
 
-Mỗi check có `id`, `version`, `run(context)` và trả `passed`, `flagged`, hoặc `skipped` kèm reason. Không catch rồi giấu lỗi lập trình; thiếu tín hiệu được xử lý explicit trong check. Tổng điểm = min(100, tổng điểm flag). Suspicious queue mặc định score ≥ 30; High ≥ 70, Medium 40–69, Low < 40. Chế độ All có cả score 0; score 0 không chứng minh annotation đúng vì có thể nhiều check đã skip.
+Mỗi check có `id`, `version`, `run(context)` và trả `passed`, `flagged`, hoặc `skipped` kèm reason. Không catch rồi giấu lỗi lập trình; thiếu tín hiệu được xử lý explicit trong check. Tổng điểm = min(100, tổng điểm flag). Suspicious queue mặc định score ≥ 30; High ≥ 70, Medium 40–69, Low < 40. Chế độ All có cả score 0; score 0 không chứng minh annotation đúng vì có thể nhiều check đã skip. Profile 2.0.0 (mặc định cho các dự án cũ) giữ nguyên 5 check gốc; profile 2.1.0 bổ sung 4 check ảnh đơn cho project mới.
 
-Risk output version 1.0.0, engine version 2.0.0:
+Risk output version 1.0.0, engine version 2.0.0 / 2.1.0:
 
 ```text
 reference: dataset_id + annotation_id + media_id + frame_id + frame_index

@@ -6,8 +6,9 @@ Kết quả tồn tại qua lần khởi động lại. Lượt đang chạy b�
 
 - Bất đồng class: IoU ≥ 0.5, nhãn khác nhau, ưu tiên 70.
 - Bất đồng bbox: cùng nhãn, 0.15 ≤ IoU < 0.5, ưu tiên 50.
-- Chỉ dùng dự đoán confidence ≥ 0.65, ghép một-một. Ưu tiên cùng nhãn và IoU ≥ 0.5 trước, rồi mới xét bất đồng nhãn; ghép cùng nhãn yếu được xét cuối. Trong mỗi nhóm ưu tiên, sắp theo IoU giảm dần.
-- Viewer: annotation khung liền, AI khung xanh nét đứt. Có lọc, chuyển case và mở trang Review để lưu quyết định MySQL hiện có.
+- Có thể thiếu nhãn: AI thấy vật thể (confidence ≥ 0.75) thuộc bộ nhãn của dataset nhưng chưa có annotation tại vùng đó (score 70-80).
+- Chỉ dùng dự đoán confidence ≥ 0.65 (≥ 0.75 với ca thiếu), ghép một-một. Ưu tiên cùng nhãn và IoU ≥ 0.5 trước, rồi mới xét bất đồng nhãn; ghép cùng nhãn yếu được xét cuối. Trong mỗi nhóm ưu tiên, sắp theo IoU giảm dần.
+- Viewer: annotation khung liền, AI khung xanh nét đứt (hoặc tím chấm trong kiểm tra ảnh). Có lọc, chuyển case và mở trang Review hoặc Kiểm tra theo ảnh để lưu quyết định MySQL hiện có.
 - Điểm ưu tiên không phải xác suất lỗi. Model có thể sai; không sửa annotation tự động.
 - Đây là báo cáo AI riêng. Số case và điểm của Risk Engine gốc không thay đổi.
 
@@ -37,7 +38,7 @@ Annotation, output demo cũ và quyết định review hiện có không bị gh
 
 ## Giới hạn
 
-Chỉ bbox, nhãn khớp chính xác tên lớp model (COCO với YOLO11n). Chưa có mapping nhãn tùy chỉnh, polygon/3D hoặc tìm đối tượng thiếu.
+Chỉ bbox, nhãn khớp chính xác tên lớp model (COCO với YOLO11n). Chưa có mapping nhãn tùy chỉnh hoặc polygon/3D. Đã có gợi ý đối tượng thiếu nhãn cho các lớp xuất hiện trong dataset.
 Annotation không ghép được không đồng nghĩa đúng hoặc sai; được thống kê riêng.
 Dataset chỉ có ảnh rời vẫn chạy được, không cần track ID hay confidence của annotation.
 Demo video chỉ kiểm tra các frame đã có ảnh cache; số frame bỏ qua hiển thị rõ.

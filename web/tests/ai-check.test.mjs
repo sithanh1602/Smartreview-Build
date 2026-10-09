@@ -114,6 +114,52 @@ test('AI job persists result, rejects overlapping runs, detects restart and revi
     await fs.rm(root, { recursive: true, force: true });
   }
 });
+test('AI job describes the frame for missing-object findings', async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'smartreview-ai-missing-'));
+  try {
+    const model = path.join(root, 'model.pt');
+    await fs.writeFile(model, 'test');
+    const python = path.join(root, 'worker');
+    await fs.writeFile(
+      python,
+      `#!/usr/bin/env node\nrequire('fs').writeFileSync(process.argv[5],JSON.stringify({predictions:[${JSON.stringify(prediction('car', 500, 0.9))}],labels:['car'],model:{name:'test-only'}}));console.log(JSON.stringify({completed:1}));\n`,
+      { mode: 0o755 },
+    );
+    const d = {
+      normalized: {
+        frames: [{ id: 'f', media_id: 'm', index: 3 }],
+        media: [{ id: 'm', name: 'street.png', width: 800, height: 480 }],
+        annotations: [annotation()],
+      },
+      assets: new Map([['f', '/test.jpg']]),
+      allCases: [{ id: 'a' }],
+      meta: { dataset_id: 'rev' },
+    };
+    const projects = {
+      storageRoot: root,
+      deleting: new Set(),
+      context: async () => ({ dataset: d }),
+    };
+    const service = new AiService(projects, { python, model });
+    await service.start('project');
+    let state;
+    for (let i = 0; i < 100; i++) {
+      state = await service.status('project');
+      if (state.status !== 'RUNNING') break;
+      await new Promise((r) => setTimeout(r, 20));
+    }
+    assert.equal(state.status, 'READY', state.error);
+    const [f] = state.findings;
+    assert.equal(f.check_id, 'ai.missing_annotation');
+    assert.equal(f.observation.media_name, 'street.png');
+    assert.equal(f.observation.width, 800);
+    assert.equal(f.observation.frame_id, 3);
+    assert.equal(f.observation.annotation_id, null);
+    assert.equal(f.observation.image_url, '/api/projects/project/assets/f?dataset=rev');
+  } finally {
+    await fs.rm(root, { recursive: true, force: true });
+  }
+});
 test('AI routes reject cross-origin writes and unsupported methods', async () => {
   const url = new URL('http://localhost/api/projects/abc/ai-check');
   const projects = {
@@ -164,4 +210,117 @@ test('weak same-label overlap does not hide a strong class disagreement', () => 
   assert.equal(result.findings.length, 1);
   assert.equal(result.findings[0].annotation_id, 'wrong');
   assert.equal(result.findings[0].check_id, 'ai.class_disagreement');
+});
+
+const shape = (id, label, x, y, width, height, frame = 'f') => ({
+  id,
+  frame_id: frame,
+  label,
+  geometry: { type: 'bbox', x, y, width, height },
+});
+const detection = (label, x, y, width, height, confidence = 0.9, frame = 'f') => ({
+  frame_id: frame,
+  label,
+  confidence,
+  geometry: { type: 'bbox', x, y, width, height },
+});
+const scene = (annotations, frames = ['f']) => ({
+  frames: frames.map((id) => ({ id })),
+  annotations,
+});
+const missing = (r) => r.findings.filter((f) => f.check_id === 'ai.missing_annotation');
+test('confident detection with no annotation is reported as possibly missing', () => {
+  const data = scene([shape('a', 'car', 0, 0, 100, 100)]),
+    before = structuredClone(data);
+  const r = comparePredictions(
+    data,
+    [detection('car', 0, 0, 100, 100), detection('car', 500, 0, 100, 100, 0.9)],
+    ['car', 'person'],
+  );
+  assert.equal(missing(r).length, 1);
+  const [f] = missing(r);
+  assert.equal(f.annotation_id, null);
+  assert.equal(f.annotation, null);
+  assert.equal(f.iou, null);
+  assert.equal(f.prediction.geometry.x, 500);
+  assert.equal(f.frame_annotations[0].id, 'a');
+  assert.equal(f.score, 76);
+  assert.deepEqual(data, before);
+});
+test('missing detection also works on frames with no annotations at all', () => {
+  const r = comparePredictions(
+    scene([shape('a', 'car', 0, 0, 100, 100)], ['f', 'g']),
+    [detection('car', 10, 10, 50, 50, 0.9, 'g')],
+    ['car'],
+  );
+  assert.equal(missing(r).length, 1);
+  assert.equal(missing(r)[0].frame_id, 'g');
+});
+test('missing detection ignores classes absent from the dataset and low confidence', () => {
+  const data = scene([shape('a', 'car', 0, 0, 100, 100)]);
+  assert.equal(
+    missing(comparePredictions(data, [detection('person', 500, 0, 50, 50)], ['car', 'person']))
+      .length,
+    0,
+  );
+  assert.equal(
+    missing(comparePredictions(data, [detection('car', 500, 0, 50, 50, 0.7)], ['car'])).length,
+    0,
+  );
+});
+test('detection inside an existing annotation is not reported (person on a couch)', () => {
+  const data = scene([
+    shape('couch', 'couch', 0, 0, 400, 400),
+    shape('p', 'person', 600, 0, 100, 100),
+  ]);
+  const r = comparePredictions(
+    data,
+    [detection('person', 600, 0, 100, 100), detection('person', 50, 50, 100, 100)],
+    ['couch', 'person'],
+  );
+  assert.equal(missing(r).length, 0);
+});
+test('one object detected under two classes yields one missing suggestion', () => {
+  const r = comparePredictions(
+    scene([shape('a', 'car', 0, 0, 100, 100), shape('b', 'truck', 200, 0, 100, 100)]),
+    [
+      detection('car', 600, 0, 100, 100, 0.9),
+      detection('truck', 602, 2, 100, 100, 0.85),
+      detection('car', 0, 0, 100, 100),
+    ],
+    ['car', 'truck'],
+  );
+  assert.equal(missing(r).length, 1);
+  assert.equal(missing(r)[0].prediction.label, 'car');
+});
+test('frames with mask or 3D annotations are skipped for missing detection', () => {
+  const data = scene([shape('a', 'car', 0, 0, 100, 100)]);
+  data.annotations.push({
+    id: 'm',
+    frame_id: 'f',
+    label: 'car',
+    geometry: { type: 'mask', encoding: 'rle', size: [10, 10], counts: [100] },
+  });
+  const r = comparePredictions(data, [detection('car', 500, 0, 100, 100)], ['car']);
+  assert.equal(missing(r).length, 0);
+  assert.equal(r.skipped.missing_unknown_geometry_frames, 1);
+});
+test('missing detection treats polygon extent as covered', () => {
+  const data = scene([shape('a', 'car', 0, 0, 10, 10)]);
+  data.annotations.push({
+    id: 'poly',
+    frame_id: 'f',
+    label: 'car',
+    geometry: {
+      type: 'polygon',
+      points: [
+        [400, 0],
+        [600, 0],
+        [600, 200],
+        [400, 200],
+      ],
+    },
+  });
+  const r = comparePredictions(data, [detection('car', 450, 50, 100, 100)], ['car']);
+  assert.equal(missing(r).length, 0);
 });

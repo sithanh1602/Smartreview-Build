@@ -169,6 +169,16 @@ test('SmartReview JSON upload analyzes annotations without confidence or track, 
   assert.equal((await reloaded.context(p.id)).dataset.cases.length, 1);
   assert.equal((await upload(p)).status, 409);
 });
+test('new imports pin the latest engine version and reload with the same fingerprint', async () => {
+  const p = await create();
+  const r = await upload(p);
+  assert.equal(r.status, 201, JSON.stringify(r.body));
+  assert.equal(r.body.metadata.engine_version, '2.1.0');
+  const { dataset } = await new ProjectService(pool, storage).context(p.id);
+  assert.equal(dataset.meta.engine_version, '2.1.0');
+  assert.equal(dataset.meta.dataset_id, r.body.metadata.dataset_id);
+  assert.ok('geometry.bbox_duplicate' in dataset.report.checks);
+});
 test('CVAT XML upload uses existing importer and risk engine', async () => {
   const p = await create('cvat-images');
   const r = await upload(p);
