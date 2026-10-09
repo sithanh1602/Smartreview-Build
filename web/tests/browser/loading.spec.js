@@ -8,7 +8,7 @@ for (const mode of ['login', 'register']) {
     await page.getByLabel('Tên đăng nhập').fill('loading_test');
     await page.getByLabel('Mật khẩu', { exact: true }).fill('loading-test-password');
     if (mode === 'register')
-      await page.getByLabel('Nhập lại mật khẩu').fill('loading-test-password');
+      await page.getByLabel('Xác nhận mật khẩu', { exact: true }).fill('loading-test-password');
     let release;
     const pending = new Promise((resolve) => {
       release = resolve;
@@ -21,7 +21,7 @@ for (const mode of ['login', 'register']) {
     await page.getByRole('button', { name: label, exact: true }).click();
     try {
       const busy = page.getByRole('button', {
-        name: mode === 'login' ? 'Đang đăng nhập…' : 'Đang đăng ký…',
+        name: mode === 'login' ? 'Đang đăng nhập…' : 'Đang tạo tài khoản…',
       });
       await expect(busy).toBeDisabled();
       await expect(busy.getByTestId('loading-spinner')).toBeVisible();

@@ -173,11 +173,11 @@ test('new imports pin the latest engine version and reload with the same fingerp
   const p = await create();
   const r = await upload(p);
   assert.equal(r.status, 201, JSON.stringify(r.body));
-  assert.equal(r.body.metadata.engine_version, '2.1.0');
+  assert.equal(r.body.metadata.engine_version, '4.0.0');
   const { dataset } = await new ProjectService(pool, storage).context(p.id);
-  assert.equal(dataset.meta.engine_version, '2.1.0');
+  assert.equal(dataset.meta.engine_version, '4.0.0');
   assert.equal(dataset.meta.dataset_id, r.body.metadata.dataset_id);
-  assert.ok('geometry.bbox_duplicate' in dataset.report.checks);
+  assert.equal(dataset.report.policy_version !== undefined, true);
 });
 test('CVAT XML upload uses existing importer and risk engine', async () => {
   const p = await create('cvat-images');

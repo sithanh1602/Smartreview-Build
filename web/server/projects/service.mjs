@@ -3,8 +3,9 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { importAnnotations, importers } from '../../core/importers/index.mjs';
+import { applyEnvRisk, parseImageTable } from '../../core/importers/signals.mjs';
 import { normalizeDataset } from '../../core/schema/normalize.mjs';
-import { ENGINE_VERSION, LATEST_ENGINE_VERSION } from '../../core/risk/engine.mjs';
+import { LEGACY_ENGINE_VERSION, LATEST_ENGINE_VERSION } from '../../core/risk/engine.mjs';
 import { loadDataset } from '../repository.mjs';
 import { ReviewStore } from '../reviews/store.mjs';
 import { ReviewError } from '../../shared/review.mjs';
@@ -144,12 +145,12 @@ export class ProjectService {
     if (!this.cache.has(id)) {
       const pending = (async () => {
         // The engine version is fixed at import time. Projects created before versioning
-        // have none stored and keep 2.0.0, so their fingerprint and scores never change.
+        // have none stored and keep the legacy 2.0.0 profile, so their fingerprint and scores never change.
         const stored = typeof row.metadata === 'string' ? JSON.parse(row.metadata) : row.metadata;
         const dataset = await loadDataset(row.dataset_path, {
           namespace: row.demo_key ? '' : id,
           apiPrefix: `/api/projects/${id}`,
-          engineVersion: stored?.engine_version || ENGINE_VERSION,
+          engineVersion: stored?.engine_version || LEGACY_ENGINE_VERSION,
         });
         dataset.meta.project_name = row.name;
         const reviews = new ReviewStore(this.pool, dataset);
@@ -197,6 +198,8 @@ export class ProjectService {
       let data;
       try {
         data = importAnnotations(row.format, text, { id, name: row.name });
+        if (uploaded.metadata)
+          applyEnvRisk(data, parseImageTable(await fs.readFile(uploaded.metadata, 'utf8')));
       } catch (e) {
         throw new ReviewError(422, e.message.slice(0, 1000));
       }

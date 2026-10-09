@@ -130,7 +130,7 @@ export function CaseQueue({
         {cases.length === 0 && (
           <div className="py-10 text-center">
             <p className="mb-3 text-sm text-muted">{hint('Không có case khớp bộ lọc.')}</p>
-            <button className="button" onClick={onReset}>
+            <button className="sr-button" onClick={onReset}>
               Xóa bộ lọc
             </button>
           </div>

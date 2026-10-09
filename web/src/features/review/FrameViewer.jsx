@@ -185,7 +185,7 @@ export function FrameViewer({
         >
           <button
             type="button"
-            className="button px-3"
+            className="sr-button px-3"
             aria-label="Thu nhỏ ảnh"
             disabled={scale <= 1 || failed || unavailable}
             onClick={() => setScale((v) => Math.max(1, v / 1.5))}
@@ -201,7 +201,7 @@ export function FrameViewer({
           </output>
           <button
             type="button"
-            className="button px-3"
+            className="sr-button px-3"
             aria-label="Phóng to ảnh"
             disabled={scale >= 8 || failed || unavailable}
             onClick={() => setScale((v) => Math.min(8, v * 1.5))}
@@ -210,7 +210,7 @@ export function FrameViewer({
           </button>
           <button
             type="button"
-            className="button text-xs"
+            className="sr-button text-xs"
             onClick={() => {
               setScale(1);
               setPan({ x: 0, y: 0 });

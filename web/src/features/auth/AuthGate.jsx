@@ -1,21 +1,15 @@
-import { Spinner } from '../../components/Spinner';
 import React from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
+import { AuthLoading } from './AuthLayout';
 import { homeFor, useAuth } from './AuthProvider';
 export function AuthGate({ role }) {
   const { user, loading, error, retry } = useAuth();
-  if (loading)
-    return (
-      <p role="status" className="p-8">
-        <Spinner />
-        Đang kiểm tra phiên đăng nhập…
-      </p>
-    );
+  if (loading) return <AuthLoading />;
   if (error)
     return (
       <div role="alert" className="p-8">
         {error}{' '}
-        <button className="button" onClick={retry}>
+        <button className="sr-button" onClick={retry}>
           Thử lại
         </button>
       </div>
@@ -34,7 +28,7 @@ export function AccountMenu() {
         {user?.username} · {user?.role === 'reviewer' ? 'Reviewer' : 'Annotator'}
       </span>
       <button
-        className="button"
+        className="sr-button"
         disabled={busy}
         onClick={async () => {
           setBusy(true);
@@ -47,7 +41,6 @@ export function AccountMenu() {
           }
         }}
       >
-        {busy && <Spinner />}
         {busy ? 'Đang đăng xuất…' : 'Đăng xuất'}
       </button>
       {error && (

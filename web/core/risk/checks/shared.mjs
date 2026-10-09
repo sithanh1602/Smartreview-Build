@@ -1,6 +1,25 @@
+import { POLICY, NORMAL_RATIO } from '../policy.mjs';
+import { iou } from '../ai-compare.mjs';
+
+export { iou };
 export const skip = (reason) => ({ status: 'skipped', reason });
 export const pass = () => ({ status: 'passed' });
-export const flag = (score, reason, evidence) => ({ status: 'flagged', score, reason, evidence });
+export const flag = (score, reason, evidence, error_type = null, suggested_label = null) => ({
+  status: 'flagged',
+  score,
+  reason,
+  evidence,
+  ...(error_type && { error_type }),
+  ...(suggested_label && { suggested_label }),
+});
+export const isLabel = (box) => box.state === 'draft' || box.state === 'manual';
+// Cut by the frame so far that at least about half of the object lies outside the image.
+export function cutByFrame(box, media) {
+  const [low, high] = NORMAL_RATIO[box.label] || [0.2, 5];
+  const side = box.x1 <= POLICY.edgePx || box.x2 >= media.width - POLICY.edgePx,
+    vertical = box.y1 <= POLICY.edgePx || box.y2 >= media.height - POLICY.edgePx;
+  return (side && box.ratio > 2 * high) || (vertical && box.ratio < low / 2);
+}
 export function temporalReady({ previous, current, next, frames }) {
   if (current.track_id === undefined) return 'missing_track_id';
   if (!previous || !next) return 'missing_neighbors';
@@ -10,4 +29,50 @@ export function temporalReady({ previous, current, next, frames }) {
   )
     return 'frame_gap_exceeds_3';
   return null;
+}
+// A lies inside B when nearly all of A's area belongs to B.
+export function inside(a, b) {
+  const overlap =
+    Math.max(0, Math.min(a.x2, b.x2) - Math.max(a.x1, b.x1)) *
+    Math.max(0, Math.min(a.y2, b.y2) - Math.max(a.y1, b.y1));
+  return overlap / (a.width * a.height) >= POLICY.containment;
+}
+// Of a pair drawn for one object the points go to the weaker box: lower score, then drawn later.
+// A box without score is human work and outranks any model box.
+export function weaker(box, peer) {
+  const a = box.confidence ?? Infinity,
+    b = peer.confidence ?? Infinity;
+  return a < b || (a === b && box.index > peer.index);
+}
+const UNAVAILABLE = {
+  unsupported: 'unsupported_geometry',
+  invalid: 'invalid_bbox',
+  ignored: 'below_minimum',
+  grey: 'grey_zone',
+};
+// Static rules judge labels only: boxes that are valid, large enough and not grey-zone.
+// `only` narrows a rule to model drafts or to human-drawn boxes.
+export function staticCheck({
+  id,
+  labels,
+  only,
+  relational = false,
+  family,
+  version = '1.0.0',
+  test,
+}) {
+  return {
+    id,
+    version,
+    relational,
+    family,
+    run(context) {
+      const { box } = context;
+      if (UNAVAILABLE[box.state]) return skip(UNAVAILABLE[box.state]);
+      if (labels && !labels.includes(box.label)) return skip('unsupported_label');
+      if (only === 'draft' && box.state !== 'draft') return skip('missing_confidence');
+      if (only === 'manual' && box.state !== 'manual') return skip('not_manual');
+      return test(context) || pass();
+    },
+  };
 }

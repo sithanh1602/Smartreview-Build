@@ -9,7 +9,7 @@ export const LIMITS = {
   total: 200 * 1024 * 1024,
   file: 20 * 1024 * 1024,
   annotation: 10 * 1024 * 1024,
-  files: 1001,
+  files: 1002,
 };
 export function safePath(name) {
   if (
@@ -68,7 +68,8 @@ export async function receiveUpload(req, directory, format) {
   }
   let failure,
     total = 0,
-    annotation;
+    annotation,
+    metadata;
   const media = new Map(),
     writes = [];
   const fail = (e) => {
@@ -85,13 +86,17 @@ export async function receiveUpload(req, directory, format) {
     try {
       const name = safePath(info.filename);
       const ext = path.extname(name).toLowerCase();
-      if (!['annotation', 'media'].includes(field))
+      if (!['annotation', 'media', 'metadata'].includes(field))
         throw new ReviewError(400, 'Unknown upload field.');
       if (field === 'annotation') {
         if (annotation) throw new ReviewError(400, 'Chỉ chọn một annotation file.');
         if (ext !== (format === 'cvat-images' ? '.xml' : '.json'))
           throw new ReviewError(400, 'Annotation extension không khớp format.');
         annotation = path.join(directory, 'annotations', 'source' + ext);
+      } else if (field === 'metadata') {
+        if (metadata) throw new ReviewError(400, 'Chỉ chọn một file metadata ảnh.');
+        if (ext !== '.csv') throw new ReviewError(400, 'Metadata ảnh phải là file CSV.');
+        metadata = path.join(directory, 'annotations', 'images.csv');
       } else {
         if (!['.png', '.jpg', '.jpeg', '.webp', '.gif'].includes(ext))
           throw new ReviewError(
@@ -101,13 +106,14 @@ export async function receiveUpload(req, directory, format) {
         if (media.has(name)) throw new ReviewError(400, 'Trùng media filename: ' + name);
         media.set(name, path.join(directory, 'media', name));
       }
-      const target = field === 'annotation' ? annotation : media.get(name);
+      const target =
+        field === 'annotation' ? annotation : field === 'metadata' ? metadata : media.get(name);
       stream.on('limit', () => fail(new ReviewError(413, 'Mỗi ảnh tối đa 20 MB.')));
       let bytes = 0;
       stream.on('data', (c) => {
         bytes += c.length;
-        if (field === 'annotation' && bytes > LIMITS.annotation)
-          fail(new ReviewError(413, 'Annotation tối đa 10 MB.'));
+        if (field !== 'media' && bytes > LIMITS.annotation)
+          fail(new ReviewError(413, 'Annotation và metadata tối đa 10 MB mỗi file.'));
       });
       writes.push(
         (async () => {
@@ -121,7 +127,7 @@ export async function receiveUpload(req, directory, format) {
     }
   });
   parser.on('filesLimit', () =>
-    fail(new ReviewError(413, 'Tối đa 1000 ảnh và một annotation file.')),
+    fail(new ReviewError(413, 'Tối đa 1000 ảnh, một annotation file và một metadata file.')),
   );
   parser.on('partsLimit', () => fail(new ReviewError(413, 'Quá nhiều upload parts.')));
   parser.on('fieldsLimit', () => fail(new ReviewError(400, 'Unexpected form field.')));
@@ -171,5 +177,5 @@ export async function receiveUpload(req, directory, format) {
       throw new ReviewError(422, 'Ảnh hỏng, ảnh động hoặc vượt 25 megapixels: ' + name);
     }
   }
-  return { annotation, media, dimensions };
+  return { annotation, media, dimensions, metadata };
 }

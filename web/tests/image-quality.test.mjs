@@ -7,7 +7,7 @@ import {
   checksFor,
   ENGINE_VERSION,
   LATEST_ENGINE_VERSION,
-} from '../core/risk/engine.mjs';
+} from '../core/risk_v1/engine.mjs';
 
 const xml = await fs.readFile(
   new URL('../fixtures/human/annotations.xml', import.meta.url),

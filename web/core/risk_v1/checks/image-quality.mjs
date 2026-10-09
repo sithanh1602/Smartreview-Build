@@ -1,6 +1,6 @@
 // Single-image checks: they need neither track IDs nor confidence, so they also cover
 // plain image datasets (CVAT images, COCO). Introduced with engine profile 2.1.0.
-import { iou } from '../ai-compare.mjs';
+import { iou } from '../../risk/ai-compare.mjs';
 import { skip, pass, flag } from './shared.mjs';
 
 export const DUPLICATE_IOU = 0.85;

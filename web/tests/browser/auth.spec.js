@@ -60,13 +60,13 @@ test('register from login, confirm password, then sign in as annotator', async (
     await expect(page).toHaveURL(/\/register$/);
     await page.getByLabel('Tên đăng nhập').fill(username);
     await page.getByLabel('Mật khẩu', { exact: true }).fill(password);
-    await page.getByLabel('Nhập lại mật khẩu', { exact: true }).fill(password + 'x');
+    await page.getByLabel('Xác nhận mật khẩu', { exact: true }).fill(password + 'x');
     await page.getByRole('button', { name: 'Đăng ký', exact: true }).click();
-    await expect(page.getByRole('alert')).toHaveText('Mật khẩu nhập lại không khớp.');
-    await page.getByLabel('Nhập lại mật khẩu', { exact: true }).fill(password);
+    await expect(page.getByText('Mật khẩu xác nhận không khớp.')).toBeVisible();
+    await page.getByLabel('Xác nhận mật khẩu', { exact: true }).fill(password);
     await page.getByRole('button', { name: 'Đăng ký', exact: true }).click();
     await expect(page).toHaveURL(/\/login$/);
-    await expect(page.getByRole('status')).toContainText('Đăng ký thành công');
+    await expect(page.getByText('Đã tạo tài khoản')).toBeVisible();
     await expect(page.getByLabel('Tên đăng nhập')).toHaveValue(username);
     await page.getByLabel('Mật khẩu', { exact: true }).fill(password);
     await page.getByRole('button', { name: 'Đăng nhập', exact: true }).click();

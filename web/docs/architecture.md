@@ -63,7 +63,7 @@ Engine tạo lịch sử theo `(media_id, track_id)` và sort frame index. Tempo
 | `geometry.bbox_aspect`         | Ảnh đơn (profile 2.1.0+)   | Tỷ lệ cạnh bất thường (tỷ lệ dài/rộng ≥ 20:1)                         | 25      |
 | `geometry.bbox_size_outlier`   | Ảnh đơn (profile 2.1.0+)   | Diện tích lệch bất thường theo phân phối lớp (z ≥ 4, n ≥ 20 mẫu)      | 30      |
 
-Mỗi check có `id`, `version`, `run(context)` và trả `passed`, `flagged`, hoặc `skipped` kèm reason. Không catch rồi giấu lỗi lập trình; thiếu tín hiệu được xử lý explicit trong check. Tổng điểm = min(100, tổng điểm flag). Suspicious queue mặc định score ≥ 30; High ≥ 70, Medium 40–69, Low < 40. Chế độ All có cả score 0; score 0 không chứng minh annotation đúng vì có thể nhiều check đã skip. Profile 2.0.0 (mặc định cho các dự án cũ) giữ nguyên 5 check gốc; profile 2.1.0 bổ sung 4 check ảnh đơn cho project mới.
+Mỗi check có `id`, `version`, `run(context)` và trả `passed`, `flagged`, hoặc `skipped` kèm reason. Không catch rồi giấu lỗi lập trình; thiếu tín hiệu được xử lý explicit trong check. Tổng điểm = min(100, tổng điểm flag). Suspicious queue mặc định score ≥ 30; High ≥ 70, Medium 40–69, Low < 40. Chế độ All có cả score 0; score 0 không chứng minh annotation đúng vì có thể nhiều check đã skip. Profile 2.0.0 (mặc định cho các dự án cũ) giữ nguyên 5 check gốc; profile 2.1.0 bổ sung 4 check ảnh đơn. Cả hai profile 2.x nằm trong `core/risk_v1` và chỉ chạy cho project đã import bằng chúng; project mới dùng engine 4.0.0 (`core/risk`).
 
 Risk output version 1.0.0, engine version 2.0.0 / 2.1.0:
 

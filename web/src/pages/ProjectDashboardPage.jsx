@@ -38,7 +38,7 @@ export function ProjectDashboardPage() {
     return (
       <div role="alert">
         {error}
-        <button className="button ml-4" onClick={retry}>
+        <button className="sr-button ml-4" onClick={retry}>
           Thử lại
         </button>
       </div>
@@ -74,7 +74,7 @@ export function ProjectDashboardPage() {
       ) : failure ? (
         <p role="alert">
           {failure}
-          <button className="button ml-4" onClick={retry}>
+          <button className="sr-button ml-4" onClick={retry}>
             Thử lại
           </button>
         </p>
@@ -132,12 +132,12 @@ export function ProjectDashboardPage() {
             ))}
           </div>
           <Link
-            className="button mt-7 border-accent/40 text-accent"
+            className="sr-button mt-7 border-accent/40 text-accent"
             to={`/projects/${projectId}/review`}
           >
             {hint('Start Review →')}
           </Link>
-          <Link className="button ml-3 mt-7" to={`/projects/${projectId}/frames`}>
+          <Link className="sr-button ml-3 mt-7" to={`/projects/${projectId}/frames`}>
             Kiểm tra toàn bộ ảnh →
           </Link>
           {!dashboard.dataset.total_cases && (
