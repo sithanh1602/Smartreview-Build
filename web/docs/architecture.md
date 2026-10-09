@@ -39,7 +39,7 @@ BBox trong ví dụ vượt cạnh phải ảnh; vẫn normalize được để 
 
 ## Import boundary
 
-**Importer** hiểu format nguồn và trả schema chuẩn; **normalizer** validate cấu trúc và liên kết; **risk engine** chỉ nhận schema. `server/repository.mjs` cũng chỉ đọc dataset chuẩn. Không có import YOLO, ByteTrack, cv2 trong lõi/server/frontend.
+**Importer** hiểu format nguồn và trả schema chuẩn; **normalizer** validate cấu trúc và liên kết; **risk engine** chỉ nhận schema. `server/repository.ts` cũng chỉ đọc dataset chuẩn. Không có import YOLO, ByteTrack, cv2 trong lõi/server/frontend.
 
 Adapter demo đọc tracks.json, giữ ID `<track>-<frame>` để URL case cũ tiếp tục dùng. Script chuẩn bị demo dùng OpenCV lấy metadata và trích ảnh theo danh sách frame engine yêu cầu. Risk Engine mới không đọc `risk_cases_v1.json`; file đó chỉ được đọc trong test compatibility.
 

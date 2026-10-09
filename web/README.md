@@ -1,6 +1,6 @@
 # SmartReview — Annotation Quality Assurance
 
-React + Vite + Tailwind + React Router, API Node.js. Lõi kiểm tra dữ liệu annotation chuẩn; không cần YOLO, ByteTrack, model hoặc Python để review dataset ảnh. YOLO/ByteTrack là nguồn demo tùy chọn.
+TypeScript + React + Vite + Tailwind + React Router, API Node.js. Lõi kiểm tra dữ liệu annotation chuẩn; không cần YOLO, ByteTrack, model hoặc Python để review dataset ảnh. YOLO/ByteTrack là nguồn demo tùy chọn.
 
 ```text
 Annotated data / optional model output
@@ -135,15 +135,15 @@ Giữ viewer, bbox/polygon/polyline, temporal context, N/A khi thiếu signal, f
 | Thư mục/file                                     | Trách nhiệm                                                 |
 | ------------------------------------------------ | ----------------------------------------------------------- |
 | `core/schema/annotation-v1.schema.json`          | JSON Schema version 1.0.0                                   |
-| `core/schema/normalize.mjs`                      | Validate, kiểm tra ID/reference/track, bỏ optional null     |
-| `core/importers/demo.mjs`                        | Adapter duy nhất hiểu output tracks.json hiện tại           |
-| `core/importers/cvat-images.mjs`                 | Import CVAT image XML 1.1                                   |
-| `core/importers/index.mjs`                       | Registry importer, thêm format mới tại đây                  |
+| `core/schema/normalize.ts`                       | Validate, kiểm tra ID/reference/track, bỏ optional null     |
+| `core/importers/demo.ts`                         | Adapter duy nhất hiểu output tracks.json hiện tại           |
+| `core/importers/cvat-images.ts`                  | Import CVAT image XML 1.1                                   |
+| `core/importers/index.ts`                        | Registry importer, thêm format mới tại đây                  |
 | `core/risk/checks/`                              | Các check độc lập                                           |
-| `core/risk/engine.mjs`                           | Context theo media + track, tổng điểm và evidence           |
-| `server/repository.mjs`                          | Đọc **schema chuẩn**, chạy engine và project dữ liệu cho UI |
+| `core/risk/engine.ts`                            | Context theo media + track, tổng điểm và evidence           |
+| `server/repository.ts`                           | Đọc **schema chuẩn**, chạy engine và project dữ liệu cho UI |
 | `src/app/`, `src/pages/`, `src/features/review/` | Router/state, màn hình và component review                  |
-| `scripts/import.mjs`, `scripts/prepare.mjs`      | CLI import chuẩn/CVAT và chuẩn bị demo tùy chọn             |
+| `scripts/import.ts`, `scripts/prepare.ts`        | CLI import chuẩn/CVAT và chuẩn bị demo tùy chọn             |
 | `fixtures/human/`, `tests/`                      | Fixture và kiểm thử độc lập model                           |
 
 Chi tiết schema, check IDs và hợp đồng đầu ra: [docs/architecture.md](docs/architecture.md).
@@ -176,6 +176,16 @@ npm run format:check
 npx playwright install chromium
 npm run test:ui                        # browser tests; ports 3110 + 3111 và DB test riêng
 ```
+
+### TypeScript
+
+Toàn bộ mã nguồn là `.ts`/`.tsx`. Giao diện được Vite biên dịch; server, script và test chạy thẳng file `.ts` bằng Node (cần Node ≥ 22.18, không có bước build riêng cho backend). Vì vậy import nội bộ phải ghi rõ đuôi `.ts`, type-only import dùng `import type`, và không dùng `enum`/`namespace`.
+
+```bash
+npm run typecheck   # tsc cho mã ứng dụng (strict) và cho tests/
+```
+
+Kiểu dữ liệu dùng chung: `core/schema/types.ts` (dataset), `core/risk/types.ts` (check, báo cáo), `server/types.ts` (request, MySQL), `src/types.ts` (dữ liệu API cho giao diện).
 
 Trên Ubuntu 26.04, bản Playwright hiện tại cần fallback đã được kiểm tra:
 

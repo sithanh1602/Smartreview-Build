@@ -7,8 +7,8 @@ services:
     environment:
       MYSQL_DATABASE: smartreview
       MYSQL_USER: smartreview_app
-      MYSQL_PASSWORD: ${DOCKER_DB_PASSWORD:?Run node docker/setup.mjs first}
-      MYSQL_ROOT_PASSWORD: ${DOCKER_DB_ROOT_PASSWORD:?Run node docker/setup.mjs first}
+      MYSQL_PASSWORD: ${DOCKER_DB_PASSWORD:?Run node docker/setup.ts first}
+      MYSQL_ROOT_PASSWORD: ${DOCKER_DB_ROOT_PASSWORD:?Run node docker/setup.ts first}
     volumes:
       - mysql_data:/var/lib/mysql
     healthcheck:
@@ -36,7 +36,7 @@ services:
       DB_PORT: 3306
       DB_NAME: smartreview
       DB_USER: smartreview_app
-      DB_PASSWORD: ${DOCKER_DB_PASSWORD:?Run node docker/setup.mjs first}
+      DB_PASSWORD: ${DOCKER_DB_PASSWORD:?Run node docker/setup.ts first}
       SMARTREVIEW_STORAGE: /app/web/storage
     ports:
       - "127.0.0.1:${DOCKER_HTTP_PORT:-3100}:3100"

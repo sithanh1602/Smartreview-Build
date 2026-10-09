@@ -4,23 +4,24 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "prepare:data": "node scripts/prepare.mjs",
-    "dev": "node scripts/dev.mjs",
+    "prepare:data": "node scripts/prepare.ts",
+    "dev": "node scripts/dev.ts",
     "dev:ui": "vite --host 127.0.0.1",
-    "dev:api": "node --watch server/index.mjs",
+    "dev:api": "node --watch server/index.ts",
     "build": "vite build",
-    "start": "node server/index.mjs",
-    "test": "node --test tests/*.test.mjs",
+    "typecheck": "tsc && tsc -p tests",
+    "start": "node server/index.ts",
+    "test": "node --test tests/*.test.ts",
     "test:ui": "playwright test",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "import": "node scripts/import.mjs",
-    "import:demo": "node scripts/prepare.mjs",
-    "test:core": "node --test tests/core.test.mjs",
-    "db:migrate": "node scripts/migrate.mjs",
-    "user:create": "node scripts/user.mjs",
-    "user:update": "node scripts/user.mjs --update",
-    "db:prepare": "node scripts/db-prepare.mjs"
+    "import": "node scripts/import.ts",
+    "import:demo": "node scripts/prepare.ts",
+    "test:core": "node --test tests/core.test.ts",
+    "db:migrate": "node scripts/migrate.ts",
+    "user:create": "node scripts/user.ts",
+    "user:update": "node scripts/user.ts --update",
+    "db:prepare": "node scripts/db-prepare.ts"
   },
   "dependencies": {
     "@heroui/react": "^3.2.6",
@@ -37,12 +38,17 @@
   "devDependencies": {
     "@playwright/test": "1.56.1",
     "@tailwindcss/vite": "4.1.16",
+    "@types/busboy": "^1.5.4",
+    "@types/node": "^26.6.4",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^5.1.0",
     "prettier": "^3.6.2",
     "tailwindcss": "4.1.16",
+    "typescript": "^7.0.2",
     "vite": "7.1.12"
   },
   "engines": {
-    "node": ">=22.12"
+    "node": ">=22.18"
   }
 }
