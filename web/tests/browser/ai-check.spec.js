@@ -74,6 +74,46 @@ test('AI start, poll, evidence, filter, review link and mobile layout', async ({
     true,
   );
 });
+test('missing-object finding shows frame context and links to whole-frame review', async ({
+  page,
+}) => {
+  const missing = {
+    id: 'missing:f:1',
+    annotation_id: null,
+    frame_id: 'f',
+    check_id: 'ai.missing_annotation',
+    score: 76,
+    severity: 'high',
+    reason: 'AI thấy “truck” (90%) nhưng chưa có annotation tại vị trí này.',
+    annotation: null,
+    prediction: { label: 'truck', geometry, confidence: 0.9 },
+    iou: null,
+    frame_annotations: [{ id: 'a', annotation_id: 'a', label: 'car', geometry }],
+    observation: {
+      id: 'missing:f:1',
+      annotation_id: null,
+      frame_id: 0,
+      width: 160,
+      height: 100,
+      class_name: 'truck',
+      media_name: 'street.png',
+      geometry,
+      image_url: null,
+    },
+  };
+  await page.route('**/api/projects/test/ai-check', (route) =>
+    route.fulfill({ json: { ...ready, findings: [missing] } }),
+  );
+  await page.goto('/projects/test/ai-check');
+  await expect(page.getByText(missing.reason).first()).toBeVisible();
+  await expect(page.getByText('Chưa có nhãn · AI: truck')).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Mở ảnh để đánh dấu vùng thiếu →' })).toHaveAttribute(
+    'href',
+    '/projects/test/frames/f',
+  );
+  await page.getByRole('combobox').selectOption('ai.missing_annotation');
+  await expect(page.getByText('1 gợi ý cần kiểm tra')).toBeVisible();
+});
 test('AI unavailable and failed requests offer clear recovery', async ({ page }) => {
   await page.route('**/api/projects/test/ai-check', (route) =>
     route.fulfill({

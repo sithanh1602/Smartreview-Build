@@ -11,7 +11,7 @@ Mở Projects → dự án READY → **Kiểm tra toàn bộ ảnh**.
 
 Đã kiểm tra ảnh không có nghĩa mọi annotation đúng. Ảnh có lỗi thiếu vẫn có thể được đánh dấu đã xem xong. Tiến độ ảnh độc lập tiến độ đánh giá từng annotation.
 Ảnh chưa có file cache (ví dụ demo video) không thể được xác nhận đã kiểm tra.
-Không có tự phát hiện đối tượng thiếu; người kiểm tra phải xem ảnh và đánh dấu.
+Nếu dự án đã chạy AI Check, các đối tượng AI nghi ngờ bị thiếu sẽ hiển thị khung tím chấm kèm nút "Thêm thành vùng thiếu" 1-click để hỗ trợ người kiểm tra đánh dấu nhanh hơn. Người kiểm tra vẫn toàn quyền quyết định và bấm Lưu.
 
 ## Chạy
 

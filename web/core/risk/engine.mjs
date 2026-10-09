@@ -3,15 +3,31 @@ import temporalClass from './checks/temporal-class.mjs';
 import confidence from './checks/confidence.mjs';
 import bboxValidity from './checks/bbox-validity.mjs';
 import { areaCheck, positionCheck } from './checks/bbox-temporal.mjs';
+import { imageChecks, labelSizeStats } from './checks/image-quality.mjs';
 
 export const checks = [temporalClass, confidence, bboxValidity, areaCheck, positionCheck];
 export const severity = (score) => (score >= 70 ? 'high' : score >= 40 ? 'medium' : 'low');
+// 2.0.0 is the default so existing projects keep their scores and dataset fingerprints.
+// New imports use LATEST_ENGINE_VERSION and the version is stored with the project.
 export const ENGINE_VERSION = '2.0.0';
+export const LATEST_ENGINE_VERSION = '2.1.0';
+const PROFILES = { [ENGINE_VERSION]: checks, [LATEST_ENGINE_VERSION]: [...checks, ...imageChecks] };
+export function checksFor(version = ENGINE_VERSION) {
+  if (!Object.hasOwn(PROFILES, version)) throw new Error(`Unknown engine version ${version}`);
+  return PROFILES[version];
+}
 
-export function analyzeDataset(input, { minScore = 30 } = {}) {
+export function analyzeDataset(input, { minScore = 30, engineVersion = ENGINE_VERSION } = {}) {
+  const active = checksFor(engineVersion);
   const data = normalizeDataset(input);
   const frames = new Map(data.frames.map((f) => [f.id, f]));
   const media = new Map(data.media.map((m) => [m.id, m]));
+  const siblingsByFrame = new Map();
+  for (const a of data.annotations) {
+    if (!siblingsByFrame.has(a.frame_id)) siblingsByFrame.set(a.frame_id, []);
+    siblingsByFrame.get(a.frame_id).push(a);
+  }
+  const stats = active === checks ? undefined : labelSizeStats(data.annotations, media, frames);
   const histories = new Map(),
     neighbors = new Map();
   for (const a of data.annotations) {
@@ -27,7 +43,7 @@ export function analyzeDataset(input, { minScore = 30 } = {}) {
     );
   }
   const summary = Object.fromEntries(
-    checks.map((c) => [
+    active.map((c) => [
       c.id,
       { version: c.version, passed: 0, flagged: 0, skipped: 0, skip_reasons: {} },
     ]),
@@ -35,8 +51,15 @@ export function analyzeDataset(input, { minScore = 30 } = {}) {
   const results = data.annotations.map((current) => {
     const frame = frames.get(current.frame_id),
       m = media.get(frame.media_id);
-    const context = { current, ...neighbors.get(current.id), frames, media: m };
-    const evaluations = checks.map((check) => {
+    const context = {
+      current,
+      ...neighbors.get(current.id),
+      frames,
+      media: m,
+      siblings: siblingsByFrame.get(current.frame_id),
+      stats,
+    };
+    const evaluations = active.map((check) => {
       const result = check.run(context);
       const stat = summary[check.id];
       stat[result.status]++;
@@ -71,7 +94,7 @@ export function analyzeDataset(input, { minScore = 30 } = {}) {
   });
   return {
     schema_version: '1.0.0',
-    engine_version: ENGINE_VERSION,
+    engine_version: engineVersion,
     dataset_id: data.dataset.id,
     min_score: minScore,
     checks: summary,

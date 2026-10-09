@@ -171,6 +171,28 @@ export class AiService {
         result.labels,
       );
       const observations = new Map(dataset.allCases.map((a) => [a.id, a]));
+      const frameById = new Map(dataset.normalized.frames.map((f) => [f.id, f]));
+      const mediaById = new Map((dataset.normalized.media || []).map((m) => [m.id, m]));
+      // A missing-object finding has no annotation, so describe the frame it belongs to.
+      const frameObservation = (finding) => {
+        const frame = frameById.get(finding.frame_id),
+          m = mediaById.get(frame?.media_id);
+        return {
+          id: finding.id,
+          annotation_id: null,
+          frame_ref: finding.frame_id,
+          frame_id: frame?.index,
+          media_id: m?.id,
+          media_name: m?.name,
+          width: m?.width,
+          height: m?.height,
+          class_name: finding.prediction.label,
+          geometry: finding.prediction.geometry,
+          image_url: dataset.assets.has(finding.frame_id)
+            ? `/api/projects/${id}/assets/${encodeURIComponent(finding.frame_id)}?dataset=${dataset.meta.dataset_id}`
+            : null,
+        };
+      };
       Object.assign(state, {
         status: 'READY',
         finished_at: new Date().toISOString(),
@@ -178,7 +200,10 @@ export class AiService {
         ...comparison,
         findings: comparison.findings.map((f) => ({
           ...f,
-          observation: observations.get(f.annotation_id),
+          observation:
+            f.check_id === 'ai.missing_annotation'
+              ? frameObservation(f)
+              : observations.get(f.annotation_id),
         })),
       });
       await this.persist(id, state);
