@@ -5,6 +5,7 @@ import { randomUUID } from 'node:crypto';
 import { importAnnotations, importers } from '../../core/importers/index.mjs';
 import { applyEnvRisk, parseImageTable } from '../../core/importers/signals.mjs';
 import { normalizeDataset } from '../../core/schema/normalize.mjs';
+import { LEGACY_ENGINE_VERSION, LATEST_ENGINE_VERSION } from '../../core/risk/engine.mjs';
 import { loadDataset } from '../repository.mjs';
 import { ReviewStore } from '../reviews/store.mjs';
 import { ReviewError } from '../../shared/review.mjs';
@@ -143,9 +144,13 @@ export class ProjectService {
       throw new ReviewError(409, 'Project chưa READY. Xem trạng thái import.');
     if (!this.cache.has(id)) {
       const pending = (async () => {
+        // The engine version is fixed at import time. Projects created before versioning
+        // have none stored and keep the legacy 2.0.0 profile, so their fingerprint and scores never change.
+        const stored = typeof row.metadata === 'string' ? JSON.parse(row.metadata) : row.metadata;
         const dataset = await loadDataset(row.dataset_path, {
           namespace: row.demo_key ? '' : id,
           apiPrefix: `/api/projects/${id}`,
+          engineVersion: stored?.engine_version || LEGACY_ENGINE_VERSION,
         });
         dataset.meta.project_name = row.name;
         const reviews = new ReviewStore(this.pool, dataset);
@@ -245,6 +250,7 @@ export class ProjectService {
       const dataset = await loadDataset(datasetPath, {
         namespace: id,
         apiPrefix: `/api/projects/${id}`,
+        engineVersion: LATEST_ENGINE_VERSION,
       });
       dataset.meta.project_name = row.name;
       await fs.mkdir(path.join(directory, 'risk'));

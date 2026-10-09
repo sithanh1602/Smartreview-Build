@@ -3,6 +3,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { request } from '../../lib/api';
 import { statusLabel } from './ProjectLayout';
+import { Spinner } from '../../components/Spinner';
 export function ImportForm({ project, onImported }) {
   const navigate = useNavigate();
   const [name, setName] = useState(project?.name || ''),
@@ -14,6 +15,7 @@ export function ImportForm({ project, onImported }) {
     [busy, setBusy] = useState(false),
     [message, setMessage] = useState(''),
     [error, setError] = useState('');
+  const [uploadProgress, setUploadProgress] = useState(null);
   const idRef = useRef(project?.id),
     mounted = useRef(true),
     xhrRef = useRef(null);
@@ -50,6 +52,7 @@ export function ImportForm({ project, onImported }) {
       return;
     }
     setBusy(true);
+    setUploadProgress(null);
     setMessage('Đang tạo project…');
     let timer;
     try {
@@ -82,7 +85,10 @@ export function ImportForm({ project, onImported }) {
       const poll = async () => {
         try {
           const p = await request(`/projects/${id}/import-status`);
-          if (mounted.current && p.status !== 'UPLOADING') setMessage(statusLabel[p.status]);
+          if (mounted.current && ['VALIDATING', 'NORMALIZING', 'ANALYZING'].includes(p.status)) {
+            setUploadProgress(100);
+            setMessage(statusLabel[p.status]);
+          }
         } catch {
           /* Upload response reports authoritative failure. */
         }
@@ -92,13 +98,19 @@ export function ImportForm({ project, onImported }) {
         const xhr = new XMLHttpRequest();
         xhrRef.current = xhr;
         xhr.open('POST', `/api/projects/${id}/import`);
+        setMessage('Đang tải dữ liệu lên…');
         xhr.upload.onprogress = (e) => {
-          if (mounted.current)
+          if (mounted.current) {
+            const percent = e.lengthComputable
+              ? Math.min(100, Math.round((e.loaded / e.total) * 100))
+              : null;
+            setUploadProgress(percent);
             setMessage(
-              e.lengthComputable
-                ? `Uploading… ${Math.round((e.loaded / e.total) * 100)}%`
-                : 'Uploading…',
+              percent === 100
+                ? 'Đã tải lên. Đang kiểm tra và phân tích dataset…'
+                : 'Đang tải dữ liệu lên…',
             );
+          }
         };
         xhr.onerror = () =>
           reject(new Error('Kết nối bị ngắt. Mở project để xem trạng thái trước khi thử lại.'));
@@ -127,7 +139,7 @@ export function ImportForm({ project, onImported }) {
     }
   }
   return (
-    <form onSubmit={submit} className="panel max-w-3xl p-6 lg:p-8">
+    <form onSubmit={submit} aria-busy={busy} className="panel max-w-3xl p-6 lg:p-8">
       <fieldset disabled={busy} className="space-y-6">
         {!project && (
           <>
@@ -236,13 +248,35 @@ export function ImportForm({ project, onImported }) {
           {hint(' ảnh · tối đa 1000 ảnh / 200 MB tổng; 20 MB mỗi ảnh; annotation 10 MB.')}
         </p>
         <button className="sr-button border-accent/40 text-accent" type="submit">
+          {busy && <Spinner />}
           {busy ? 'Đang xử lý…' : project ? hint('Import Dataset') : hint('Create & Import')}
         </button>
       </fieldset>
       {busy && (
-        <p role="status" className="mt-5 text-sm text-accent">
-          {message} Giữ trang mở đến khi hoàn tất.
-        </p>
+        <div className="mt-5 space-y-3 text-sm text-accent">
+          <p role="status">
+            <Spinner />
+            {message}
+          </p>
+          {uploadProgress !== null && (
+            <div>
+              <div className="mb-1 flex justify-between text-xs">
+                <span>Dữ liệu đã tải lên</span>
+                <span>{uploadProgress}%</span>
+              </div>
+              <progress
+                aria-label="Tiến độ tải dữ liệu lên"
+                className="h-2 w-full accent-teal-600"
+                value={uploadProgress}
+                max={100}
+              />
+            </div>
+          )}
+          <p className="text-xs text-muted">
+            Giữ trang mở đến khi hoàn tất. Sau khi tải lên, hệ thống cần thêm thời gian để kiểm tra
+            và phân tích.
+          </p>
+        </div>
       )}
       {error && (
         <div role="alert" className="mt-5 text-sm text-rose-700">

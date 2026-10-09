@@ -42,9 +42,10 @@ try {
     console.error(e.message);
     process.exit(1);
   });
-  app.listen(Number(process.env.PORT || 3100), '127.0.0.1', () =>
+  const host = process.env.HOST || '127.0.0.1';
+  app.listen(Number(process.env.PORT || 3100), host, () =>
     console.log(
-      `SmartReview: http://127.0.0.1:${process.env.PORT || 3100} · ${dataset?.cases.length ?? 0} demo cases · Projects ready`,
+      `SmartReview: http://${host}:${process.env.PORT || 3100} · ${dataset?.cases.length ?? 0} demo cases · Projects ready`,
     ),
   );
   for (const signal of ['SIGINT', 'SIGTERM'])

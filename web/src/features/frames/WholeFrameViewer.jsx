@@ -1,3 +1,4 @@
+import { Spinner } from '../../components/Spinner';
 import { SessionImage } from '../auth/SessionImage';
 import React, { useRef, useState } from 'react';
 export function WholeFrameViewer({
@@ -9,6 +10,7 @@ export function WholeFrameViewer({
   onSelect,
   selected,
   onReady,
+  suggestions = [],
 }) {
   const svg = useRef(null),
     anchor = useRef(null);
@@ -121,7 +123,10 @@ export function WholeFrameViewer({
         >
           {!loaded && (
             <p role="status" className="absolute inset-0 grid place-items-center">
-              Đang tải ảnh…
+              <span>
+                <Spinner />
+                Đang tải ảnh…
+              </span>
             </p>
           )}
           <svg
@@ -169,12 +174,18 @@ export function WholeFrameViewer({
                 ),
               )}
             </g>
+            <g strokeDasharray="2 4">
+              {suggestions.map((s) =>
+                shape(s.prediction.geometry, '#7c3aed', s.id, `AI: ${s.prediction.label}`),
+              )}
+            </g>
             {draft && shape(draft, '#be123c', 'draft', 'Vùng đang vẽ')}
           </svg>
         </div>
       )}
       <p className="mt-3 text-xs text-muted">
-        Khung xanh liền: annotation gốc · Khung đỏ nét đứt: vùng thiếu do bạn đánh dấu.
+        Khung xanh liền: annotation gốc · Khung đỏ nét đứt: vùng thiếu do bạn đánh dấu
+        {suggestions.length > 0 && ' · Khung tím chấm: AI gợi ý có thể thiếu nhãn'}.
       </p>
     </>
   );

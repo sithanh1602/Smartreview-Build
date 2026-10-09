@@ -1,3 +1,4 @@
+import { Spinner } from '../components/Spinner';
 import React, { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { request } from '../lib/api';
@@ -71,6 +72,7 @@ function AiWorkspace({ projectId }) {
           disabled={!report?.available || running || busy}
           onClick={start}
         >
+          {(running || busy) && <Spinner />}
           {running
             ? 'Đang kiểm tra…'
             : busy
@@ -88,7 +90,12 @@ function AiWorkspace({ projectId }) {
           </button>
         </div>
       )}
-      {!report && !error && <p role="status">Đang tải trạng thái AI…</p>}
+      {!report && !error && (
+        <p role="status">
+          <Spinner />
+          Đang tải trạng thái AI…
+        </p>
+      )}
       {report && !report.available && (
         <p className="panel p-5">
           Chưa tìm thấy Python hoặc model cục bộ. Xem hướng dẫn cấu hình trong docs/ai-check.md.
@@ -98,14 +105,16 @@ function AiWorkspace({ projectId }) {
         <section className="panel p-6">
           <h2 className="font-semibold">Tìm bất đồng về loại đối tượng và vị trí khung bao</h2>
           <p className="mt-3 text-sm">
-            Ảnh được xử lý trên máy này. Chưa kiểm tra đối tượng bị bỏ sót; nhãn không thuộc bộ nhãn
-            của model sẽ được bỏ qua. Nhãn gốc và kết quả kiểm tra bằng quy tắc được giữ nguyên.
+            Ảnh được xử lý trên máy này. Ngoài bất đồng nhãn/khung, AI chỉ ra đối tượng có thể chưa
+            được gán nhãn (chỉ với các lớp đã xuất hiện trong dataset). Nhãn không thuộc bộ nhãn của
+            model sẽ được bỏ qua. Nhãn gốc và kết quả kiểm tra bằng quy tắc được giữ nguyên.
           </p>
         </section>
       )}
       {running && (
         <section className="panel p-6" role="status">
           <p>
+            <Spinner />
             Đã xử lý {report.completed}/{report.total} ảnh. Bạn có thể rời trang rồi quay lại.
           </p>
           <progress className="mt-4 w-full" value={report.completed} max={report.total} />
@@ -137,6 +146,8 @@ function AiWorkspace({ projectId }) {
               {report.skipped.unsupported_geometry} hình học chưa hỗ trợ;{' '}
               {report.skipped.no_matching_prediction} nhãn không ghép được; {report.skipped_frames}{' '}
               frame (khung hình) không có ảnh phù hợp.
+              {report.skipped.missing_unknown_geometry_frames > 0 &&
+                ` ${report.skipped.missing_unknown_geometry_frames} ảnh có mask/3D nên không dò thiếu nhãn.`}
             </p>
           </section>
           <label className="mb-5 grid gap-2 text-sm">
@@ -152,6 +163,7 @@ function AiWorkspace({ projectId }) {
               <option value="all">Tất cả</option>
               <option value="ai.class_disagreement">Bất đồng nhãn</option>
               <option value="ai.bbox_disagreement">Bất đồng khung bao</option>
+              <option value="ai.missing_annotation">Có thể thiếu nhãn</option>
             </select>
           </label>
           {!findings.length ? (
@@ -173,9 +185,15 @@ function AiWorkspace({ projectId }) {
                     </strong>
                     <p className="mt-2 break-all text-sm">{f.observation.media_name}</p>
                     <p className="mt-2 text-xs">
-                      {f.annotation.label} → AI: {f.prediction.label}
+                      {f.annotation
+                        ? `${f.annotation.label} → AI: ${f.prediction.label}`
+                        : `Chưa có nhãn · AI: ${f.prediction.label}`}
                     </p>
-                    <p className="mt-1 text-xs text-muted">Object (Đối tượng): {f.annotation_id}</p>
+                    <p className="mt-1 text-xs text-muted">
+                      {f.annotation_id
+                        ? `Object (Đối tượng): ${f.annotation_id}`
+                        : `Frame (Khung hình): ${f.observation.frame_id}`}
+                    </p>
                   </button>
                 ))}
               </aside>
@@ -202,8 +220,12 @@ function AiWorkspace({ projectId }) {
                   </div>
                 </div>
                 <p className="mb-3 text-sm">
-                  <span className="text-emerald-700">Khung liền: annotation hiện tại</span> ·{' '}
-                  <span className="text-blue-700">Khung xanh nét đứt: AI đề xuất</span>
+                  <span className="text-emerald-700">
+                    {current.annotation
+                      ? 'Khung liền: annotation hiện tại'
+                      : 'Khung xám: annotation đang có trong ảnh'}
+                  </span>{' '}
+                  · <span className="text-blue-700">Khung xanh nét đứt: AI đề xuất</span>
                 </p>
                 <label className="mb-3 flex items-center gap-2 text-sm">
                   <input
@@ -218,27 +240,44 @@ function AiWorkspace({ projectId }) {
                   observation={current.observation}
                   maxHeight="65vh"
                   proposal={showAi ? current.prediction : undefined}
+                  {...(current.annotation
+                    ? {}
+                    : {
+                        annotations: current.frame_annotations || [],
+                        activeAnnotationId: null,
+                      })}
                 />
                 <h3 className="mt-5 font-semibold">Why Flagged (Lý do cảnh báo)</h3>
                 <p className="mt-2">{current.reason}</p>
                 <p className="mt-2 text-sm">
-                  Confidence (Độ tin cậy AI): {(current.prediction.confidence * 100).toFixed(1)}% ·
-                  IoU (Độ trùng khớp): {current.iou.toFixed(3)}
+                  Confidence (Độ tin cậy AI): {(current.prediction.confidence * 100).toFixed(1)}%
+                  {Number.isFinite(current.iou) && (
+                    <> · IoU (Độ trùng khớp): {current.iou.toFixed(3)}</>
+                  )}
                 </p>
                 <p className="mt-3 text-sm text-muted">
                   Điểm ưu tiên là quy tắc xếp hàng, không phải xác suất nhãn sai. Hãy đối chiếu ảnh
                   trước khi lưu quyết định.
                 </p>
-                <Link
-                  className="sr-button mt-5"
-                  to={`/projects/${projectId}/review/${encodeURIComponent(current.annotation_id)}?scope=all`}
-                  state={{
-                    aiFinding: current,
-                    aiRevision: report.dataset_revision,
-                  }}
-                >
-                  Mở annotation để lưu đánh giá →
-                </Link>
+                {current.annotation_id ? (
+                  <Link
+                    className="sr-button mt-5"
+                    to={`/projects/${projectId}/review/${encodeURIComponent(current.annotation_id)}?scope=all`}
+                    state={{
+                      aiFinding: current,
+                      aiRevision: report.dataset_revision,
+                    }}
+                  >
+                    Mở annotation để lưu đánh giá →
+                  </Link>
+                ) : (
+                  <Link
+                    className="sr-button mt-5"
+                    to={`/projects/${projectId}/frames/${encodeURIComponent(current.frame_id)}`}
+                  >
+                    Mở ảnh để đánh dấu vùng thiếu →
+                  </Link>
+                )}
               </section>
             </div>
           )}

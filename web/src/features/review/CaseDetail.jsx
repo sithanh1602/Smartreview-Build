@@ -1,3 +1,4 @@
+import { Spinner } from '../../components/Spinner';
 import { hint } from '../../lib/englishHints';
 import React, { useEffect, useState } from 'react';
 import { FrameViewer } from './FrameViewer';
@@ -156,6 +157,7 @@ export function CaseDetail({ item, index, count, onNavigate, aiFinding }) {
             trackId={item.track_id}
             risk={position === 'current' ? item.score : undefined}
             zoom={zoom}
+            interactive
             showBox={showBox}
             proposal={position === 'current' && showBox ? aiFinding?.prediction : undefined}
             maxHeight={aiFinding ? '65vh' : undefined}
@@ -216,6 +218,7 @@ export function CaseDetail({ item, index, count, onNavigate, aiFinding }) {
           <div className="border-t border-line p-4">
             {!currentScene && (
               <p role="status" className="text-xs text-muted">
+                <Spinner />
                 Đang tải annotation của frame…
               </p>
             )}

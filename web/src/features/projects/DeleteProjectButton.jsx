@@ -1,3 +1,4 @@
+import { Spinner } from '../../components/Spinner';
 import React, { useState } from 'react';
 import { request } from '../../lib/api';
 
@@ -33,6 +34,7 @@ export function DeleteProjectButton({ project, onDeleted }) {
         disabled={busy}
         onClick={remove}
       >
+        {busy && <Spinner />}
         {busy ? 'Đang xóa…' : 'Xóa project'}
       </button>
       {error && (

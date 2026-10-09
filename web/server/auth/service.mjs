@@ -32,10 +32,43 @@ export class AuthService {
     ]);
     return { id, username, role };
   }
-  async throttle(username, ip) {
+  async register(input, ip) {
+    if (
+      !input ||
+      typeof input !== 'object' ||
+      Array.isArray(input) ||
+      Object.keys(input).some((k) => !['username', 'password'].includes(k)) ||
+      typeof input.password !== 'string' ||
+      input.password.length < 12 ||
+      input.password.length > 128
+    )
+      throw new ReviewError(
+        400,
+        'Tên đăng nhập hợp lệ và mật khẩu từ 12 đến 128 ký tự là bắt buộc.',
+      );
+    let username;
+    try {
+      username = usernameValue(input.username);
+    } catch (e) {
+      throw new ReviewError(400, e.message);
+    }
+    await this.throttle(username, ip, 'register');
+    if (this.passwordChecks >= 2)
+      throw new ReviewError(429, 'Hệ thống đang bận. Vui lòng thử lại.');
+    this.passwordChecks++;
+    try {
+      return await this.createUser({ username, password: input.password, role: 'annotator' });
+    } catch (e) {
+      if (e.code === 'ER_DUP_ENTRY') throw new ReviewError(409, 'Tên đăng nhập đã tồn tại.');
+      throw e;
+    } finally {
+      this.passwordChecks--;
+    }
+  }
+  async throttle(username, ip, action = 'login') {
     for (const [key, limit] of [
-      [`account:${username}`, 10],
-      [`ip:${ip}`, 100],
+      [action === 'login' ? `account:${username}` : `register:account:${username}`, 10],
+      [action === 'login' ? `ip:${ip}` : `register:ip:${ip}`, action === 'login' ? 100 : 10],
     ]) {
       const bucket = tokenHash(key);
       await this.pool.execute(
@@ -47,7 +80,10 @@ export class AuthService {
         [bucket],
       );
       if (row.attempts > limit)
-        throw new ReviewError(429, 'Đăng nhập quá nhiều lần. Thử lại sau 15 phút.');
+        throw new ReviewError(
+          429,
+          `${action === 'login' ? 'Đăng nhập' : 'Đăng ký'} quá nhiều lần. Thử lại sau 15 phút.`,
+        );
     }
   }
   async login(input, ip) {

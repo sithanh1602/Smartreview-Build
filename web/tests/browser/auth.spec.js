@@ -46,3 +46,38 @@ test('annotator lands in its workspace and cannot open reviewer pages or APIs', 
   expect((await context.request.delete('/api/projects/demo')).status()).toBe(403);
   expect((await context.request.post('/api/projects/import', { data: {} })).status()).toBe(403);
 });
+
+test('register from login, confirm password, then sign in as annotator', async ({ page }) => {
+  const { randomUUID } = await import('node:crypto');
+  const { testPool } = await import('../db-helpers.mjs');
+  const { tokenHash } = await import('../../server/auth/service.mjs');
+  const username = 'browser_signup_' + randomUUID();
+  const password = randomUUID();
+  const pool = testPool();
+  try {
+    await page.goto('/login');
+    await page.getByRole('link', { name: 'Đăng ký', exact: true }).click();
+    await expect(page).toHaveURL(/\/register$/);
+    await page.getByLabel('Tên đăng nhập').fill(username);
+    await page.getByLabel('Mật khẩu', { exact: true }).fill(password);
+    await page.getByLabel('Xác nhận mật khẩu', { exact: true }).fill(password + 'x');
+    await page.getByRole('button', { name: 'Đăng ký', exact: true }).click();
+    await expect(page.getByText('Mật khẩu xác nhận không khớp.')).toBeVisible();
+    await page.getByLabel('Xác nhận mật khẩu', { exact: true }).fill(password);
+    await page.getByRole('button', { name: 'Đăng ký', exact: true }).click();
+    await expect(page).toHaveURL(/\/login$/);
+    await expect(page.getByText('Đã tạo tài khoản')).toBeVisible();
+    await expect(page.getByLabel('Tên đăng nhập')).toHaveValue(username);
+    await page.getByLabel('Mật khẩu', { exact: true }).fill(password);
+    await page.getByRole('button', { name: 'Đăng nhập', exact: true }).click();
+    await expect(page).toHaveURL(/\/annotation$/);
+    await page.reload();
+    await expect(page.getByRole('button', { name: 'Đăng xuất' })).toBeVisible();
+  } finally {
+    await pool.execute('DELETE FROM users WHERE username=?', [username]);
+    await pool.execute('DELETE FROM auth_login_limits WHERE bucket=?', [
+      tokenHash('register:account:' + username),
+    ]);
+    await pool.end();
+  }
+});

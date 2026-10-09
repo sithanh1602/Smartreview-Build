@@ -1,3 +1,4 @@
+import { Spinner } from '../../components/Spinner';
 import { hint } from '../../lib/englishHints';
 import React, { useState } from 'react';
 import { useDataset } from '../../app/DatasetProvider';
@@ -150,6 +151,7 @@ export function ReviewDecisionForm({ item }) {
             type="submit"
             disabled={!decision || saving}
           >
+            {saving && <Spinner />}
             {saving ? 'Đang lưu…' : existing ? hint('Update Review') : hint('Save Review')}
           </button>
         </fieldset>

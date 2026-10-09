@@ -49,6 +49,7 @@ export function LoginPage() {
         </Alert>
       )}
       <Form
+        aria-busy={busy}
         className="flex flex-col gap-5"
         onSubmit={async (e) => {
           e.preventDefault();
@@ -91,7 +92,7 @@ export function LoginPage() {
           autoFocus={Boolean(registered)}
         />
         <Button type="submit" variant="primary" size="lg" fullWidth isDisabled={busy}>
-          {busy && <Spinner size="sm" color="current" />}
+          {busy && <Spinner size="sm" color="current" data-testid="loading-spinner" />}
           {busy ? 'Đang đăng nhập…' : 'Đăng nhập'}
         </Button>
       </Form>

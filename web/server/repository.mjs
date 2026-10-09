@@ -5,10 +5,13 @@ import { normalizeDataset } from '../core/schema/normalize.mjs';
 import { analyzeDataset, severity } from '../core/risk/engine.mjs';
 export const riskLevel = severity;
 
-export async function loadDataset(datasetPath, { namespace = '', apiPrefix = '/api' } = {}) {
+export async function loadDataset(
+  datasetPath,
+  { namespace = '', apiPrefix = '/api', engineVersion } = {},
+) {
   const text = await fs.readFile(datasetPath, 'utf8');
   const normalized = normalizeDataset(JSON.parse(text));
-  const report = analyzeDataset(normalized);
+  const report = analyzeDataset(normalized, engineVersion ? { engineVersion } : undefined);
   const datasetId = createHash('sha256')
     .update(namespace)
     .update(text)

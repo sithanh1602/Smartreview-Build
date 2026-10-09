@@ -6,11 +6,19 @@ import { confidenceChecks } from './checks/confidence.mjs';
 import { generalChecks } from './checks/general.mjs';
 import { labelChecks } from './checks/labels.mjs';
 import { imageRules } from './image-rules.mjs';
+import * as legacy from '../risk_v1/engine.mjs';
 
 export const checks = [...temporalChecks, ...confidenceChecks, ...generalChecks, ...labelChecks];
 export { imageRules };
 export const severity = (score) => (score >= 70 ? 'high' : score >= 40 ? 'medium' : 'low');
 export const ENGINE_VERSION = '4.0.0';
+// The engine version is stored with the project at import time. Projects imported under a
+// 2.x profile keep running on risk_v1, so their scores and dataset fingerprints never change.
+export const LATEST_ENGINE_VERSION = ENGINE_VERSION;
+export const LEGACY_ENGINE_VERSION = legacy.ENGINE_VERSION;
+export function checksFor(version = ENGINE_VERSION) {
+  return version === ENGINE_VERSION ? checks : legacy.checksFor(version);
+}
 
 // draft: model box at or above the working score. manual: no score, drawn by a person.
 // grey: below the working score, a hint of a missed object rather than a label.
@@ -53,7 +61,9 @@ function describe(annotation, index) {
 const leading = (findings) =>
   findings.reduce((top, f) => (f.error_type && (!top || f.score > top.score) ? f : top), null);
 
-export function analyzeDataset(input, { minScore = 30 } = {}) {
+export function analyzeDataset(input, { minScore = 30, engineVersion = ENGINE_VERSION } = {}) {
+  if (engineVersion !== ENGINE_VERSION)
+    return legacy.analyzeDataset(input, { minScore, engineVersion });
   const data = normalizeDataset(input);
   const frames = new Map(data.frames.map((f) => [f.id, f]));
   const media = new Map(data.media.map((m) => [m.id, m]));

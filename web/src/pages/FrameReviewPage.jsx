@@ -1,3 +1,4 @@
+import { Spinner } from '../components/Spinner';
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, Navigate, useBlocker, useNavigate, useParams } from 'react-router-dom';
 import { request } from '../lib/api';
@@ -32,6 +33,7 @@ function Workspace({ projectId }) {
   if (!data)
     return (
       <div role={error ? 'alert' : 'status'}>
+        {!error && <Spinner />}
         {error || 'Đang tải danh sách ảnh…'}
         {error && (
           <button className="sr-button ml-3" onClick={() => setAttempt((a) => a + 1)}>
@@ -198,7 +200,9 @@ function FrameEditor({ projectId, frameId, onSaved, previous, next }) {
     [drawing, setDrawing] = useState(false),
     [ready, setReady] = useState(false),
     [selected, setSelected] = useState(null),
-    [attempt, setAttempt] = useState(0);
+    [attempt, setAttempt] = useState(0),
+    [suggestions, setSuggestions] = useState([]),
+    [handled, setHandled] = useState(() => new Set());
   const dirtyRef = useRef(false);
   dirtyRef.current = dirty;
   const blocker = useBlocker(() => dirtyRef.current);
@@ -230,18 +234,52 @@ function FrameEditor({ projectId, frameId, onSaved, previous, next }) {
       });
     return () => c.abort();
   }, [endpoint, attempt]);
+  useEffect(() => {
+    // Optional: reuse the latest AI Check result. Any failure just means no suggestions.
+    const c = new AbortController();
+    request(`/projects/${projectId}/ai-check`, { signal: c.signal })
+      .then((r) => {
+        if (c.signal.aborted || r?.status !== 'READY') return;
+        setSuggestions(
+          (r.findings || []).filter(
+            (f) => f.check_id === 'ai.missing_annotation' && f.frame_id === frameId,
+          ),
+        );
+      })
+      .catch(() => {});
+    return () => c.abort();
+  }, [projectId, frameId]);
   const changed = () => {
     setDirty(true);
     setMessage('');
   };
-  function add(geometry) {
+  function add(geometry, label = '', note = '') {
     if (regions.length >= 50) {
       setError('Tối đa 50 vùng mỗi ảnh.');
       return;
     }
-    setRegions((r) => [...r, { id: crypto.randomUUID(), label: '', note: '', geometry }]);
+    setRegions((r) => [...r, { id: crypto.randomUUID(), label, note, geometry }]);
     setDrawing(false);
     changed();
+  }
+  function accept(suggestion) {
+    const g = suggestion.prediction.geometry,
+      { width, height } = data.frame;
+    // Model boxes can poke slightly outside the image; the server requires them inside.
+    const x = Math.max(0, Math.min(g.x, width - 1)),
+      y = Math.max(0, Math.min(g.y, height - 1));
+    add(
+      {
+        type: 'bbox',
+        x,
+        y,
+        width: Math.max(1, Math.min(g.width, width - x)),
+        height: Math.max(1, Math.min(g.height, height - y)),
+      },
+      suggestion.prediction.label.slice(0, 100),
+      'AI gợi ý',
+    );
+    setHandled((s) => new Set(s).add(suggestion.id));
   }
   function update(id, patch) {
     setRegions((all) => all.map((r) => (r.id === id ? { ...r, ...patch } : r)));
@@ -279,6 +317,7 @@ function FrameEditor({ projectId, frameId, onSaved, previous, next }) {
   if (!data)
     return (
       <section className="panel p-6" role={error ? 'alert' : 'status'}>
+        {!error && <Spinner />}
         {error || 'Đang tải ảnh và annotation…'}
         {error && (
           <button className="sr-button ml-3" onClick={() => setAttempt((a) => a + 1)}>
@@ -288,6 +327,7 @@ function FrameEditor({ projectId, frameId, onSaved, previous, next }) {
       </section>
     );
   const selectedAnnotation = data.annotations.find((a) => a.id === selected);
+  const pending = suggestions.filter((s) => !handled.has(s.id));
   return (
     <section className="panel min-w-0 p-5">
       {blocker.state === 'blocked' && (
@@ -335,7 +375,46 @@ function FrameEditor({ projectId, frameId, onSaved, previous, next }) {
         selected={selected}
         onSelect={setSelected}
         onReady={setReady}
+        suggestions={pending}
       />
+      {pending.length > 0 && (
+        <div
+          className="mt-4 border border-violet-300 bg-violet-50 p-4"
+          aria-label="Gợi ý thiếu nhãn từ AI"
+        >
+          <strong className="text-sm">
+            AI gợi ý {pending.length} đối tượng có thể chưa có nhãn
+          </strong>
+          <ul className="mt-3 space-y-2">
+            {pending.map((s) => (
+              <li key={s.id} className="flex flex-wrap items-center justify-between gap-3 text-sm">
+                <span>
+                  {s.prediction.label} · {(s.prediction.confidence * 100).toFixed(0)}%
+                </span>
+                <span className="flex gap-2">
+                  <button
+                    className="sr-button"
+                    disabled={saving || !ready || regions.length >= 50}
+                    onClick={() => accept(s)}
+                  >
+                    Thêm thành vùng thiếu
+                  </button>
+                  <button
+                    className="sr-button"
+                    disabled={saving}
+                    onClick={() => setHandled((h) => new Set(h).add(s.id))}
+                  >
+                    Bỏ qua
+                  </button>
+                </span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-3 text-xs text-muted">
+            Chỉ là gợi ý của model. Hãy đối chiếu ảnh rồi bấm Lưu đánh giá ảnh.
+          </p>
+        </div>
+      )}
       {!data.annotations.length && (
         <p className="mt-3 text-sm">
           Ảnh chưa có annotation. Nếu có đối tượng cần gán nhãn, hãy đánh dấu vùng thiếu.
@@ -493,6 +572,7 @@ function FrameEditor({ projectId, frameId, onSaved, previous, next }) {
           disabled={!ready || saving}
           onClick={save}
         >
+          {saving && <Spinner />}
           {saving ? 'Đang lưu…' : 'Lưu đánh giá ảnh'}
         </button>
         {dirty && <span className="ml-3 text-xs text-amber-800">Có thay đổi chưa lưu</span>}
