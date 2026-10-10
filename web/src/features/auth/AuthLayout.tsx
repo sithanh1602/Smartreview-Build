@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { FieldError, InputGroup, Label, Spinner, TextField } from '@heroui/react';
 import { Icon } from '../../components/Icon';
 import { Logo } from '../../components/Logo';
+import { LanguageToggle } from '../../components/LanguageToggle';
 
 // Bảng xám theo giao diện tối mặc định của Discord, đè lên token tối của HeroUI cho riêng vùng này.
 const discordGray: React.CSSProperties & Record<`--${string}`, string> = {
@@ -34,7 +35,8 @@ export function AuthLayout({
   footer?: React.ReactNode;
 }) {
   return (
-    <AuthSurface className="flex flex-col items-center justify-center px-4 py-10">
+    <AuthSurface className="relative flex flex-col items-center justify-center px-4 py-10">
+      <LanguageToggle className="absolute top-4 right-4 rounded-full border border-border px-3 py-1.5 text-xs font-semibold" />
       <main className="w-full max-w-md rounded-2xl border border-border bg-surface p-7 shadow-xl sm:p-10">
         <div className="flex justify-center">
           <Logo tone="light" />

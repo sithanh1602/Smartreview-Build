@@ -1,7 +1,12 @@
-// Temporary UI explanations; dataset values are preserved.
+import { lang } from './lang.ts';
+
+// Vietnamese for the English terms used across the UI. In Vietnamese mode each term is
+// replaced by its meaning; English mode shows the terms as written. Dataset values are kept.
 export const SHOW_ENGLISH_HINTS = true;
 const meanings: Record<string, string> = {
-  Projects: 'Danh sách dự án',
+  'SmartReview Projects': 'Dự án SmartReview',
+  Projects: 'Dự án',
+  Project: 'Dự án',
   'New Project': 'Dự án mới',
   'Current Project': 'Dự án hiện tại',
   'Project Name': 'Tên dự án',
@@ -74,18 +79,18 @@ const meanings: Record<string, string> = {
   Source: 'Nguồn',
   Label: 'Nhãn',
   Dataset: 'Bộ dữ liệu',
-  Annotations: 'Các nhãn',
+  Annotations: 'Nhãn',
   Annotation: 'Nhãn',
-  Frames: 'Các khung hình',
+  Frames: 'Khung hình',
   Frame: 'Khung hình',
-  Tracks: 'Các chuỗi theo dõi',
+  Tracks: 'Chuỗi theo dõi',
   Track: 'Chuỗi theo dõi',
   Object: 'Đối tượng',
-  Media: 'Ảnh / dữ liệu hình ảnh',
+  Media: 'Dữ liệu ảnh',
   Format: 'Định dạng',
   Schema: 'Cấu trúc dữ liệu',
   Engine: 'Bộ xử lý',
-  Risk: 'Mức ưu tiên kiểm tra',
+  Risk: 'Rủi ro',
   Review: 'Kiểm tra',
   'Import Failed': 'Nhập dữ liệu thất bại',
   Ready: 'Sẵn sàng',
@@ -95,8 +100,16 @@ const meanings: Record<string, string> = {
   Validate: 'Kiểm tra tính hợp lệ',
   Save: 'Lưu',
   Case: 'Trường hợp',
-  Cases: 'Các trường hợp',
-  'N/A': 'Không có dữ liệu',
+  Cases: 'Trường hợp',
+  'N/A': 'Không có',
+  'AI Check': 'Kiểm tra AI',
+  'Risk Engine': 'Bộ chấm rủi ro',
+  'Risk Case': 'Trường hợp rủi ro',
+  Datasets: 'Bộ dữ liệu',
+  Severity: 'Mức độ',
+  Workspace: 'Không gian làm việc',
+  Observation: 'Quan sát',
+  Metrics: 'Số liệu',
   'Independent of models': 'Không phụ thuộc mô hình',
   'Human-led review': 'Con người thực hiện đánh giá',
 };
@@ -106,7 +119,14 @@ const escaped = Object.keys(meanings)
   .sort((a, b) => b.length - a.length)
   .map((k) => k.replaceAll('(', '\\(').replaceAll(')', '\\)'));
 const pattern = new RegExp('\\b(' + escaped.join('|') + ')(?![A-Za-z])', 'gi');
+// The meaning takes the case of the term it replaces: "frame" inside a sentence, "PASSED" in a header.
+function fit(word: string, meaning: string) {
+  if (word.length >= 5 && word === word.toUpperCase()) return meaning.toUpperCase();
+  return word[0] === word[0].toLowerCase() ? meaning[0].toLowerCase() + meaning.slice(1) : meaning;
+}
+export const replaceTerms = (text: string) =>
+  text.replace(pattern, (word) => fit(word, lookup[word.toLowerCase()]));
 export function hint<T>(text: T): T {
-  if (!SHOW_ENGLISH_HINTS || typeof text !== 'string') return text;
-  return text.replace(pattern, (word) => word + ' (' + lookup[word.toLowerCase()] + ')') as T;
+  if (!SHOW_ENGLISH_HINTS || lang === 'en' || typeof text !== 'string') return text;
+  return replaceTerms(text) as T;
 }

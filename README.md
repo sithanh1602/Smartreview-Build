@@ -1,3 +1,5 @@
+<img src="web/public/favicon.svg" alt="Logo SmartReview" width="72" />
+
 # SmartReview
 
 Nền tảng kiểm tra chất lượng annotation (Annotation QA): nhập dataset đã gán nhãn, chấm điểm rủi ro từng box, đưa các box đáng ngờ vào hàng đợi cho người review và lưu quyết định vào MySQL.

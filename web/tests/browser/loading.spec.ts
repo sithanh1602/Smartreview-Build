@@ -1,3 +1,4 @@
+import { ui } from '../../src/lib/i18n.ts';
 import { test, expect } from '@playwright/test';
 import { loginContext } from './fixtures.ts';
 import { hint } from '../../src/lib/englishHints.ts';
@@ -52,7 +53,7 @@ test('page navigation shows loading until projects arrive, with reduced motion s
   });
   await page.getByRole('link', { name: hint('Projects'), exact: true }).click();
   try {
-    const status = page.getByRole('status').filter({ hasText: 'Đang tải projects' });
+    const status = page.getByRole('status').filter({ hasText: ui('Đang tải projects') });
     await expect(status.getByTestId('loading-spinner')).toBeVisible();
     expect(await status.locator('svg').evaluate((el) => getComputedStyle(el).animationName)).toBe(
       'none',

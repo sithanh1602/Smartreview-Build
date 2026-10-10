@@ -57,7 +57,7 @@ test('all boxes, empty image, draw missing region, save/reload and unsaved navig
   await page.goto(`/projects/${id}/frames/a%3A0`);
   await expect(page.getByRole('img', { name: /2 annotation/ })).toBeVisible();
   await page.getByRole('button', { name: 'Ảnh sau →' }).click();
-  await expect(page.getByText(/Ảnh chưa có annotation/)).toBeVisible();
+  await expect(page.getByText(/Ảnh chưa có nhãn/)).toBeVisible();
   await expect(page.getByRole('button', { name: 'Vẽ vùng thiếu', exact: true })).toBeEnabled();
   await page.getByRole('button', { name: 'Vẽ vùng thiếu', exact: true }).click();
   await page.getByRole('img').scrollIntoViewIfNeeded();

@@ -1,3 +1,4 @@
+import { ui } from '../../src/lib/i18n.ts';
 import { loginContext } from './fixtures.ts';
 import { hint } from '../../src/lib/englishHints.ts';
 import { test, expect } from './fixtures.ts';
@@ -59,7 +60,7 @@ test('COCO Detection can be selected, imported and reviewed with custom categori
   const url = await importProject(page, 'Custom COCO', 'coco-detection');
   await expect(page.getByTestId('metric-Tracks')).toHaveText(hint('N/A'));
   await page.goto(url + '/review/coco-100');
-  await expect(page.getByLabel('Annotations in frame')).toContainText('delivery_vehicle');
+  await expect(page.getByLabel(ui('Annotations in frame'))).toContainText('delivery_vehicle');
   await expect(page.getByTestId('annotation-box')).toHaveCount(1);
   await page.getByRole('radio', { name: hint('Unsure'), exact: true }).check();
   await page.getByRole('button', { name: hint('Save Review'), exact: true }).click();

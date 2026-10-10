@@ -10,23 +10,38 @@ import { loadDataset } from '../repository.ts';
 import { ReviewStore } from '../reviews/store.ts';
 import { ReviewError } from '../../shared/review.ts';
 import { receiveUpload, safePath } from './upload.ts';
+import { pack, unpack } from '../storage/archive.ts';
+import type { RemoteStorage } from '../storage/remote.ts';
 import type { Untrusted } from '../../shared/review.ts';
 import type { Dataset } from '../../core/schema/types.ts';
 import type { Connection, Db, LoadedDataset, ProjectContext, Req, Result, Rows } from '../types.ts';
 
 type ProjectRow = Rows[number];
-const publicProject = ({ dataset_path, dataset_revision_id, demo_key, ...row }: ProjectRow) => row;
+const STORAGE_KEY = /^projects\/[a-f0-9-]{36}\/[a-f0-9-]{36}$/;
+const publicProject = ({
+  dataset_path,
+  dataset_revision_id,
+  demo_key,
+  storage_provider,
+  storage_key,
+  storage_synced_at,
+  ...row
+}: ProjectRow) => row;
 export class ProjectService {
   pool: Db;
   storageRoot: string;
   cache: Map<string, Promise<ProjectContext>>;
   deleting: Set<string>;
   ai: AiService;
-  constructor(pool: Db, storageRoot: string) {
+  remote: RemoteStorage | null;
+  demos: Map<string, string>;
+  constructor(pool: Db, storageRoot: string, remote: RemoteStorage | null = null) {
     this.pool = pool;
     this.storageRoot = path.resolve(storageRoot);
+    this.remote = remote;
     this.cache = new Map();
     this.deleting = new Set();
+    this.demos = new Map();
     this.ai = new AiService(this);
   }
   async recover() {
@@ -96,6 +111,14 @@ export class ProjectService {
         console.error('Project trash cleanup pending:', staged);
       }
     }
+    if (this.remote) {
+      try {
+        await this.remote.remove(`projects/${id}`);
+      } catch (e) {
+        cleanupPending = true;
+        console.error('Remote project cleanup pending:', id, (e as Error).message);
+      }
+    }
     return { deleted: true, cleanupPending };
   }
   async list() {
@@ -131,6 +154,8 @@ export class ProjectService {
   }
   async registerDemo(dataset: LoadedDataset, reviews: ReviewStore, datasetPath: string) {
     const id = randomUUID();
+    // The stored path belongs to whichever machine registered the demo first.
+    this.demos.set(dataset.meta.dataset_id, path.resolve(datasetPath));
     await this.pool.execute<Rows>(
       "INSERT INTO projects(id,name,description,format,status,dataset_path,dataset_revision_id,metadata,demo_key) VALUES (?,?,?,'smartreview-json','READY',?,?,?,?) ON DUPLICATE KEY UPDATE id=id",
       [
@@ -149,6 +174,83 @@ export class ProjectService {
     );
     return row.id as string;
   }
+  async push(key: string) {
+    const tmp = path.join(this.storageRoot, '.tmp');
+    await fs.mkdir(tmp, { recursive: true });
+    const archive = path.join(tmp, randomUUID() + '.tar');
+    try {
+      await pack(path.join(this.storageRoot, key), archive);
+      await this.remote!.upload(key + '.tar', archive);
+    } finally {
+      await fs.rm(archive, { force: true });
+    }
+  }
+  async pull(key: string) {
+    const tmp = path.join(this.storageRoot, '.tmp');
+    await fs.mkdir(tmp, { recursive: true });
+    const archive = path.join(tmp, randomUUID() + '.tar'),
+      staging = path.join(tmp, randomUUID());
+    try {
+      if (!(await this.remote!.download(key + '.tar', archive)))
+        throw new ReviewError(409, 'Không tìm thấy dữ liệu project trên kho lưu trữ chung.');
+      await fs.mkdir(staging, { mode: 0o700 });
+      await unpack(archive, staging);
+      const directory = path.join(this.storageRoot, key);
+      await fs.mkdir(path.dirname(directory), { recursive: true });
+      await fs.rename(staging, directory);
+    } catch (e) {
+      if (e instanceof ReviewError) throw e;
+      console.error('Remote project download failed:', (e as Error).message);
+      throw new ReviewError(
+        502,
+        'Không tải được dữ liệu project từ kho lưu trữ chung. Kiểm tra mạng và cấu hình Dropbox.',
+      );
+    } finally {
+      await fs.rm(archive, { force: true });
+      await fs.rm(staging, { recursive: true, force: true });
+    }
+  }
+  // Shared projects sit under storage_key on every machine; the archive is fetched once, then read from disk.
+  async datasetFile(row: ProjectRow): Promise<string> {
+    if (row.demo_key && this.demos.has(row.demo_key)) return this.demos.get(row.demo_key)!;
+    if (!row.storage_key) return row.dataset_path;
+    if (!STORAGE_KEY.test(row.storage_key) || !row.storage_key.startsWith(`projects/${row.id}/`))
+      throw new ReviewError(409, 'Storage key của project không hợp lệ.');
+    const file = path.join(this.storageRoot, row.storage_key, 'dataset.json');
+    try {
+      await fs.access(file);
+      return file;
+    } catch {}
+    if (!this.remote || row.storage_provider !== this.remote.name)
+      throw new ReviewError(
+        409,
+        `Dữ liệu project nằm trên ${row.storage_provider}. Cấu hình SMARTREVIEW_REMOTE_STORAGE trong .env để tải về.`,
+      );
+    await this.pull(row.storage_key);
+    return file;
+  }
+  // One-off for projects imported before shared storage: publish the local copy and record its key.
+  async share(id: string) {
+    const row = await this.row(id);
+    if (!this.remote) throw new Error('Remote storage is not configured.');
+    if (row.status !== 'READY' || row.demo_key || row.storage_key) return false;
+    const key = path
+      .relative(this.storageRoot, path.dirname(row.dataset_path))
+      .split(path.sep)
+      .join('/');
+    if (!STORAGE_KEY.test(key) || !key.startsWith(`projects/${id}/`)) return false;
+    try {
+      await fs.access(row.dataset_path);
+    } catch {
+      return false;
+    }
+    await this.push(key);
+    await this.pool.execute<Rows>(
+      'UPDATE projects SET storage_provider=?,storage_key=?,storage_synced_at=UTC_TIMESTAMP(3) WHERE id=? AND storage_key IS NULL',
+      [this.remote.name, key, id],
+    );
+    return true;
+  }
   async context(id: string): Promise<ProjectContext> {
     const row = await this.row(id);
     if (row.status !== 'READY')
@@ -158,10 +260,16 @@ export class ProjectService {
         // The engine version is fixed at import time. Projects created before versioning
         // have none stored and keep the legacy 2.0.0 profile, so their fingerprint and scores never change.
         const stored = typeof row.metadata === 'string' ? JSON.parse(row.metadata) : row.metadata;
-        const dataset = await loadDataset(row.dataset_path, {
+        const dataset = await loadDataset(await this.datasetFile(row), {
           namespace: row.demo_key ? '' : id,
           apiPrefix: `/api/projects/${id}`,
           engineVersion: stored?.engine_version || LEGACY_ENGINE_VERSION,
+        }).catch((e) => {
+          if ((e as NodeJS.ErrnoException).code !== 'ENOENT' || row.storage_key) throw e;
+          throw new ReviewError(
+            409,
+            'Project này chỉ có dữ liệu trên máy đã import. Chạy npm run storage:push trên máy đó để chia sẻ.',
+          );
         });
         dataset.meta.project_name = row.name;
         const reviews = new ReviewStore(this.pool, dataset);
@@ -201,7 +309,8 @@ export class ProjectService {
         409,
         'Project đang import hoặc đã READY. Tạo project mới cho dataset khác.',
       );
-    const directory = path.join(this.storageRoot, 'projects', id, randomUUID());
+    const key = `projects/${id}/${randomUUID()}`;
+    const directory = path.join(this.storageRoot, key);
     try {
       const uploaded = await receiveUpload(req, directory, row.format);
       await this.status(id, 'VALIDATING');
@@ -269,11 +378,22 @@ export class ProjectService {
         path.join(directory, 'risk', 'report.json'),
         JSON.stringify(dataset.report, null, 2),
       );
+      // Publish before the project turns READY so other backends never see a project without data.
+      if (this.remote) await this.push(key);
       const reviews = new ReviewStore(this.pool, dataset);
       await reviews.initialize();
+      // dataset_path stays for backends that predate shared storage; without a remote the project is local-only.
       await this.pool.execute<Rows>(
-        "UPDATE projects SET status='READY',dataset_path=?,dataset_revision_id=?,metadata=?,error_message=NULL WHERE id=?",
-        [datasetPath, reviews.datasetId, JSON.stringify(dataset.meta), id],
+        "UPDATE projects SET status='READY',dataset_path=?,dataset_revision_id=?,metadata=?,error_message=NULL,storage_provider=?,storage_key=?,storage_synced_at=? WHERE id=?",
+        [
+          datasetPath,
+          reviews.datasetId,
+          JSON.stringify(dataset.meta),
+          this.remote?.name ?? 'local',
+          this.remote ? key : null,
+          this.remote ? new Date().toISOString().slice(0, 23).replace('T', ' ') : null,
+          id,
+        ],
       );
       this.cache.set(id, Promise.resolve({ dataset, reviews }));
       return this.get(id);

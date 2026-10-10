@@ -1,3 +1,4 @@
+import { ui } from '../../src/lib/i18n.ts';
 import { test, expect } from './fixtures.ts';
 const geometry = { type: 'bbox', x: 5, y: 5, width: 30, height: 30 };
 const finding = {
@@ -59,13 +60,12 @@ test('AI start, poll, evidence, filter, review link and mobile layout', async ({
       });
   });
   await page.goto('/projects/test/ai-check');
-  await page.getByRole('button', { name: 'Bắt đầu AI Check', exact: true }).click();
+  await page.getByRole('button', { name: ui('Bắt đầu AI Check'), exact: true }).click();
   await expect(page.getByText('1 gợi ý cần kiểm tra')).toBeVisible();
   await expect(page.getByText(finding.reason)).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Mở annotation để lưu đánh giá →' })).toHaveAttribute(
-    'href',
-    '/projects/test/review/a?scope=all',
-  );
+  await expect(
+    page.getByRole('link', { name: ui('Mở annotation để lưu đánh giá →') }),
+  ).toHaveAttribute('href', '/projects/test/review/a?scope=all');
   await page.getByRole('combobox').selectOption('ai.bbox_disagreement');
   await expect(page.getByText(/Không có gợi ý phù hợp/)).toBeVisible();
   await page.getByRole('combobox').selectOption('all');
@@ -126,7 +126,7 @@ test('AI unavailable and failed requests offer clear recovery', async ({ page })
   );
   await page.goto('/projects/test/ai-check');
   await expect(page.getByText('Lượt kiểm tra bị ngắt.')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Bắt đầu AI Check' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: ui('Bắt đầu AI Check') })).toBeDisabled();
   await page.unroute('**/api/projects/test/ai-check');
   await page.route('**/api/projects/test/ai-check', (route) =>
     route.fulfill({ status: 503, json: { error: 'Dịch vụ chưa sẵn sàng' } }),

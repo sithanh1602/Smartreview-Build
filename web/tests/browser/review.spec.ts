@@ -1,3 +1,4 @@
+import { ui } from '../../src/lib/i18n.ts';
 import { loginContext } from './fixtures.ts';
 import { hint } from '../../src/lib/englishHints.ts';
 import { test, expect } from './fixtures.ts';
@@ -276,6 +277,7 @@ test('human CVAT dataset shows N/A, no fake track, geometry evidence and all-ann
   page.on('pageerror', (e) => errors.push(e.message));
   await page.goto('http://127.0.0.1:3111/review');
   await expect(page.getByText(hint('Annotation đơn lẻ.'))).toBeVisible();
+  await page.getByRole('tab', { name: 'Chi tiết' }).click();
   await expect(
     page.getByText(hint('Confidence'), {
       exact: true,
@@ -286,7 +288,8 @@ test('human CVAT dataset shows N/A, no fake track, geometry evidence and all-ann
       exact: true,
     }),
   ).toBeVisible();
-  await expect(page.getByText(/Track #undefined|NaN|YOLO/)).toHaveCount(0);
+  await expect(page.getByText(new RegExp(`${hint('Track')} #undefined|NaN|YOLO`))).toHaveCount(0);
+  await page.getByRole('tab', { name: new RegExp('^' + ui('Flags')) }).click();
   await page.getByText(hint('Check coverage · đã chạy / bỏ qua')).click();
   await expect(page.getByText(hint('skipped · missing_track_id'))).toHaveCount(4);
   await expect(page.getByText(hint('Đang tải frame…'))).toHaveCount(0);

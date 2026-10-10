@@ -1,5 +1,8 @@
 import React from 'react';
+import { hint } from '../../lib/englishHints';
 import type { Drawable } from '../../types.ts';
+
+export type Mark = { n: number; color: string; dim: boolean; done: boolean };
 
 // Image and overlays share the parent SVG viewBox (including responsive zoom).
 export function AnnotationOverlay({
@@ -10,6 +13,8 @@ export function AnnotationOverlay({
   compact,
   bounds,
   onSelect,
+  onOpen,
+  mark,
 }: {
   annotation: Drawable;
   active?: boolean;
@@ -18,6 +23,9 @@ export function AnnotationOverlay({
   compact?: boolean;
   bounds: number[];
   onSelect?: () => void;
+  // A numbered case of the image: clicking opens it rather than only inspecting it.
+  onOpen?: () => void;
+  mark?: Mark;
 }) {
   // Stored geometry is drawn only after its numbers have been checked here.
   const g: any = annotation.geometry || {};
@@ -31,15 +39,14 @@ export function AnnotationOverlay({
   if (!box && !points) return null;
   const [x, y, width, height] = bounds;
   const size = width * 0.016;
-  const label = `${active && risk !== undefined ? `RISK ${risk} · ` : ''}${annotation.class_name || annotation.label}`;
+  const tag = mark ? `${mark.n}${mark.done ? ' ✓' : ''}` : '';
+  const name = `${active && risk !== undefined ? `${hint('Risk').toUpperCase()} ${risk} · ` : ''}${annotation.class_name || annotation.label}`;
+  const label = !tag ? name : mark!.dim && !active ? tag : `${tag} · ${name}`;
   const labelWidth = Math.min(label.length * size * 0.64 + size, width);
   const lx = Math.max(x, Math.min(box ? g.x : g.points[0][0], x + width - labelWidth));
   const ly = Math.min(y + height, Math.max(y + size * 1.8, box ? g.y : g.points[0][1]));
-  const color = active
-    ? 'var(--color-accent)'
-    : selected
-      ? 'var(--color-slate-900)'
-      : 'var(--color-slate-500)';
+  // Fixed colours: the canvas stays dark in both themes.
+  const color = active ? '#2dd4bf' : mark ? mark.color : selected ? '#ffffff' : '#94a3b8';
   return (
     <g
       data-annotation-id={annotation.annotation_id || annotation.id}
@@ -54,20 +61,21 @@ export function AnnotationOverlay({
           ? `Inspect ${annotation.class_name || annotation.label} (${annotation.annotation_id || annotation.id})`
           : undefined
       }
-      onClick={onSelect}
+      onClick={onOpen ?? onSelect}
+      opacity={mark?.dim && !active ? 0.45 : undefined}
       onKeyDown={
         onSelect
           ? (e) => {
               if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
-                onSelect();
+                (onOpen ?? onSelect)();
               }
             }
           : undefined
       }
       stroke={color}
       fill="none"
-      strokeWidth={active ? 3 : selected ? 2 : 1.5}
+      strokeWidth={active ? 3 : mark ? 2.5 : selected ? 2 : 1.5}
       strokeDasharray={selected && !active ? '5 3' : undefined}
     >
       {validBox && (
@@ -101,7 +109,7 @@ export function AnnotationOverlay({
           <text
             x={lx + size * 0.5}
             y={ly - size * 0.5}
-            fill="var(--color-panel)"
+            fill="#0f172a"
             fontSize={size}
             fontWeight={active ? '700' : '500'}
             fontFamily="system-ui,sans-serif"

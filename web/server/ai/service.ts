@@ -26,12 +26,14 @@ export class AiService {
   projects: ProjectService;
   jobs: Map<string, AiJob>;
   active: boolean;
+  refreshed: Map<string, number>;
   python: string;
   model: string;
   constructor(projects: ProjectService, options: { python?: string; model?: string } = {}) {
     this.projects = projects;
     this.jobs = new Map();
     this.active = false;
+    this.refreshed = new Map();
     this.python =
       options.python ||
       process.env.SMARTREVIEW_AI_PYTHON ||
@@ -57,6 +59,7 @@ export class AiService {
     const { dataset } = await this.projects.context(id);
     const available = await this.available();
     if (this.jobs.has(id)) return { ...this.jobs.get(id), available };
+    await this.refresh(id);
     try {
       const saved = JSON.parse(
         await fs.readFile(path.join(this.directory(id), 'latest.json'), 'utf8'),
@@ -81,6 +84,38 @@ export class AiService {
     const tmp = path.join(dir, randomUUID() + '.tmp');
     await fs.writeFile(tmp, JSON.stringify(state));
     await fs.rename(tmp, path.join(dir, 'latest.json'));
+    const remote = this.projects.remote;
+    if (!remote || state.status === 'RUNNING') return;
+    try {
+      await remote.upload(`projects/${id}/ai/latest.json`, path.join(dir, 'latest.json'));
+    } catch (e) {
+      console.error('AI result upload failed:', (e as Error).message);
+    }
+  }
+  // Another backend may have finished a newer run; adopt it at most once a minute.
+  async refresh(id: string) {
+    const remote = this.projects.remote;
+    if (!remote || Date.now() - (this.refreshed.get(id) ?? 0) < 60_000) return;
+    this.refreshed.set(id, Date.now());
+    const dir = this.directory(id),
+      latest = path.join(dir, 'latest.json'),
+      tmp = path.join(dir, randomUUID() + '.tmp');
+    const startedAt = async (file: string) => {
+      try {
+        return String(JSON.parse(await fs.readFile(file, 'utf8')).started_at ?? '');
+      } catch {
+        return '';
+      }
+    };
+    try {
+      await fs.mkdir(dir, { recursive: true });
+      if (!(await remote.download(`projects/${id}/ai/latest.json`, tmp))) return;
+      if ((await startedAt(tmp)) > (await startedAt(latest))) await fs.rename(tmp, latest);
+    } catch (e) {
+      console.error('AI result sync failed:', (e as Error).message);
+    } finally {
+      await fs.rm(tmp, { force: true });
+    }
   }
   async start(id: string) {
     const { dataset } = await this.projects.context(id);

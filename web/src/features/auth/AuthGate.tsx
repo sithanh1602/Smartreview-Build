@@ -30,7 +30,7 @@ export function AccountMenu() {
         {user?.username} · {user?.role === 'reviewer' ? 'Reviewer' : 'Annotator'}
       </span>
       <button
-        className="sr-button"
+        className="sr-button min-h-8 py-1 text-xs"
         disabled={busy}
         onClick={async () => {
           setBusy(true);

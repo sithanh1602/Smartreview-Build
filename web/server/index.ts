@@ -6,6 +6,7 @@ import { loadDataset } from './repository.ts';
 import { createApp } from './app.ts';
 import { datasetPath, webRoot } from './config.ts';
 import { AuthService } from './auth/service.ts';
+import { remoteStorageFromEnv } from './storage/remote.ts';
 import type { LoadedDataset } from './types.ts';
 
 try {
@@ -22,6 +23,7 @@ try {
   const projects = new ProjectService(
     pool,
     process.env.SMARTREVIEW_STORAGE || path.join(webRoot, 'storage'),
+    remoteStorageFromEnv(),
   );
   await projects.recover();
   if (dataset && reviews) await projects.registerDemo(dataset, reviews, datasetPath);
@@ -47,7 +49,7 @@ try {
   const host = process.env.HOST || '127.0.0.1';
   app.listen(Number(process.env.PORT || 3100), host, () =>
     console.log(
-      `SmartReview: http://${host}:${process.env.PORT || 3100} · ${dataset?.cases.length ?? 0} demo cases · Projects ready`,
+      `SmartReview: http://${host}:${process.env.PORT || 3100} · ${dataset?.cases.length ?? 0} demo cases · Projects ready · Storage ${projects.remote?.name ?? 'local'}`,
     ),
   );
   for (const signal of ['SIGINT', 'SIGTERM'] as const)

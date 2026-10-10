@@ -1,3 +1,4 @@
+import { hint } from '../lib/englishHints';
 import { Spinner } from '../components/Spinner';
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, Navigate, useBlocker, useNavigate, useParams } from 'react-router-dom';
@@ -160,11 +161,11 @@ function Workspace({ projectId }: Id) {
                 key={f.id}
                 to={`${base}/frames/${encodeURIComponent(f.id)}`}
                 aria-current={f.id === frameId ? 'page' : undefined}
-                className={`mb-2 block border p-3 text-sm ${f.id === frameId ? 'border-accent bg-teal-50' : 'border-line'}`}
+                className={`mb-2 block rounded-lg border p-3 text-sm ${f.id === frameId ? 'border-accent bg-teal-50' : 'border-line'}`}
               >
                 <span className="block break-all">
                   {f.media_name}
-                  {(mediaCounts.get(f.media_id) ?? 0) > 1 ? ` · Frame ${f.index}` : ''}
+                  {(mediaCounts.get(f.media_id) ?? 0) > 1 ? ` · ${hint('Frame')} ${f.index}` : ''}
                 </span>
                 <span className="mt-2 block text-xs text-muted">
                   {f.annotation_count} nhãn ·{' '}
@@ -361,7 +362,7 @@ function FrameEditor({
         <div
           role="alertdialog"
           aria-label="Thay đổi chưa lưu"
-          className="mb-5 border border-amber-500 bg-amber-50 p-4"
+          className="mb-5 rounded-xl border border-amber-500 bg-amber-50 p-4"
         >
           <p>Có thay đổi chưa lưu. Rời ảnh sẽ bỏ các thay đổi này.</p>
           <div className="mt-3 flex gap-3">
@@ -410,7 +411,7 @@ function FrameEditor({
       />
       {pending.length > 0 && (
         <div
-          className="mt-4 border border-violet-300 bg-violet-50 p-4"
+          className="mt-4 rounded-xl border border-violet-300 bg-violet-50 p-4"
           aria-label="Gợi ý thiếu nhãn từ AI"
         >
           <strong className="text-sm">
@@ -517,7 +518,7 @@ function FrameEditor({
         )}
         <div className="mt-4 space-y-4">
           {regions.map((r, i) => (
-            <div key={r.id} className="border border-rose-200 p-4">
+            <div key={r.id} className="rounded-xl border border-rose-200 p-4">
               <div className="flex justify-between gap-3">
                 <strong className="text-sm">Vùng thiếu {i + 1}</strong>
                 <button

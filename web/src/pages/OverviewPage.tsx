@@ -60,7 +60,7 @@ function Overview() {
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">
                       {c.media_name}
-                      {hint(' · Frame')}
+                      {hint(' · Frame ')}
                       {c.frame_id}
                     </p>
                     <p className="mt-1 truncate text-xs text-muted">
@@ -100,11 +100,11 @@ function Overview() {
             ))}
           </dl>
           <div className="flex flex-wrap gap-2 border-t border-line pt-4">
-            <span className="rounded-none border border-line px-2 py-1 text-[10px] text-muted">
+            <span className="rounded-md border border-line px-2 py-1 text-[10px] text-muted">
               {hint('SCHEMA ')}
               {meta.schema_version}
             </span>
-            <span className="rounded-none border border-line px-2 py-1 text-[10px] text-muted">
+            <span className="rounded-md border border-line px-2 py-1 text-[10px] text-muted">
               {hint('ENGINE ')}
               {meta.engine_version}
             </span>

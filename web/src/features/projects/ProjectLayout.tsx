@@ -3,18 +3,23 @@ import { hint } from '../../lib/englishHints';
 import React from 'react';
 import { Link, Outlet } from 'react-router-dom';
 import { AccountMenu } from '../auth/AuthGate';
+import { Logo } from '../../components/Logo';
+import { ThemeToggle } from '../../components/ThemeToggle';
+import { LanguageToggle } from '../../components/LanguageToggle';
 export function ProjectLayout() {
   return (
     <div className="min-h-screen">
-      <header className="bg-white flex flex-wrap items-center gap-8 border-b border-line px-8 py-5">
-        <Link to="/projects" className="text-lg font-semibold">
-          Smart<span className="text-accent">Review</span>
+      <header className="bg-panel flex flex-wrap items-center gap-8 border-b border-line px-8 py-5">
+        <Link to="/projects" aria-label="SmartReview">
+          <Logo />
         </Link>
         <Link to="/projects" className="text-sm text-accent">
           {hint('Projects')}
         </Link>
         <span className="ml-auto text-xs text-muted">{hint('ANNOTATION QA')}</span>
         <AccountMenu />
+        <LanguageToggle />
+        <ThemeToggle />
       </header>
       <main className="mx-auto max-w-[1400px] px-5 py-9 lg:px-8">
         <Outlet />
@@ -34,7 +39,7 @@ export const statusLabel: Record<string, string> = {
 export function ProjectStatus({ status }: { status: string }) {
   return (
     <span
-      className={`rounded-none border px-3 py-1 text-xs ${status === 'READY' ? 'border-accent/30 text-accent' : status === 'FAILED' ? 'border-rose-400/30 text-rose-700' : 'border-amber-400/30 text-amber-800'}`}
+      className={`rounded-full border px-3 py-1 text-xs ${status === 'READY' ? 'border-accent/30 text-accent' : status === 'FAILED' ? 'border-rose-400/30 text-rose-700' : 'border-amber-400/30 text-amber-800'}`}
     >
       {['UPLOADING', 'VALIDATING', 'NORMALIZING', 'ANALYZING'].includes(status) && <Spinner />}
       {hint(statusLabel[status] || status)}

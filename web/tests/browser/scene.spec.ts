@@ -1,3 +1,4 @@
+import { ui } from '../../src/lib/i18n.ts';
 import { test, expect } from './fixtures.ts';
 import fs from 'node:fs/promises';
 import { hint } from '../../src/lib/englishHints.ts';
@@ -64,11 +65,12 @@ test('all scene boxes, focus, selection, draft, save target and responsive coord
   const url = page.url();
   const note = page.getByLabel(hint('Note (optional)'), { exact: true });
   await note.fill('Draft for truck');
-  await page.getByRole('button', { name: 'Risk only', exact: true }).click();
+  await page.getByRole('button', { name: ui('Risk only'), exact: true }).click();
   await expect(viewer.getByTestId('annotation-box')).toHaveCount(1);
-  await page.getByRole('button', { name: 'All annotations', exact: true }).click();
+  await page.getByRole('button', { name: ui('All annotations'), exact: true }).click();
+  await page.getByRole('tab', { name: new RegExp('^' + ui('Objects')) }).click();
   await page
-    .getByLabel('Annotations in frame')
+    .getByLabel(ui('Annotations in frame'))
     .getByRole('button', { name: 'car · object-0', exact: true })
     .click();
   await expect(viewer.locator('[data-selected="true"]')).toHaveAttribute(
@@ -89,6 +91,7 @@ test('all scene boxes, focus, selection, draft, save target and responsive coord
     'object-3',
   );
   expect(page.url()).toBe(url);
+  await page.getByRole('tab', { name: new RegExp('^' + ui('Flags')) }).click();
   expect(await why.innerText()).toBe(originalWhy);
   await expect(note).toHaveValue('Draft for truck');
   for (const viewport of [
@@ -147,7 +150,7 @@ test('50+ annotations and missing or invalid focus fallback remain usable', asyn
     await route.fulfill({ json: body });
   });
   await page.reload();
-  await expect(page.getByRole('alert')).toContainText('Không tìm thấy annotation');
+  await expect(page.getByRole('alert')).toContainText(ui('Không tìm thấy annotation'));
   await expect(page.getByTestId('annotation-box')).toHaveCount(54);
   await expect(page.locator('[data-active="true"]')).toHaveAttribute(
     'data-annotation-id',
@@ -161,8 +164,13 @@ test('Traffic frame 422 stays Risk 70 and context switches never mix frames', as
     .locator('svg')
     .filter({ has: page.locator('image') })
     .first();
-  await expect(viewer.locator('[data-active="true"]')).toContainText('RISK 70 · truck');
-  await expect(page.getByRole('heading', { name: /^Annotations \(/ })).toBeVisible();
+  await expect(viewer.locator('[data-active="true"]')).toContainText(
+    `${hint('Risk').toUpperCase()} 70 · truck`,
+  );
+  await page.getByRole('tab', { name: new RegExp('^' + ui('Objects')) }).click();
+  await expect(
+    page.getByRole('heading', { name: new RegExp('^' + ui('Annotations (').replace('(', '\\(')) }),
+  ).toBeVisible();
   const ids = await viewer
     .locator('[data-annotation-id]')
     .evaluateAll((nodes) => nodes.map((n) => n.dataset.annotationId));
@@ -210,7 +218,7 @@ test('review zoom, pan and reset preserve annotation geometry and selection', as
   await expect
     .poll(async () => (await viewer.getAttribute('viewBox')).split(' ')[0])
     .not.toBe(String(zoomed[0]));
-  await page.getByRole('button', { name: 'Đặt lại zoom' }).click();
+  await page.getByRole('button', { name: ui('Đặt lại zoom') }).click();
   await expect(viewer).toHaveAttribute('viewBox', original);
   await viewer.getByRole('button', { name: 'Inspect person (object-1)', exact: true }).focus();
   await page.keyboard.press('Enter');

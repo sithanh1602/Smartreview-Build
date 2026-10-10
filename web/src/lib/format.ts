@@ -12,8 +12,8 @@ export const objectText = (item: {
   id: string;
 }) =>
   item.track_id !== undefined
-    ? hint(`Track #${item.track_id}`)
-    : hint(`Object ${item.object_id || item.annotation_id || item.id}`);
+    ? `${hint('Track')} #${item.track_id}`
+    : `${hint('Object')} ${item.object_id || item.annotation_id || item.id}`;
 export const contextLabel = (item: Pick<Case, 'context'>) =>
   Object.values(item.context)
     .map((o) => o.class_name)

@@ -1,29 +1,37 @@
 import { hint } from '../lib/englishHints';
-import React from 'react';
-import { NavLink, Outlet, useParams } from 'react-router-dom';
+import React, { useState } from 'react';
+import { NavLink, Outlet, useLocation, useParams } from 'react-router-dom';
 import { DatasetProvider, useDataset } from '../app/DatasetProvider';
 import { Icon } from '../components/Icon';
 import type { IconName } from '../components/Icon';
 import { AccountMenu } from '../features/auth/AuthGate';
+import { Logo } from '../components/Logo';
+import { ThemeToggle } from '../components/ThemeToggle';
+import { LanguageToggle } from '../components/LanguageToggle';
+export type LayoutContext = { headerSlot: HTMLElement | null };
 function Shell() {
   const { data, error, loading, projectId, reviewPath } = useDataset();
+  // The review workspace fills exactly one screen from laptop width up; its page puts
+  // progress into the header slot instead of spending a row on it.
+  const workspace = useLocation().pathname.split('/').includes('review');
+  const [headerSlot, setHeaderSlot] = useState<HTMLElement | null>(null);
   return (
-    <div className="min-h-screen">
-      <header className="bg-white flex min-h-18 flex-wrap items-center justify-between gap-4 border-b border-line px-5 py-4 lg:px-8">
-        <div className="flex max-w-full flex-wrap items-center gap-4 lg:gap-8">
-          <NavLink
-            to="/projects"
-            className="flex items-center gap-3"
-            aria-label={hint('SmartReview — Tổng quan')}
-          >
-            <span className="flex h-9 w-9 items-center justify-center rounded-none border border-accent/30 bg-accent/10 text-accent">
-              <Icon name="scan" className="h-5 w-5" />
-            </span>
-            <span className="text-lg font-semibold tracking-tight">
-              Smart<span className="text-accent">Review</span>
-            </span>
+    <div
+      className={`min-h-screen ${workspace ? 'lg:flex lg:h-dvh lg:flex-col lg:overflow-hidden' : ''}`}
+    >
+      <header
+        className={`flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-line bg-panel ${workspace ? 'px-3 py-1.5' : 'min-h-18 px-5 py-4 lg:px-8'}`}
+      >
+        <div
+          className={`flex max-w-full flex-wrap items-center ${workspace ? 'gap-3' : 'gap-4 lg:gap-8'}`}
+        >
+          <NavLink to="/projects" aria-label={hint('SmartReview — Tổng quan')}>
+            <Logo markClassName={workspace ? 'h-7 w-7' : undefined} />
           </NavLink>
-          <nav aria-label={hint('Điều hướng chính')} className="flex gap-1 text-sm">
+          <nav
+            aria-label={hint('Điều hướng chính')}
+            className={`flex gap-1 ${workspace ? 'text-xs' : 'text-sm'}`}
+          >
             {(
               [
                 ['/projects', hint('Projects'), 'grid'],
@@ -40,28 +48,40 @@ function Shell() {
                 end={to !== reviewPath}
                 to={to}
                 className={({ isActive }) =>
-                  `flex items-center gap-2 rounded-none px-3 py-2 ${isActive ? 'bg-slate-100 text-slate-900' : 'text-muted hover:text-slate-900'}`
+                  `flex items-center gap-2 rounded-lg ${workspace ? 'px-2 py-1.5' : 'px-3 py-2'} ${isActive ? 'bg-slate-100 text-slate-900' : 'text-muted hover:text-slate-900'}`
                 }
               >
-                <Icon name={icon} />
+                {!workspace && <Icon name={icon} />}
                 {label}
               </NavLink>
             ))}
           </nav>
         </div>
+        <div
+          ref={setHeaderSlot}
+          className="flex min-w-0 flex-1 items-center justify-end empty:hidden"
+        />
         <div className="flex items-center gap-3 text-xs text-muted">
           <AccountMenu />
-          <span
-            className={`h-1.5 w-1.5 rounded-none ${error ? 'bg-rose-400' : loading ? 'bg-amber-400' : 'bg-accent'}`}
-          />
-          {data ? 'Dữ liệu sẵn sàng' : error ? 'Chưa kết nối' : 'Đang kết nối'}
-          <span className="ml-2 rounded-none border border-line px-2 py-1 text-[10px] tracking-widest">
-            {hint('ANNOTATION QA')}
-          </span>
+          {!workspace && (
+            <>
+              <span
+                className={`h-1.5 w-1.5 rounded-full ${error ? 'bg-rose-400' : loading ? 'bg-amber-400' : 'bg-accent'}`}
+              />
+              {data ? 'Dữ liệu sẵn sàng' : error ? 'Chưa kết nối' : 'Đang kết nối'}
+              <span className="ml-2 rounded-md border border-line px-2 py-1 text-[10px] tracking-widest">
+                {hint('ANNOTATION QA')}
+              </span>
+            </>
+          )}
+          <LanguageToggle />
+          <ThemeToggle />
         </div>
       </header>
-      <Outlet />
-      <footer className="flex flex-wrap justify-between gap-2 border-t border-line px-6 py-4 text-[11px] text-muted">
+      <Outlet context={{ headerSlot } satisfies LayoutContext} />
+      <footer
+        className={`flex flex-wrap justify-between gap-2 border-t border-line px-6 py-4 text-[11px] text-muted ${workspace ? 'lg:hidden' : ''}`}
+      >
         <span>{hint('SmartReview · Annotation Quality Assurance')}</span>
         <span>{hint('Independent of models · Human-led review')}</span>
       </footer>

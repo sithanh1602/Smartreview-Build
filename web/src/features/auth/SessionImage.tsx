@@ -1,6 +1,7 @@
-import React, { useRef, useState } from 'react';
-import { refreshSession } from '../../lib/api';
-// Retry once after renewing the session when a protected SVG image cannot load.
+import React, { useEffect, useState } from 'react';
+import { acquireImage, cachedImage, releaseImage } from '../../lib/imageCache';
+// A protected SVG image, downloaded once per URL however many viewers show it. The cache
+// renews the session and retries once when the request is rejected.
 export function SessionImage({
   href,
   onError,
@@ -9,25 +10,19 @@ export function SessionImage({
   href: string;
   onError?: () => void;
 }) {
-  const attempted = useRef(false);
-  const [retry, setRetry] = useState(false);
-  return (
-    <image
-      {...props}
-      href={retry ? `${href}${href.includes('?') ? '&' : '?'}session_retry=1` : href}
-      onError={async () => {
-        if (attempted.current) {
-          onError?.();
-          return;
-        }
-        attempted.current = true;
-        try {
-          await refreshSession();
-          setRetry(true);
-        } catch {
-          onError?.();
-        }
-      }}
-    />
-  );
+  const [loaded, setLoaded] = useState<{ href: string; src: string } | null>(null);
+  useEffect(() => {
+    if (!href) return;
+    let active = true;
+    acquireImage(href).then(
+      (src) => active && setLoaded({ href, src }),
+      () => active && onError?.(),
+    );
+    return () => {
+      active = false;
+      releaseImage(href);
+    };
+  }, [href]);
+  const src = loaded?.href === href ? loaded.src : cachedImage(href);
+  return <image {...props} href={src} onError={() => onError?.()} />;
 }
