@@ -13,4 +13,4 @@ datasets/
 !.env.example
 .local/
 
-storage/
+/storage/
