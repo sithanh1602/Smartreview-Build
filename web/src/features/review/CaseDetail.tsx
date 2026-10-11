@@ -8,6 +8,7 @@ import { FrameViewer } from './FrameViewer';
 import type { View } from './FrameViewer';
 import { RiskBadge } from '../../components/RiskBadge';
 import { Icon } from '../../components/Icon';
+import { Tip } from '../../components/Tip';
 import { ReviewDecisionForm } from './ReviewDecisionForm';
 import { confidenceText, objectText } from '../../lib/format';
 import { useLoadedDataset } from '../../app/DatasetProvider';
@@ -23,6 +24,7 @@ type Mode = 'all' | 'risk' | 'others';
 type Scene = { key: string; annotations?: Observation[]; error?: string };
 const caption =
   'pointer-events-none absolute top-2 left-2 rounded-md bg-black/60 px-2 py-0.5 text-[11px] font-medium text-white';
+const captionNote = 'ml-1.5 font-normal text-white/70';
 // Controls that float over the image.
 const glass = 'border border-line bg-panel/90 shadow-lg backdrop-blur';
 const positions: [ContextPosition, string][] = [
@@ -66,7 +68,8 @@ export function CaseDetail({
     data: { meta, reviews },
   } = useLoadedDataset();
   const [mode, setMode] = useState<Mode>('all');
-  const [compare, setCompare] = useState(false);
+  // What stands beside the assessed image: nothing, the bare image, or the labels as imported.
+  const [compare, setCompare] = useState<'original' | 'labelled' | null>(null);
   const [view, setView] = useState<View>();
   const [scene, setScene] = useState<Scene | null>(null);
   const [selectedAnnotation, setSelectedAnnotation] = useState<string | null>(null);
@@ -192,39 +195,45 @@ export function CaseDetail({
       className={`grid min-w-0 lg:min-h-0 lg:grid-rows-[auto_minmax(0,1fr)] ${shown.info ? 'lg:grid-cols-[minmax(0,1fr)_332px] xl:grid-cols-[minmax(0,1fr)_396px]' : 'lg:grid-cols-[minmax(0,1fr)]'}`}
     >
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-line bg-panel px-3 py-1.5 lg:col-span-full">
-        <ToggleButton
-          isIconOnly
-          size="sm"
-          aria-label="Ẩn hoặc hiện hàng đợi"
-          isSelected={shown.queue}
-          onChange={() => panels.toggle('queue')}
-        >
-          <Icon name="panelLeft" />
-        </ToggleButton>
-        <div className="flex items-center gap-1">
-          <Button
+        <Tip text="Ẩn hoặc hiện hàng đợi ( [ )">
+          <ToggleButton
             isIconOnly
             size="sm"
-            variant="tertiary"
-            aria-label={hint('Case trước')}
-            isDisabled={index <= 0}
-            onPress={() => onNavigate(-1)}
+            aria-label="Ẩn hoặc hiện hàng đợi"
+            isSelected={shown.queue}
+            onChange={() => panels.toggle('queue')}
           >
-            <Icon name="chevron" className="rotate-180" />
-          </Button>
+            <Icon name="panelLeft" />
+          </ToggleButton>
+        </Tip>
+        <div className="flex items-center gap-1">
+          <Tip text={`${hint('Case trước')} (←)`}>
+            <Button
+              isIconOnly
+              size="sm"
+              variant="tertiary"
+              aria-label={hint('Case trước')}
+              isDisabled={index <= 0}
+              onPress={() => onNavigate(-1)}
+            >
+              <Icon name="chevron" className="rotate-180" />
+            </Button>
+          </Tip>
           <span className="min-w-12 text-center text-xs tabular-nums text-muted">
             {index + 1} / {count}
           </span>
-          <Button
-            isIconOnly
-            size="sm"
-            variant="tertiary"
-            aria-label={hint('Case tiếp theo')}
-            isDisabled={index >= count - 1}
-            onPress={() => onNavigate(1)}
-          >
-            <Icon name="chevron" />
-          </Button>
+          <Tip text={`${hint('Case tiếp theo')} (→)`}>
+            <Button
+              isIconOnly
+              size="sm"
+              variant="tertiary"
+              aria-label={hint('Case tiếp theo')}
+              isDisabled={index >= count - 1}
+              onPress={() => onNavigate(1)}
+            >
+              <Icon name="chevron" />
+            </Button>
+          </Tip>
         </div>
         <div className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-3">
           <h2 className="text-sm font-semibold">
@@ -287,50 +296,76 @@ export function CaseDetail({
               Xem cả ảnh
             </ToggleButton>
           )}
-          <ToggleButton size="sm" isSelected={compare} onChange={setCompare}>
-            <Icon name="layers" />
-            So sánh ảnh gốc
-          </ToggleButton>
+          <div className="flex items-center gap-1.5">
+            <span className="flex items-center gap-1 text-xs text-muted">
+              <Icon name="compare" />
+              So sánh với
+            </span>
+            <ToggleButtonGroup
+              size="sm"
+              selectionMode="single"
+              aria-label="So sánh với"
+              selectedKeys={new Set(compare ? [compare] : [])}
+              onSelectionChange={(keys) =>
+                setCompare(([...keys][0] as 'original' | 'labelled' | undefined) ?? null)
+              }
+            >
+              <Tip text="Đặt ảnh gốc, không có nhãn, bên cạnh. Bấm lần nữa để tắt.">
+                <ToggleButton id="original">Ảnh gốc</ToggleButton>
+              </Tip>
+              <Tip text="Đặt ảnh chỉ có nhãn đã gán, chưa có đánh giá của SmartReview, bên cạnh. Bấm lần nữa để tắt.">
+                <ToggleButton id="labelled">Ảnh có nhãn</ToggleButton>
+              </Tip>
+            </ToggleButtonGroup>
+          </div>
           <div ref={setZoomSlot} />
-          <Button
-            isIconOnly
-            size="sm"
-            variant="tertiary"
-            aria-label="Sao chép thông tin"
-            onPress={copyReference}
-          >
-            <Icon name={copyMessage.startsWith('Đã') ? 'check' : 'copy'} />
-          </Button>
+          <Tip text="Sao chép thông tin case để dán vào ghi chú hoặc tin nhắn">
+            <Button
+              isIconOnly
+              size="sm"
+              variant="tertiary"
+              aria-label="Sao chép thông tin"
+              onPress={copyReference}
+            >
+              <Icon name={copyMessage.startsWith('Đã') ? 'check' : 'copy'} />
+            </Button>
+          </Tip>
           <span role="status" className="sr-only">
             {copyMessage}
           </span>
-          <ToggleButton
-            isIconOnly
-            size="sm"
-            aria-label="Ẩn hoặc hiện ngữ cảnh"
-            isSelected={shown.context}
-            onChange={() => panels.toggle('context')}
-          >
-            <Icon name="panelBottom" />
-          </ToggleButton>
-          <ToggleButton
-            isIconOnly
-            size="sm"
-            aria-label="Ẩn hoặc hiện bảng thông tin"
-            isSelected={shown.info}
-            onChange={() => panels.toggle('info')}
-          >
-            <Icon name="panelRight" />
-          </ToggleButton>
-          <ToggleButton
-            isIconOnly
-            size="sm"
-            aria-label="Tập trung"
-            isSelected={panels.focused}
-            onChange={panels.toggleFocus}
-          >
-            <Icon name="focus" />
-          </ToggleButton>
+          <Tip text={'Ẩn hoặc hiện ngữ cảnh ( \\ )'}>
+            <ToggleButton
+              isIconOnly
+              size="sm"
+              aria-label="Ẩn hoặc hiện ngữ cảnh"
+              isSelected={shown.context}
+              onChange={() => panels.toggle('context')}
+            >
+              <Icon name="panelBottom" />
+            </ToggleButton>
+          </Tip>
+          <Tip text="Ẩn hoặc hiện bảng thông tin ( ] )">
+            <ToggleButton
+              isIconOnly
+              size="sm"
+              aria-label="Ẩn hoặc hiện bảng thông tin"
+              isSelected={shown.info}
+              onChange={() => panels.toggle('info')}
+            >
+              <Icon name="panelRight" />
+            </ToggleButton>
+          </Tip>
+          <Tip text="Tập trung: ẩn hết các khung, chỉ còn ảnh (F)">
+            <ToggleButton
+              isIconOnly
+              size="sm"
+              aria-label="Tập trung"
+              isSelected={panels.focused}
+              onChange={panels.toggleFocus}
+            >
+              <Icon name="focus" />
+            </ToggleButton>
+          </Tip>
         </div>
       </div>
 
@@ -348,10 +383,24 @@ export function CaseDetail({
                   zoom={zoom}
                   tone="canvas"
                   fill
-                  showBox={false}
+                  // Labels as imported: no risk, case numbers, AI proposal or highlight.
+                  showBox={compare === 'labelled'}
+                  annotations={annotations}
+                  activeAnnotationId={null}
+                  labelScale={1.6}
                   follow={view}
                 />
-                <figcaption className={caption}>Ảnh gốc</figcaption>
+                <figcaption className={caption}>
+                  {compare === 'labelled' ? (
+                    <>
+                      Ảnh có nhãn<span className={captionNote}>chưa có đánh giá của tool</span>
+                    </>
+                  ) : (
+                    <>
+                      Ảnh gốc<span className={captionNote}>không nhãn</span>
+                    </>
+                  )}
+                </figcaption>
               </figure>
             )}
             <figure className="relative min-w-0 lg:h-full lg:min-h-0">
@@ -359,13 +408,14 @@ export function CaseDetail({
                 key={observation.annotation_id}
                 observation={observation}
                 trackId={item.track_id}
-                risk={position === 'current' ? item.score : undefined}
                 zoom={zoom}
                 interactive
                 tone="canvas"
                 fill
                 controlsSlot={zoomSlot}
                 onViewChange={setView}
+                onSelectAnnotation={setSelectedAnnotation}
+                risk={position === 'current' ? item.score : undefined}
                 showBox={showBox}
                 proposal={position === 'current' && showBox ? aiFinding?.prediction : undefined}
                 annotations={
@@ -385,9 +435,8 @@ export function CaseDetail({
                 }
                 activeAnnotationId={item.annotation_id}
                 selectedAnnotationId={inspected.annotation_id}
-                onSelectAnnotation={setSelectedAnnotation}
               />
-              {compare && <figcaption className={caption}>Có nhãn</figcaption>}
+              {compare && <figcaption className={caption}>Đánh giá của SmartReview</figcaption>}
             </figure>
           </div>
           {!shown.queue && (

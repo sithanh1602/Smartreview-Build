@@ -59,14 +59,38 @@ export function refreshSession() {
   }
   return refreshPending;
 }
+// The last answer to each GET, kept so that re-rendering the pages in another language shows
+// the data already on screen instead of asking for it again. Any write empties it, because the
+// answers may no longer be true.
+const MAX_ANSWERS = 200;
+const answers = new Map<string, unknown>();
+let reusable: Map<string, unknown> | null = null;
+export function reuseAnswers(milliseconds = 3000) {
+  const snapshot = new Map(answers);
+  reusable = snapshot;
+  setTimeout(() => {
+    if (reusable === snapshot) reusable = null;
+  }, milliseconds);
+}
 export async function request<T = any>(path: string, options: RequestInit = {}): Promise<T> {
+  const reading = !options.method || options.method === 'GET';
+  if (!reading) {
+    answers.clear();
+    reusable = null;
+  } else if (reusable?.has(path)) return structuredClone(reusable.get(path)) as T;
   let response = await fetch(`/api${path}`, { ...options, credentials: 'same-origin' });
   if (response.status === 401) {
     await refreshSession();
     response = await fetch(`/api${path}`, { ...options, credentials: 'same-origin' });
     if (response.status === 401) expired();
   }
-  return parseResponse<T>(response);
+  const data = await parseResponse<T>(response);
+  if (reading) {
+    answers.delete(path);
+    answers.set(path, data);
+    if (answers.size > MAX_ANSWERS) answers.delete(answers.keys().next().value!);
+  }
+  return data;
 }
 export async function getDataset(
   signal: AbortSignal,

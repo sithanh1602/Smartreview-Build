@@ -57,8 +57,8 @@ export const en: Record<string, string> = {
   'Phản hồi import không hợp lệ.': 'The import response was invalid.',
   'Chọn COCO JSON chứa images, categories, annotations và bbox [x, y, width, height], cùng tất cả ảnh được khai báo. Chỉ kiểm tra bbox; segmentation/keypoints được giữ trong metadata, không dùng để kiểm tra. Không nhận COCO prediction hoặc panoptic.':
     'Choose a COCO JSON with images, categories, annotations and bbox [x, y, width, height], plus every image it declares. Only bboxes are checked; segmentation/keypoints are kept in metadata and not used for checks. COCO prediction and panoptic files are not accepted.',
-  'Dataset đã có annotation, không cần chạy model. Hỗ trợ ảnh PNG, JPEG, WebP, GIF; box, polygon và polyline từ CVAT images. Video/ZIP/SVG và CVAT tracks chưa được hỗ trợ qua upload.':
-    'The dataset is already annotated, so no model run is needed. Supports PNG, JPEG, WebP and GIF images; boxes, polygons and polylines from CVAT images. Video/ZIP/SVG and CVAT tracks are not supported through upload yet.',
+  'Dataset đã có annotation, không cần chạy model. Hỗ trợ ảnh PNG, JPEG, WebP, GIF; box, polygon và polyline từ CVAT images. Video/SVG và CVAT tracks chưa được hỗ trợ qua upload.':
+    'The dataset is already annotated, so no model run is needed. Supports PNG, JPEG, WebP and GIF images; boxes, polygons and polylines from CVAT images. Video/SVG and CVAT tracks are not supported through upload yet.',
   'File như images.csv: mỗi ảnh một dòng, có cột file_name và env_risk (0–1).':
     'A file like images.csv: one row per image, with file_name and env_risk (0–1) columns.',
   'Dataset có thư mục ảnh con?': 'Does the dataset have image subfolders?',
@@ -110,10 +110,23 @@ export const en: Record<string, string> = {
   'Annotation hiển thị': 'Annotations shown',
   'Toàn cảnh': 'Full frame',
   'Phóng to vật thể': 'Zoom to object',
-  'So sánh ảnh gốc': 'Compare with original',
+  'So sánh với': 'Compare with',
+  'Ảnh có nhãn': 'Labelled image',
+  'Đặt ảnh gốc, không có nhãn, bên cạnh. Bấm lần nữa để tắt.':
+    'Put the original, without labels, alongside. Press again to turn off.',
+  'Đặt ảnh chỉ có nhãn đã gán, chưa có đánh giá của SmartReview, bên cạnh. Bấm lần nữa để tắt.':
+    'Put the image with only its imported labels, without SmartReview’s assessment, alongside. Press again to turn off.',
+  'Đánh giá của SmartReview': 'SmartReview’s assessment',
+  'không nhãn': 'no labels',
+  'chưa có đánh giá của tool': 'no assessment from the tool',
+  'Sao chép thông tin case để dán vào ghi chú hoặc tin nhắn':
+    'Copy the case details to paste into a note or message',
+  'Ẩn hoặc hiện hàng đợi ( [ )': 'Show or hide the queue ( [ )',
+  'Ẩn hoặc hiện ngữ cảnh ( \\ )': 'Show or hide the context ( \\ )',
+  'Ẩn hoặc hiện bảng thông tin ( ] )': 'Show or hide the info panel ( ] )',
+  'Tập trung: ẩn hết các khung, chỉ còn ảnh (F)': 'Focus: hide every panel, image only (F)',
   'Sao chép thông tin': 'Copy details',
   'Ảnh gốc': 'Original',
-  'Có nhãn': 'Labelled',
   ': không có observation.': ': no observation.',
   '← → chuyển case': '← → change case',
   '1 2 3 chọn quyết định': '1 2 3 choose a decision',
@@ -379,10 +392,166 @@ export const en: Record<string, string> = {
   'Mức bao phủ kiểm tra. Thiếu confidence hoặc track không đồng nghĩa annotation có lỗi.':
     'Check coverage. A missing confidence or track does not mean the annotation is wrong.',
   'Lý do bỏ qua': 'Skip reason',
+  'Nguồn dữ liệu': 'Data source',
+  'Tệp rời': 'Separate files',
+  'Tệp nén (.zip)': 'Archive (.zip)',
+  'Một tệp .zip chứa tệp nhãn, ảnh và (nếu có) CSV thông tin ảnh, guideline. Tệp được mở ngay trên trình duyệt; máy chủ chỉ nhận từng tệp bên trong.':
+    'One .zip holding the annotation file, the images and, if any, the image metadata CSV and a guideline. It is opened in the browser; the server only receives the files inside.',
+  'Chọn riêng tệp nhãn, ảnh và (nếu có) CSV thông tin ảnh.':
+    'Choose the annotation file, the images and, if any, the image metadata CSV separately.',
+  'Tự nhận diện từ tệp nhãn trong tệp nén.': 'Detected from the annotation file in the archive.',
+  'Tệp nén dataset (.zip)': 'Dataset archive (.zip)',
+  'Đang đọc tệp nén…': 'Reading the archive…',
+  'Tìm thấy trong tệp nén': 'Found in the archive',
+  'Tệp nhãn trong tệp nén': 'Annotation file in the archive',
+  nhãn: 'annotations',
+  'ảnh khớp tệp nhãn ·': 'images match the annotation file ·',
+  'ảnh không được tệp nhãn nhắc tới sẽ bị bỏ qua.':
+    'images not named by the annotation file will be skipped.',
+  'CSV thông tin ảnh': 'Image metadata CSV',
+  'Có (file_name, env_risk)': 'Yes (file_name, env_risk)',
+  'Không có': 'None',
+  'Chưa dùng. Đánh dấu mục Guideline/Policy bên dưới nếu muốn áp dụng.':
+    'Not used. Tick Guideline/Policy below to attach it.',
+  Thiếu: 'Missing',
+  'ảnh (không có trong tệp nén hoặc trùng tên ở nhiều thư mục):':
+    'images (not in the archive, or the same name in several folders):',
+  'Tệp này có dạng': 'This file looks like',
+  ', khác định dạng đang chọn.': ', not the selected format.',
+  'Đổi định dạng': 'Switch format',
+  'Trường nhận diện được': 'Detected fields',
+  'Tìm ở mọi tầng của từng nhãn (tối đa 4 tầng); trường gần nhãn nhất được dùng.':
+    'Searched at every level of each annotation (up to 4 levels deep); the field nearest the annotation is used.',
+  'Độ tin cậy (confidence / score)': 'Confidence (confidence / score)',
+  'Lớp xếp thứ hai (top-2)': 'Runner-up class (top-2)',
+  'Điểm của lớp thứ hai': 'Runner-up score',
+  'Rủi ro môi trường (env_risk)': 'Environment risk (env_risk)',
+  'Lấy từ CSV thông tin ảnh': 'Taken from the image metadata CSV',
+  'Không tìm thấy': 'Not found',
+  'Không có độ tin cậy thì các kiểm tra dựa trên điểm số sẽ không chạy; các kiểm tra hình học và nhãn vẫn chạy.':
+    'Without confidence the score-based checks do not run; geometry and label checks still do.',
+  'Thêm Guideline / Policy mới': 'Add a new Guideline / Policy',
+  'Chỉ đánh dấu khi dataset này có quy định gán nhãn riêng. Guideline quyết định các kiểm tra policy được hiểu thế nào, nên mặc định để trống và dùng policy có sẵn.':
+    'Tick only when this dataset has its own labelling rules. The guideline decides how the policy checks are read, so it is off by default and the built-in policy is used.',
+  'Tệp guideline / policy': 'Guideline / policy file',
+  'Markdown, TXT, DOCX, PDF hoặc JSON · tối đa 10 MB.':
+    'Markdown, TXT, DOCX, PDF or JSON · up to 10 MB.',
+  'Hoặc dán nội dung': 'Or paste the text',
+  'Nội dung guideline / policy': 'Guideline / policy text',
+  'Ví dụ: xe bị che trên 50% không gán nhãn; người đi xe máy gán là person…':
+    'Example: vehicles more than 50% occluded are not labelled; motorcycle riders are labelled person…',
+  'Guideline được lưu kèm dự án. Chỉ lựa chọn "Theo guideline" ở quy tắc Nới hơn làm đổi cách chấm: check tương ứng được tắt cho các lớp của quy tắc đó. Quy tắc Mới và Chặt hơn mới được ghi lại, chưa chạy. Không chọn gì thì chấm theo policy có sẵn.':
+    'The guideline is stored with the project. Only choosing "Follow guideline" on a Looser rule changes scoring: the matching check is switched off for that rule\'s classes. New and Stricter rules are recorded but do not run yet. With nothing chosen, the built-in policy applies.',
+  'Chọn tệp nén chứa tệp nhãn và ảnh.': 'Choose an archive holding the annotation file and images.',
+  'Tệp nén thiếu ảnh mà tệp nhãn tham chiếu. Bổ sung ảnh rồi chọn lại tệp nén.':
+    'The archive lacks images the annotation file refers to. Add them and choose the archive again.',
+  'Chọn tệp hoặc nhập nội dung guideline/policy, hoặc bỏ đánh dấu mục này.':
+    'Choose a file or enter the guideline/policy text, or untick this section.',
+  'Guideline/policy tối đa 10 MB.': 'Guideline/policy is limited to 10 MB.',
+  'Đang giải nén ảnh…': 'Unpacking images…',
+  'Tệp không phải ZIP hợp lệ.': 'Not a valid ZIP file.',
+  'Tệp nén không có tệp nhãn CVAT XML, COCO JSON hoặc SmartReview JSON.':
+    'The archive has no CVAT XML, COCO JSON or SmartReview JSON annotation file.',
+  'Tệp nén không có tệp nhãn đúng định dạng của dự án.':
+    "The archive has no annotation file in the project's format.",
+  'Phân tích Guideline': 'Analyse Guideline',
+  'Đang phân tích, có thể mất vài phút…': 'Analysing, this can take a few minutes…',
+  'Gửi nội dung guideline tới mô hình ở backend (Gemini) để rút ra bản nháp quy tắc.':
+    'Sends the guideline text to the backend model (Gemini) to draft rules from it.',
+  'Chọn tệp hoặc dán nội dung guideline để phân tích.':
+    'Choose a file or paste the guideline text to analyse it.',
+  'Kiểm tra tự động được': 'Can be checked automatically',
+  'Đo được bằng dữ liệu nhãn hiện có.': 'Measurable from the annotation data available.',
+  'Cần người kiểm tra': 'Needs a reviewer',
+  'Phải nhìn ảnh hoặc cần phán đoán của con người.':
+    'Needs a look at the image or human judgement.',
+  'Định nghĩa, hướng dẫn': 'Definitions and instructions',
+  'Không phải yêu cầu về nhãn.': 'Not a requirement on the labels.',
+  Mới: 'New',
+  'Chặt hơn': 'Stricter',
+  'Nới hơn': 'Looser',
+  'Thiếu tham số:': 'Missing parameters:',
+  'Cần thêm dữ liệu:': 'Needs data:',
+  'lớp ·': 'classes ·',
+  'kiểm tra tự động ·': 'automatic checks ·',
+  'cần người kiểm tra ·': 'for a reviewer ·',
+  'định nghĩa ·': 'definitions ·',
+  'mâu thuẫn ·': 'conflicts ·',
+  'bị loại': 'rejected',
+  'Lớp và thuộc tính (': 'Classes and attributes (',
+  'Chỗ guideline mâu thuẫn hoặc mơ hồ (': 'Where the guideline conflicts or is unclear (',
+  'Bị loại khi đối chiếu với guideline (': 'Rejected when checked against the guideline (',
+  'Đây là bản nháp để người duyệt. Kết quả chưa được lưu và chưa đổi cách chấm điểm.':
+    'This is a draft for a person to review. The result is not saved and does not change scoring.',
+  'Kiểm tra rules': 'Review rules',
+  'Đã phân tích xong.': 'Analysis finished.',
+  'Tất cả quy tắc': 'All rules',
+  'Lớp và thuộc tính': 'Classes and attributes',
+  'Mâu thuẫn': 'Conflicts',
+  'Bị loại': 'Rejected',
+  Mục: 'Section',
+  Nhóm: 'Group',
+  Lớp: 'Class',
+  'Điều kiện': 'Condition',
+  'Câu trích từ guideline': 'Quote from the guideline',
+  'Ghi chú': 'Notes',
+  'Thuộc tính bắt buộc và giá trị': 'Required attributes and values',
+  'Vấn đề': 'Issue',
+  '· Bản nháp để người duyệt; chưa lưu và chưa đổi cách chấm điểm.':
+    '· A draft for a person to review; not saved and scoring is unchanged.',
+  'Không có câu trích': 'No quote',
+  'Câu trích không có trong guideline': 'Quote is not in the guideline',
+  'Cần dữ liệu công cụ không có': 'Needs data the tool lacks',
+  'Kiểm tra khai báo thiếu': 'Incomplete check',
+  'Không nêu check bị thay': 'No overridden check named',
+  'Tệp DOCX không hợp lệ: thiếu nội dung văn bản.': 'Invalid DOCX file: no document text.',
+  'Tệp DOCX không hợp lệ: không đọc được nội dung.':
+    'Invalid DOCX file: its content cannot be read.',
+  'Không mở được PDF (tệp hỏng hoặc có mật khẩu).':
+    'The PDF cannot be opened (damaged or password-protected).',
+  'PDF không có lớp chữ (có thể là bản quét). Dùng bản có chữ hoặc dán nội dung.':
+    'The PDF has no text layer (it may be a scan). Use a version with text or paste the text.',
+  'Guideline rỗng.': 'The guideline is empty.',
+  'So sánh với policy': 'Compare with policy',
+  'Quy tắc từ guideline': 'Rule from the guideline',
+  'So sánh': 'Comparison',
+  'Policy đang áp dụng': 'Policy in use',
+  Chọn: 'Choose',
+  'Theo guideline': 'Use guideline',
+  'Giữ policy': 'Keep policy',
+  'Thêm vào': 'Add',
+  'Tất cả theo guideline': 'All: guideline',
+  'Tất cả giữ policy': 'All: keep policy',
+  'Guideline chưa nêu:': 'Not stated in the guideline:',
+  'Chưa có quy tắc tương ứng trong công cụ.': 'No matching rule in the tool yet.',
+  'Chưa có mô tả cho kiểm tra này.': 'No description for this check.',
+  'Yêu cầu trong guideline': 'Requirement in the guideline',
+  'Vì sao công cụ chưa tự kiểm được': 'Why the tool cannot check it yet',
+  'Cần nhìn ảnh hoặc phán đoán của con người.': 'Needs a look at the image or human judgement.',
+  'Đặt quy tắc rút từ guideline cạnh quy tắc policy đang chạy trong công cụ, rồi chọn bên nào nên dùng.':
+    'Guideline rules next to the policy rules the tool runs today; choose which side to use.',
+  'Lựa chọn được lưu kèm dự án khi tạo, ai cũng chọn được (chưa phân quyền). Công cụ chưa tự đổi cách chấm điểm theo lựa chọn này.':
+    'Choices are saved with the project when it is created; anyone can choose (no roles yet). Scoring does not change with these choices yet.',
+  'quy tắc so được với policy ·': 'rules comparable with the policy ·',
+  'mâu thuẫn · đã chọn': 'conflicts · chosen',
+  'Tải về (.md)': 'Download (.md)',
+  'Phân tích guideline': 'Guideline analysis',
+  'Mô hình': 'Model',
+  'Thời điểm': 'Time',
+  'Chưa chọn': 'Not chosen',
+  'Lựa chọn': 'Choice',
+  'Không có.': 'None.',
+  'Nội dung': 'Content',
+  'Lý do': 'Reason',
+  'Đây là bản nháp để người duyệt. Công cụ chưa tự đổi cách chấm điểm theo lựa chọn này.':
+    'This is a draft for a person to review. Scoring does not change with these choices yet.',
 };
 
 // Strings built with values in them. Tried only when there is no exact entry above.
 export const enRules: [RegExp, string][] = [
+  [/^Chọn cho (.+)$/, 'Choice for $1'],
+  [/^Cần thêm dữ liệu: (.+)$/, 'Needs data: $1'],
+  [/^Để trống thì dùng (.+) trong tệp nén\.$/, 'Leave empty to use $1 from the archive.'],
   [/^Trước: frame (.+)$/, 'Previous: frame $1'],
   [/^Hiện tại: frame (.+)$/, 'Current: frame $1'],
   [/^Sau: frame (.+)$/, 'Next: frame $1'],

@@ -35,21 +35,27 @@ const run = (boxes: any[], options?: { env?: number; source?: string }) => {
   return { report, frame: report.frames[0], box: (i) => report.results[i] };
 };
 
-test('clean car is auto-accepted; pickup confusion is flagged with a suggested label', () => {
+test('clean car is auto-accepted; a doubtful name is flagged, except car against truck', () => {
   let { frame, box } = run([CLEAN_CAR]);
   assert.equal(box(0).score, 0);
   assert.equal(frame.tier, 'auto_accept');
   assert.deepEqual(frame.gates, { policy: true, risk: true, confidence: true });
 
-  ({ frame, box } = run([['car', 0.48, 500, 360, 680, 480, ['truck', 0.4]]]));
+  ({ frame, box } = run([['car', 0.48, 500, 360, 680, 480, ['bus', 0.4]]]));
   assert.deepEqual(box(0).check_ids, [
     'confidence.low_score',
     'confidence.class_margin',
     'confidence.vehicle_confusion',
   ]);
   assert.equal(box(0).score, 70);
-  assert.equal(box(0).suggested_label, 'truck');
+  assert.equal(box(0).suggested_label, 'bus');
   assert.equal(frame.tier, 'verify');
+
+  // car_truck.car_keeps_name: with truck as the runner-up, car is nearly always right.
+  ({ frame, box } = run([['car', 0.48, 500, 360, 680, 480, ['truck', 0.4]]]));
+  assert.deepEqual(box(0).check_ids, ['confidence.low_score']);
+  assert.equal((box(0).evaluations[5] as any).reason, 'policy_waived');
+  assert.equal(frame.tier, 'auto_accept');
 });
 
 test('a weak box is one finding counted once; only a sliver at the frame edge adds to it', () => {
@@ -70,26 +76,31 @@ test('a weak box is one finding counted once; only a sliver at the frame edge ad
     box(0).findings[0].evidence.signals.map((s) => s.check_id),
     ['confidence.low_score', 'env.poor_condition'],
   );
-  // A 30 px strip of a car: the sliver joins the weak finding, the shape rule still adds up.
-  assert.deepEqual(box(1).check_ids, ['confidence.weak_box', 'geometry.vehicle_aspect']);
+  // A 30 px strip of a car: the sliver joins the weak finding. Its shape says nothing (the
+  // shape rule stands down for a mostly hidden object); that it is mostly hidden and weak does.
+  assert.deepEqual(box(1).check_ids, ['confidence.weak_box', 'visibility.mostly_hidden']);
   assert.equal(box(1).findings[0].evidence.signals.length, 3);
-  assert.equal(box(1).score, 35);
-  assert.equal(box(1).findings.length, 2);
+  assert.equal(
+    (box(1).evaluations as any[]).find((e) => e.check_id === 'geometry.vehicle_aspect').reason,
+    'excepted',
+  );
+  assert.deepEqual(box(1).findings[1].evidence.weak_signals, ['low_confidence', 'poor_image']);
+  assert.equal(box(1).score, 70);
   // Bonnet of the camera car.
   assert.deepEqual(box(2).check_ids, [
     'confidence.weak_box',
     'context.ego_vehicle',
-    'geometry.vehicle_aspect',
+    'visibility.mostly_hidden',
   ]);
-  assert.equal(box(2).score, 75);
+  assert.equal(box(2).score, 100);
   assert.equal(box(3).findings[0].evidence.signals.length, 3);
-  assert.equal(box(3).score, 20);
+  assert.equal(box(3).score, 70);
   assert.equal(box(4).score, 20);
   assert.deepEqual(
     report.cases.map((c) => c.id),
-    ['b2', 'b1'],
+    ['b2', 'b1', 'b3'],
   );
-  assert.equal(frame.tier, 'verify');
+  assert.equal(frame.tier, 'relabel');
   assert.equal(run([['car', 0.45, 500, 360, 680, 480]], { env: 0.62 }).frame.tier, 'auto_accept');
 });
 
@@ -105,8 +116,11 @@ test('vehicle rules: containment, duplicates, and floating judged against the fr
   assert.deepEqual(box(1).check_ids, ['confidence.low_score', 'context.vehicle_in_large_vehicle']);
   assert.equal(box(1).score, 50);
   // Near-identical boxes are a duplicate, never "a vehicle inside a large vehicle".
-  assert.deepEqual(box(3).check_ids, ['geometry.cross_class_overlap']);
-  assert.equal(box(2).score, 0);
+  // The weaker truck is the extra box; its name also lacks a second opinion from the model.
+  assert.deepEqual(box(3).check_ids, ['geometry.cross_class_overlap', 'pair.unsupported_name']);
+  // The stronger bus won on score, and such a box is still often misnamed.
+  assert.deepEqual(box(2).check_ids, ['geometry.stronger_duplicate']);
+  assert.equal(box(2).suggested_label, 'truck');
   assert.deepEqual(box(4).check_ids, ['geometry.vehicle_position']);
   assert.equal(box(5).state, 'ignored');
 
@@ -134,10 +148,11 @@ test('person inside a vehicle box is flagged only when no pedestrian reading fit
     ['person', 0.8, 1000, 400, 1100, 460],
   ]);
   // Bust-sized figure in the window band: a passenger or a printed face.
-  assert.deepEqual(box(1).check_ids, ['context.person_in_vehicle']);
+  assert.deepEqual(box(1).check_ids, ['context.person_in_vehicle', 'visibility.barely_visible']);
   assert.equal(box(1).suspected_error, 'EXTRA_OBJECT');
-  // Small full-length figure: a pedestrian far behind the bus. Only its low score remains.
-  assert.deepEqual(box(2).check_ids, ['confidence.low_score']);
+  // Small full-length figure: a pedestrian far behind the bus is not a passenger, but the bus
+  // standing nearer the camera leaves next to nothing of it to see.
+  assert.deepEqual(box(2).check_ids, ['confidence.low_score', 'visibility.barely_visible']);
   // Feet at the bottom of the bus box: standing in front of it.
   assert.equal(box(3).score, 0);
   // Top corner of the box, where the rectangle covers background.
@@ -158,22 +173,26 @@ test('traffic lights: duplicates and misplaced lights are found, clusters and ho
     ['traffic light', 0.6, 700, 100, 800, 120],
     ['traffic light', 0.6, 900, 500, 920, 550],
   ]);
-  assert.deepEqual(box(1).check_ids, ['context.light_in_vehicle']);
+  // A "light" in the body of a car, lower than its roof: a tail light.
+  assert.deepEqual(box(1).check_ids, ['context.light_in_vehicle', 'geometry.light_below_vehicles']);
   assert.deepEqual(box(3).check_ids, ['geometry.light_overlap']);
+  assert.equal(box(3).score, 30);
   assert.equal(box(2).score, 0);
   // One box around two adjacent heads next to a box on one head.
   assert.equal(box(5).score, 0);
   assert.equal(box(6).score, 0);
   assert.deepEqual(box(7).check_ids, ['geometry.light_aspect']);
-  assert.deepEqual(box(8).check_ids, ['geometry.light_position']);
-  // Bonus labels are scored and listed apart; they neither queue nor block.
-  assert.deepEqual(report.cases, []);
+  assert.deepEqual(box(8).check_ids, ['geometry.light_position', 'geometry.light_below_vehicles']);
+  // A flagged box of a bonus label is an error to fix: it queues and holds the frame back, but
+  // only core boxes can send a frame to relabel.
   assert.deepEqual(
-    report.advisory_cases.map((c) => c.id),
-    ['b1', 'b8'],
+    report.cases.map((c) => c.id),
+    ['b1', 'b8', 'b3'],
   );
-  assert.deepEqual(frame.advisory, ['b1', 'b8']);
-  assert.equal(frame.tier, 'auto_accept');
+  assert.deepEqual(report.advisory_cases, []);
+  assert.deepEqual(frame.flagged, ['b1', 'b3', 'b8']);
+  assert.equal(box(1).score, 80);
+  assert.equal(frame.tier, 'verify');
 
   const signs = run([CLEAN_CAR, ...Array(4).fill(['stop sign', 0.9, 100, 100, 140, 140])]).frame;
   assert.deepEqual(
@@ -204,7 +223,7 @@ test('frame tiers follow IMG-1..6 and the person/vehicle asymmetry', () => {
   assert.equal(threeGrey.image_rules[0].rule_id, 'coverage.grey_vehicles');
   assert.equal(tier([['bus', 0.93, 300, 250, 700, 500]]).tier, 'verify');
 
-  const pickup = (x) => ['car', 0.48, x, 360, x + 180, 480, ['truck', 0.4]];
+  const pickup = (x) => ['car', 0.48, x, 360, x + 180, 480, ['bus', 0.4]];
   assert.equal(tier([pickup(100), pickup(400)]).tier, 'relabel');
   assert.equal(tier([['car', 0.45, 500, 360, 680, 480]]).tier, 'auto_accept');
 });

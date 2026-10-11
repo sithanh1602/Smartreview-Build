@@ -62,8 +62,8 @@ export const vi: Record<string, string> = {
     'Chọn thư mục chứa ảnh thay cho lựa chọn trên. Đường dẫn cần khớp tệp nhãn; tên tệp đơn chỉ được ghép khi duy nhất.',
   'Chọn COCO JSON chứa images, categories, annotations và bbox [x, y, width, height], cùng tất cả ảnh được khai báo. Chỉ kiểm tra bbox; segmentation/keypoints được giữ trong metadata, không dùng để kiểm tra. Không nhận COCO prediction hoặc panoptic.':
     'Chọn tệp COCO JSON chứa images, categories, annotations và bbox [x, y, width, height], cùng tất cả ảnh được khai báo. Chỉ kiểm tra khung bao; segmentation/keypoints được giữ lại nhưng không dùng để kiểm tra. Không nhận COCO prediction hoặc panoptic.',
-  'Dataset đã có annotation, không cần chạy model. Hỗ trợ ảnh PNG, JPEG, WebP, GIF; box, polygon và polyline từ CVAT images. Video/ZIP/SVG và CVAT tracks chưa được hỗ trợ qua upload.':
-    'Bộ dữ liệu đã có nhãn, không cần chạy mô hình. Hỗ trợ ảnh PNG, JPEG, WebP, GIF; khung bao, đa giác và đường gấp khúc từ CVAT images. Video/ZIP/SVG và chuỗi theo dõi của CVAT chưa được hỗ trợ khi tải lên.',
+  'Dataset đã có annotation, không cần chạy model. Hỗ trợ ảnh PNG, JPEG, WebP, GIF; box, polygon và polyline từ CVAT images. Video/SVG và CVAT tracks chưa được hỗ trợ qua upload.':
+    'Bộ dữ liệu đã có nhãn, không cần chạy mô hình. Hỗ trợ ảnh PNG, JPEG, WebP, GIF; khung bao, đa giác và đường gấp khúc từ CVAT images. Video/SVG và chuỗi theo dõi của CVAT chưa được hỗ trợ khi tải lên.',
   'Đang chạy QA checks…': 'Đang chạy kiểm tra chất lượng…',
   'Import dữ liệu đã gán nhãn, kiểm tra chất lượng và lưu quyết định review.':
     'Nhập dữ liệu đã gán nhãn, kiểm tra chất lượng và lưu quyết định đánh giá.',
@@ -91,4 +91,48 @@ export const vi: Record<string, string> = {
     'Kéo chuột bao quanh đối tượng chưa có khung, hoặc thêm vùng rồi nhập tọa độ. Đây là ghi chú kiểm tra, không sửa nhãn gốc.',
   'Đang tải các case và dữ liệu video…': 'Đang tải các trường hợp và dữ liệu…',
   '← → chuyển case': '← → chuyển trường hợp',
+  'Tệp nén dataset (.zip)': 'Tệp nén bộ dữ liệu (.zip)',
+  'Một tệp .zip chứa tệp nhãn, ảnh và (nếu có) CSV thông tin ảnh, guideline. Tệp được mở ngay trên trình duyệt; máy chủ chỉ nhận từng tệp bên trong.':
+    'Một tệp .zip chứa tệp nhãn, ảnh và (nếu có) CSV thông tin ảnh, hướng dẫn gán nhãn. Tệp được mở ngay trên trình duyệt; máy chủ chỉ nhận từng tệp bên trong.',
+  'Guideline / Policy': 'Hướng dẫn / quy định',
+  'Chưa dùng. Đánh dấu mục Guideline/Policy bên dưới nếu muốn áp dụng.':
+    'Chưa dùng. Đánh dấu mục hướng dẫn / quy định bên dưới nếu muốn áp dụng.',
+  'Độ tin cậy (confidence / score)': 'Độ tin cậy (confidence / score)',
+  'Thêm Guideline / Policy mới': 'Thêm hướng dẫn / quy định gán nhãn mới',
+  'Chỉ đánh dấu khi dataset này có quy định gán nhãn riêng. Guideline quyết định các kiểm tra policy được hiểu thế nào, nên mặc định để trống và dùng policy có sẵn.':
+    'Chỉ đánh dấu khi bộ dữ liệu này có quy định gán nhãn riêng. Hướng dẫn quyết định các kiểm tra theo quy định được hiểu thế nào, nên mặc định để trống và dùng bộ quy định có sẵn.',
+  'Tệp guideline / policy': 'Tệp hướng dẫn / quy định',
+  'Nội dung guideline / policy': 'Nội dung hướng dẫn / quy định',
+  'Ví dụ: xe bị che trên 50% không gán nhãn; người đi xe máy gán là person…':
+    'Ví dụ: xe bị che trên 50% không gán nhãn; người đi xe máy gán là person…',
+  'Guideline được lưu kèm dự án. Chỉ lựa chọn "Theo guideline" ở quy tắc Nới hơn làm đổi cách chấm: check tương ứng được tắt cho các lớp của quy tắc đó. Quy tắc Mới và Chặt hơn mới được ghi lại, chưa chạy. Không chọn gì thì chấm theo policy có sẵn.':
+    'Hướng dẫn được lưu kèm dự án. Chỉ lựa chọn "Theo hướng dẫn" ở quy tắc Nới hơn làm đổi cách chấm: kiểm tra tương ứng được tắt cho các lớp của quy tắc đó. Quy tắc Mới và Chặt hơn mới được ghi lại, chưa chạy. Không chọn gì thì chấm theo bộ quy định có sẵn.',
+  'Chọn tệp hoặc nhập nội dung guideline/policy, hoặc bỏ đánh dấu mục này.':
+    'Chọn tệp hoặc nhập nội dung hướng dẫn / quy định, hoặc bỏ đánh dấu mục này.',
+  'Guideline/policy tối đa 10 MB.': 'Hướng dẫn / quy định tối đa 10 MB.',
+  'Phân tích Guideline': 'Phân tích hướng dẫn',
+  'Gửi nội dung guideline tới mô hình ở backend (Gemini) để rút ra bản nháp quy tắc.':
+    'Gửi nội dung hướng dẫn tới mô hình ở máy chủ (Gemini) để rút ra bản nháp quy tắc.',
+  'Chọn tệp hoặc dán nội dung guideline để phân tích.':
+    'Chọn tệp hoặc dán nội dung hướng dẫn để phân tích.',
+  'Chỗ guideline mâu thuẫn hoặc mơ hồ (': 'Chỗ hướng dẫn mâu thuẫn hoặc mơ hồ (',
+  'Bị loại khi đối chiếu với guideline (': 'Bị loại khi đối chiếu với hướng dẫn (',
+  'Kiểm tra rules': 'Kiểm tra quy tắc',
+  'Câu trích từ guideline': 'Câu trích từ hướng dẫn',
+  'Câu trích không có trong guideline': 'Câu trích không có trong hướng dẫn',
+  'Không nêu check bị thay': 'Không nêu kiểm tra bị thay',
+  'So sánh với policy': 'So sánh với quy định của công cụ',
+  'Quy tắc từ guideline': 'Quy tắc từ hướng dẫn',
+  'Policy đang áp dụng': 'Quy định đang áp dụng',
+  'Theo guideline': 'Theo hướng dẫn',
+  'Giữ policy': 'Giữ quy định cũ',
+  'Tất cả theo guideline': 'Tất cả theo hướng dẫn',
+  'Tất cả giữ policy': 'Tất cả giữ quy định cũ',
+  'Guideline chưa nêu:': 'Hướng dẫn chưa nêu:',
+  'Yêu cầu trong guideline': 'Yêu cầu trong hướng dẫn',
+  'Đặt quy tắc rút từ guideline cạnh quy tắc policy đang chạy trong công cụ, rồi chọn bên nào nên dùng.':
+    'Đặt quy tắc rút từ hướng dẫn cạnh quy định đang chạy trong công cụ, rồi chọn bên nào nên dùng.',
+  'quy tắc so được với policy ·': 'quy tắc so được với quy định ·',
+  'Phân tích guideline': 'Phân tích hướng dẫn gán nhãn',
+  Guideline: 'Hướng dẫn',
 };

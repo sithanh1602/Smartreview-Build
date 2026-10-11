@@ -4,7 +4,7 @@ import { webRoot } from '../server/config.ts';
 import { ProjectService } from '../server/projects/service.ts';
 import { remoteStorageFromEnv } from '../server/storage/remote.ts';
 
-// Publishes projects imported on this machine before shared storage existed.
+// Moves projects whose files are still on this machine to remote storage and frees the local copy.
 const remote = remoteStorageFromEnv();
 if (!remote) throw new Error('Set SMARTREVIEW_REMOTE_STORAGE in .env first.');
 const pool = createPool();

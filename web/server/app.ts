@@ -1,4 +1,5 @@
 import { handleProjects } from './projects/http.ts';
+import { handleGuideline } from './guideline/http.ts';
 import { handleReview } from './reviews/http.ts';
 import { ReviewError, matchesReview } from '../shared/review.ts';
 import http from 'node:http';
@@ -69,6 +70,7 @@ export function createHandler({
         if (req.user.role !== 'reviewer')
           throw new ReviewError(403, 'Bạn không có quyền truy cập chức năng reviewer.');
       }
+      if (await handleGuideline(req, res, url.pathname, { json })) return;
       if (
         await handleProjects(req, res, url, {
           projects,
@@ -146,8 +148,8 @@ export function createHandler({
             return json(res, 400, { error: 'Invalid asset ID' });
           }
           const asset = dataset.assets.get(key);
-          if (!asset) return json(res, 404, { error: 'Frame image unavailable' });
-          const data = await fs.readFile(asset);
+          const data = await dataset.readAsset(key);
+          if (!asset || !data) return json(res, 404, { error: 'Frame image unavailable' });
           const type = ASSET_TYPES[path.extname(asset).toLowerCase()];
           res.writeHead(200, {
             'Content-Type': type,

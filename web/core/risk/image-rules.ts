@@ -1,88 +1,90 @@
-import { POLICY, VEHICLES } from './policy.ts';
-import type { ImageRule, MeasuredBox } from './types.ts';
+import { iou } from './checks/shared.ts';
+import type { Policy, PolicyRule } from './rules.ts';
+import type { DraftBox, GreyBox, ImageRule, ImageRuleHit, MeasuredBox } from './types.ts';
 
-// Frame rules score no box: they keep the whole frame out of auto_accept.
-// Rules about bonus labels are reported but do not block.
-const C = POLICY.coverage;
-const count = (boxes: MeasuredBox[], labels: string[]) =>
-  boxes.filter((b) => labels.includes(b.label)).length;
-const rule = (id: string, run: ImageRule['run'], blocking = true): ImageRule => ({
-  id,
-  blocking,
-  run,
+// Frame rules score no box: they keep the whole frame out of auto_accept. Rules about bonus
+// labels are reported but do not block. The rules and their numbers are policy/_frame.json.
+type FrameRule = PolicyRule & { params: Record<string, any> };
+type Limits = {
+  min_confidence?: number;
+  min_long_side_px?: number;
+  max_overlap_with_any_draft?: number;
+};
+// A grey box that is confident, large and away from every draft hints at a missed object.
+const standsAlone = (box: GreyBox, drafts: DraftBox[], limits: Limits) =>
+  box.confidence >= (limits.min_confidence ?? 0) &&
+  Math.max(box.width, box.height) >= (limits.min_long_side_px ?? 0) &&
+  drafts.every(
+    (d) => iou(box.geometry, d.geometry) < (limits.max_overlap_with_any_draft ?? Infinity),
+  );
+export const missingIn = (policy: Policy, greys: GreyBox[], drafts: DraftBox[]) =>
+  greys.filter((box) => standsAlone(box, drafts, policy.missingCandidates));
+
+// What a reviewer reads, and the name the count has in the evidence, per rule. A rule without
+// wording here shows its own text.
+const WORDING: Record<string, { key: string; reason?: (n: number) => string }> = {
+  'coverage.no_draft_box': { key: 'drafts' },
+  'coverage.night_grey': { key: 'grey_boxes', reason: (n) => `Ảnh tối có ${n} box vùng xám.` },
+  'coverage.bus_present': { key: 'bus_boxes', reason: () => 'Ảnh có xe buýt.' },
+  'coverage.grey_vehicles': {
+    key: 'grey_boxes',
+    reason: (n) => `${n} box vùng xám lớp xe: nghi sót nhiều xe.`,
+  },
+  'coverage.dense_traffic': { key: 'vehicle_boxes', reason: (n) => `Xe dày đặc: ${n} box.` },
+  'coverage.grey_person': { key: 'grey_boxes', reason: () => 'Có dấu hiệu một người bị sót.' },
+  'coverage.crowd': { key: 'person_boxes', reason: (n) => `Đám đông: ${n} box người.` },
+  'coverage.many_lights': {
+    key: 'light_boxes',
+    reason: (n) => `Quá nhiều đèn tín hiệu: ${n} box.`,
+  },
+  'coverage.many_stop_signs': {
+    key: 'sign_boxes',
+    reason: (n) => `Quá nhiều biển stop: ${n} box.`,
+  },
+};
+const OPS: Record<string, (n: number, value: number) => boolean> = {
+  '>=': (n, value) => n >= value,
+  '>': (n, value) => n > value,
+  '==': (n, value) => n === value,
+};
+const say = (rule: FrameRule, n: number, evidence: object): ImageRuleHit => ({
+  reason: WORDING[rule.id]?.reason?.(n) ?? rule.text,
+  evidence,
 });
-
-export const imageRules: ImageRule[] = [
-  rule('coverage.no_draft_box', ({ drafts }) =>
-    drafts.length ? null : { reason: 'Ảnh không có box nháp nào.', evidence: { drafts: 0 } },
-  ),
-  // N6. The policy leaves the grey-box count open; nightGrey is a placeholder.
-  rule('coverage.night_grey', ({ greys, env_risk }) =>
-    env_risk !== undefined && env_risk >= POLICY.poorEnv && greys.length > C.nightGrey
-      ? {
-          reason: `Ảnh tối có ${greys.length} box vùng xám.`,
-          evidence: { env_risk, grey_boxes: greys.length, threshold: C.nightGrey },
-        }
-      : null,
-  ),
-  rule('coverage.bus_present', ({ drafts }) =>
-    count(drafts, ['bus'])
-      ? { reason: 'Ảnh có xe buýt.', evidence: { bus_boxes: count(drafts, ['bus']) } }
-      : null,
-  ),
-  rule('coverage.grey_vehicles', ({ missing }) => {
-    const n = count(missing, VEHICLES);
-    return n >= C.greyVehicles
-      ? {
-          reason: `${n} box vùng xám lớp xe: nghi sót nhiều xe.`,
-          evidence: { grey_boxes: n, threshold: C.greyVehicles },
-        }
-      : null;
-  }),
-  rule('coverage.dense_traffic', ({ drafts }) => {
-    const n = count(drafts, VEHICLES);
-    return n >= C.denseTraffic
-      ? {
-          reason: `Xe dày đặc: ${n} box.`,
-          evidence: { vehicle_boxes: n, threshold: C.denseTraffic },
-        }
-      : null;
-  }),
-  // N7: missing a person weighs more than missing anything else, so one grey box is enough.
-  rule('coverage.grey_person', ({ missing }) => {
-    const n = count(missing, ['person']);
-    return n ? { reason: 'Có dấu hiệu một người bị sót.', evidence: { grey_boxes: n } } : null;
-  }),
-  rule('coverage.crowd', ({ drafts }) => {
-    const n = count(drafts, ['person']);
-    return n >= C.crowd
-      ? { reason: `Đám đông: ${n} box người.`, evidence: { person_boxes: n, threshold: C.crowd } }
-      : null;
-  }),
-  rule(
-    'coverage.many_lights',
-    ({ drafts }) => {
-      const n = count(drafts, ['traffic_light']);
-      return n > C.manyLights
-        ? {
-            reason: `Quá nhiều đèn tín hiệu: ${n} box.`,
-            evidence: { light_boxes: n, threshold: C.manyLights },
-          }
+const TEMPLATES: Record<string, (rule: FrameRule) => ImageRule['run']> = {
+  frame_count: (rule) => {
+    const { labels, state, op, value } = rule.params,
+      key = WORDING[rule.id]?.key ?? 'boxes';
+    return ({ drafts, greys }) => {
+      const boxes: MeasuredBox[] =
+        state === 'grey' ? greys.filter((b) => standsAlone(b, drafts, rule.params)) : drafts;
+      const n =
+        labels === 'any' ? boxes.length : boxes.filter((b) => labels.includes(b.label)).length;
+      // A rule that fires on the first box has no threshold worth showing.
+      const threshold = op === '>=' && value === 1 ? undefined : value;
+      return OPS[op](n, value) ? say(rule, n, { [key]: n, ...(threshold && { threshold }) }) : null;
+    };
+  },
+  frame_condition: (rule) => {
+    const { env_risk_min, grey_boxes_over, grey_min_confidence = 0 } = rule.params,
+      key = WORDING[rule.id]?.key ?? 'boxes';
+    return ({ greys, env_risk }) => {
+      const n = greys.filter((b) => b.confidence >= grey_min_confidence).length;
+      return env_risk !== undefined && env_risk >= env_risk_min && n > grey_boxes_over
+        ? say(rule, n, { env_risk, [key]: n, threshold: grey_boxes_over })
         : null;
-    },
-    false,
-  ),
-  rule(
-    'coverage.many_stop_signs',
-    ({ drafts }) => {
-      const n = count(drafts, ['traffic_sign']);
-      return n > C.manyStopSigns
-        ? {
-            reason: `Quá nhiều biển stop: ${n} box.`,
-            evidence: { sign_boxes: n, threshold: C.manyStopSigns },
-          }
-        : null;
-    },
-    false,
-  ),
-];
+    };
+  },
+};
+const fail = (rule: FrameRule, message: string): never => {
+  throw new Error(`policy: rule "${rule.id}": ${message}`);
+};
+export const buildImageRules = (policy: Policy): ImageRule[] =>
+  policy.frameRules.map((rule) => {
+    const template = TEMPLATES[rule.template];
+    if (!template) return fail(rule, `template "${rule.template}" is not implemented`);
+    const { op, state, blocking } = rule.params;
+    if (rule.template === 'frame_count' && (!OPS[op] || !['draft', 'grey'].includes(state)))
+      return fail(rule, `op "${op}" or state "${state}" is not supported`);
+    return { id: rule.id, blocking: blocking !== false, run: template(rule) };
+  });

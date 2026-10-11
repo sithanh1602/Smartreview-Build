@@ -11,8 +11,9 @@ export const LIMITS = {
   total: 200 * 1024 * 1024,
   file: 20 * 1024 * 1024,
   annotation: 10 * 1024 * 1024,
-  files: 1002,
+  files: 1004,
 };
+const GUIDELINE_TYPES = ['.md', '.markdown', '.txt', '.docx', '.pdf', '.json'];
 export function safePath(name: unknown) {
   if (
     typeof name !== 'string' ||
@@ -71,7 +72,9 @@ export async function receiveUpload(req: Req, directory: string, format: string)
   let failure: unknown,
     total = 0,
     annotation: string | undefined,
-    metadata: string | undefined;
+    metadata: string | undefined,
+    guideline: { file: string; name: string } | undefined,
+    rules: string | undefined;
   const media = new Map<string, string>(),
     writes: Promise<void>[] = [];
   const fail = (e: unknown) => {
@@ -88,7 +91,7 @@ export async function receiveUpload(req: Req, directory: string, format: string)
     try {
       const name = safePath(info.filename);
       const ext = path.extname(name).toLowerCase();
-      if (!['annotation', 'media', 'metadata'].includes(field))
+      if (!['annotation', 'media', 'metadata', 'guideline', 'guideline_rules'].includes(field))
         throw new ReviewError(400, 'Unknown upload field.');
       if (field === 'annotation') {
         if (annotation) throw new ReviewError(400, 'Chỉ chọn một annotation file.');
@@ -99,6 +102,21 @@ export async function receiveUpload(req: Req, directory: string, format: string)
         if (metadata) throw new ReviewError(400, 'Chỉ chọn một file metadata ảnh.');
         if (ext !== '.csv') throw new ReviewError(400, 'Metadata ảnh phải là file CSV.');
         metadata = path.join(directory, 'annotations', 'images.csv');
+      } else if (field === 'guideline') {
+        // Kept with the dataset as a document. It is stored under a fixed name and never served.
+        if (guideline) throw new ReviewError(400, 'Chỉ chọn một file guideline/policy.');
+        if (!GUIDELINE_TYPES.includes(ext))
+          throw new ReviewError(
+            400,
+            'Guideline/policy phải là file Markdown, TXT, DOCX, PDF hoặc JSON.',
+          );
+        guideline = { file: path.join(directory, 'guideline', 'guideline' + ext), name };
+      } else if (field === 'guideline_rules') {
+        // The rule drafts of that guideline and which side a person chose. The choices that
+        // loosen the policy become waivers at import (shared/guideline-waivers.ts).
+        if (rules) throw new ReviewError(400, 'Chỉ gửi một file lựa chọn quy tắc.');
+        if (ext !== '.json') throw new ReviewError(400, 'Lựa chọn quy tắc phải là file JSON.');
+        rules = path.join(directory, 'guideline', 'rules.json');
       } else {
         if (!['.png', '.jpg', '.jpeg', '.webp', '.gif'].includes(ext))
           throw new ReviewError(
@@ -109,14 +127,22 @@ export async function receiveUpload(req: Req, directory: string, format: string)
         media.set(name, path.join(directory, 'media', name));
       }
       const target = (
-        field === 'annotation' ? annotation : field === 'metadata' ? metadata : media.get(name)
+        field === 'annotation'
+          ? annotation
+          : field === 'metadata'
+            ? metadata
+            : field === 'guideline'
+              ? guideline?.file
+              : field === 'guideline_rules'
+                ? rules
+                : media.get(name)
       )!;
       stream.on('limit', () => fail(new ReviewError(413, 'Mỗi ảnh tối đa 20 MB.')));
       let bytes = 0;
       stream.on('data', (c: Buffer) => {
         bytes += c.length;
         if (field !== 'media' && bytes > LIMITS.annotation)
-          fail(new ReviewError(413, 'Annotation và metadata tối đa 10 MB mỗi file.'));
+          fail(new ReviewError(413, 'Annotation, metadata và guideline tối đa 10 MB mỗi file.'));
       });
       writes.push(
         (async () => {
@@ -130,7 +156,12 @@ export async function receiveUpload(req: Req, directory: string, format: string)
     }
   });
   parser.on('filesLimit', () =>
-    fail(new ReviewError(413, 'Tối đa 1000 ảnh, một annotation file và một metadata file.')),
+    fail(
+      new ReviewError(
+        413,
+        'Tối đa 1000 ảnh, một annotation file, một metadata file và một guideline.',
+      ),
+    ),
   );
   parser.on('partsLimit', () => fail(new ReviewError(413, 'Quá nhiều upload parts.')));
   parser.on('fieldsLimit', () => fail(new ReviewError(400, 'Unexpected form field.')));
@@ -180,5 +211,5 @@ export async function receiveUpload(req: Req, directory: string, format: string)
       throw new ReviewError(422, 'Ảnh hỏng, ảnh động hoặc vượt 25 megapixels: ' + name);
     }
   }
-  return { annotation, media, dimensions, metadata };
+  return { annotation, media, dimensions, metadata, guideline, rules };
 }

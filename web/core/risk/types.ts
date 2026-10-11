@@ -1,4 +1,5 @@
 import type { Annotation, BBox, Frame, Geometry, Media } from '../schema/types.ts';
+import type { Patch } from './rules.ts';
 
 export type Severity = 'high' | 'medium' | 'low';
 // Free-form numbers and ids behind a finding; shown to reviewers as JSON.
@@ -17,6 +18,10 @@ export interface Flagged {
   evidence: Evidence;
   error_type?: string;
   suggested_label?: string;
+  // The policy rule that raised the finding (policy/<label>.json).
+  rule_id?: string;
+  // "warning": shown to the reviewer, but adds nothing to the score of the box.
+  level?: 'warning';
 }
 export type CheckResult = Skipped | Passed | Flagged;
 type Checked = { check_id: string; check_version: string };
@@ -75,6 +80,8 @@ export interface CheckContext {
   env_risk?: number;
   // Filled in before relational checks run.
   peers: LabelBox[];
+  // Attribute names the dataset carries on boxes of this kind (model output, or hand-drawn).
+  attributeNames?: Set<string>;
 }
 // What a check may rely on once temporalReady() has returned null.
 export type TemporalContext = CheckContext & { previous: Annotation; next: Annotation };
@@ -146,12 +153,21 @@ export interface LegacyRiskReport {
 }
 export interface RiskReport extends LegacyRiskReport {
   policy_version: string;
+  // Present only when a project's guideline choices waived part of the policy.
+  waivers?: Record<string, string[]>;
+  patches?: Patch[];
   image_rules: Record<string, { blocking: boolean; flagged: number }>;
   tiers: Record<string, number>;
   frames: FrameReport[];
   advisory_cases: RiskResult[];
+  // Boxes outside both queues that carry a warning.
+  warning_cases?: RiskResult[];
 }
 export interface AnalyzeOptions {
   minScore?: number;
   engineVersion?: string;
+  // Check id → labels the check stands down for ("*" for all). Empty: the policy as built in.
+  waivers?: Record<string, string[]>;
+  // A project's changes to the policy: set, disable, narrow or add rules. Current engine only.
+  patches?: Patch[];
 }

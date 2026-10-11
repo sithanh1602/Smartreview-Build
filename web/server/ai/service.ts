@@ -26,14 +26,14 @@ export class AiService {
   projects: ProjectService;
   jobs: Map<string, AiJob>;
   active: boolean;
-  refreshed: Map<string, number>;
+  results: Map<string, { at: number; state: AiJob | null }>;
   python: string;
   model: string;
   constructor(projects: ProjectService, options: { python?: string; model?: string } = {}) {
     this.projects = projects;
     this.jobs = new Map();
     this.active = false;
-    this.refreshed = new Map();
+    this.results = new Map();
     this.python =
       options.python ||
       process.env.SMARTREVIEW_AI_PYTHON ||
@@ -55,67 +55,54 @@ export class AiService {
       return false;
     }
   }
+  // With remote storage the latest result lives there, so every backend reads the same one.
+  async saved(id: string): Promise<AiJob | null> {
+    const remote = this.projects.remote;
+    if (!remote) {
+      try {
+        return JSON.parse(await fs.readFile(path.join(this.directory(id), 'latest.json'), 'utf8'));
+      } catch (e) {
+        if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e;
+        return null;
+      }
+    }
+    const cached = this.results.get(id);
+    if (cached && Date.now() - cached.at < 60_000) return cached.state;
+    const data = await this.projects.readRemote(`projects/${id}/ai/latest.json`);
+    const state = data ? (JSON.parse(data.toString('utf8')) as AiJob) : null;
+    this.results.set(id, { at: Date.now(), state });
+    return state;
+  }
   async status(id: string) {
     const { dataset } = await this.projects.context(id);
     const available = await this.available();
     if (this.jobs.has(id)) return { ...this.jobs.get(id), available };
-    await this.refresh(id);
-    try {
-      const saved = JSON.parse(
-        await fs.readFile(path.join(this.directory(id), 'latest.json'), 'utf8'),
-      );
-      if (saved.dataset_revision !== dataset.meta.dataset_id) return { status: 'IDLE', available };
-      if (saved.status === 'RUNNING')
-        return {
-          ...saved,
-          status: 'FAILED',
-          error: 'Lượt kiểm tra bị ngắt khi server dừng. Bấm chạy lại.',
-          available,
-        };
-      return { ...saved, available };
-    } catch (e) {
-      if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e;
+    const saved = await this.saved(id);
+    if (!saved || saved.dataset_revision !== dataset.meta.dataset_id)
       return { status: 'IDLE', available };
-    }
+    if (saved.status === 'RUNNING')
+      return {
+        ...saved,
+        status: 'FAILED',
+        error: 'Lượt kiểm tra bị ngắt khi server dừng. Bấm chạy lại.',
+        available,
+      };
+    return { ...saved, available };
   }
   async persist(id: string, state: AiJob) {
+    const remote = this.projects.remote;
+    if (remote) {
+      // A running job is visible only on the backend running it; the remote keeps finished results.
+      if (state.status === 'RUNNING') return;
+      await remote.write(`projects/${id}/ai/latest.json`, Buffer.from(JSON.stringify(state)));
+      this.results.set(id, { at: Date.now(), state: { ...state } });
+      return;
+    }
     const dir = this.directory(id);
     await fs.mkdir(dir, { recursive: true });
     const tmp = path.join(dir, randomUUID() + '.tmp');
     await fs.writeFile(tmp, JSON.stringify(state));
     await fs.rename(tmp, path.join(dir, 'latest.json'));
-    const remote = this.projects.remote;
-    if (!remote || state.status === 'RUNNING') return;
-    try {
-      await remote.upload(`projects/${id}/ai/latest.json`, path.join(dir, 'latest.json'));
-    } catch (e) {
-      console.error('AI result upload failed:', (e as Error).message);
-    }
-  }
-  // Another backend may have finished a newer run; adopt it at most once a minute.
-  async refresh(id: string) {
-    const remote = this.projects.remote;
-    if (!remote || Date.now() - (this.refreshed.get(id) ?? 0) < 60_000) return;
-    this.refreshed.set(id, Date.now());
-    const dir = this.directory(id),
-      latest = path.join(dir, 'latest.json'),
-      tmp = path.join(dir, randomUUID() + '.tmp');
-    const startedAt = async (file: string) => {
-      try {
-        return String(JSON.parse(await fs.readFile(file, 'utf8')).started_at ?? '');
-      } catch {
-        return '';
-      }
-    };
-    try {
-      await fs.mkdir(dir, { recursive: true });
-      if (!(await remote.download(`projects/${id}/ai/latest.json`, tmp))) return;
-      if ((await startedAt(tmp)) > (await startedAt(latest))) await fs.rename(tmp, latest);
-    } catch (e) {
-      console.error('AI result sync failed:', (e as Error).message);
-    } finally {
-      await fs.rm(tmp, { force: true });
-    }
   }
   async start(id: string) {
     const { dataset } = await this.projects.context(id);
@@ -155,17 +142,39 @@ export class AiService {
     }
   }
   async run(id: string, dataset: LoadedDataset, frames: Frame[], state: AiJob) {
-    const directory = path.join(this.directory(id), randomUUID());
+    const directory = this.projects.remote
+      ? path.join(this.projects.storageRoot, '.tmp', randomUUID())
+      : path.join(this.directory(id), randomUUID());
     try {
       await fs.mkdir(directory, { recursive: true });
       const input = path.join(directory, 'input.json'),
         output = path.join(directory, 'predictions.json');
+      const paths = new Map<string, string>();
+      // The model reads files, so remote frames are fetched into the run directory, which is removed afterwards.
+      if (dataset.remote) {
+        let next = 0;
+        const fetchFrames = async () => {
+          while (next < frames.length) {
+            const index = next++,
+              frame = frames[index];
+            const data = await dataset.readAsset(frame.id);
+            if (!data) throw new Error(`Không đọc được ảnh ${frame.id} từ kho lưu trữ chung.`);
+            const file = path.join(
+              directory,
+              index + path.extname(dataset.assets.get(frame.id)!).toLowerCase(),
+            );
+            await fs.writeFile(file, data);
+            paths.set(frame.id, file);
+          }
+        };
+        await Promise.all(Array.from({ length: 4 }, fetchFrames));
+      }
       await fs.writeFile(
         input,
         JSON.stringify({
           frames: frames.map((f) => ({
             id: f.id,
-            path: dataset.assets.get(f.id),
+            path: paths.get(f.id) ?? dataset.assets.get(f.id),
           })),
         }),
       );

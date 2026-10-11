@@ -4,6 +4,7 @@ import { hint } from '../../lib/englishHints';
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Button } from '@heroui/react';
+import { Tip } from '../../components/Tip';
 import { AnnotationOverlay } from './AnnotationOverlay';
 import type { Mark } from './AnnotationOverlay';
 import type { Drawable, Geometry, ViewerObservation } from '../../types.ts';
@@ -27,6 +28,7 @@ export function FrameViewer({
   onViewChange,
   marks,
   onOpenMark,
+  labelScale,
   annotations = [observation],
   activeAnnotationId = observation.annotation_id,
   selectedAnnotationId,
@@ -53,6 +55,7 @@ export function FrameViewer({
   // Numbered cases of this image, keyed by annotation id.
   marks?: Record<string, Mark>;
   onOpenMark?: (annotationId: string) => void;
+  labelScale?: number;
   annotations?: Drawable[];
   activeAnnotationId?: string | null;
   selectedAnnotationId?: string | null;
@@ -154,16 +157,18 @@ export function FrameViewer({
       </div>
     ) : (
       <div className="flex items-center gap-1" role="group" aria-label="Thu phóng ảnh">
-        <Button
-          isIconOnly
-          size="sm"
-          variant="tertiary"
-          aria-label="Thu nhỏ ảnh"
-          isDisabled={scale <= 1 || failed || unavailable}
-          onPress={() => setScale((v) => Math.max(1, v / 1.5))}
-        >
-          −
-        </Button>
+        <Tip text="Thu nhỏ ảnh">
+          <Button
+            isIconOnly
+            size="sm"
+            variant="tertiary"
+            aria-label="Thu nhỏ ảnh"
+            isDisabled={scale <= 1 || failed || unavailable}
+            onPress={() => setScale((v) => Math.max(1, v / 1.5))}
+          >
+            −
+          </Button>
+        </Tip>
         <output
           className="min-w-11 text-center text-xs tabular-nums"
           aria-label="Mức thu phóng"
@@ -171,25 +176,29 @@ export function FrameViewer({
         >
           {Math.round(scale * 100)}%
         </output>
-        <Button
-          isIconOnly
-          size="sm"
-          variant="tertiary"
-          aria-label="Phóng to ảnh"
-          isDisabled={scale >= 8 || failed || unavailable}
-          onPress={() => setScale((v) => Math.min(8, v * 1.5))}
-        >
-          +
-        </Button>
-        <Button
-          size="sm"
-          variant="ghost"
-          aria-label="Đặt lại zoom"
-          isDisabled={scale === 1}
-          onPress={reset}
-        >
-          1:1
-        </Button>
+        <Tip text="Phóng to ảnh">
+          <Button
+            isIconOnly
+            size="sm"
+            variant="tertiary"
+            aria-label="Phóng to ảnh"
+            isDisabled={scale >= 8 || failed || unavailable}
+            onPress={() => setScale((v) => Math.min(8, v * 1.5))}
+          >
+            +
+          </Button>
+        </Tip>
+        <Tip text="Đặt lại zoom">
+          <Button
+            size="sm"
+            variant="ghost"
+            aria-label="Đặt lại zoom"
+            isDisabled={scale === 1}
+            onPress={reset}
+          >
+            1:1
+          </Button>
+        </Tip>
       </div>
     );
   return (
@@ -300,6 +309,7 @@ export function FrameViewer({
                     risk={risk}
                     compact={compact}
                     bounds={bounds}
+                    labelScale={labelScale}
                     mark={marks?.[a.annotation_id ?? '']}
                     onOpen={
                       onOpenMark &&

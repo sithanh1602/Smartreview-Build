@@ -2,6 +2,119 @@
 
 Ghi lại mỗi lần sửa xong một chức năng hoặc thay đổi lớn ở frontend. Mục mới nhất ở trên cùng.
 
+## 2026-10-11 · Màn review: chú thích cho nút biểu tượng, nút "So sánh ảnh"
+
+- **Nút chỉ có biểu tượng giờ có chú thích** khi rê chuột hoặc focus bằng bàn phím (`src/components/Tip.tsx`, dùng `Tooltip` của HeroUI): ẩn/hiện hàng đợi, case trước/sau, thu nhỏ/phóng to/đặt lại zoom, sao chép thông tin, ẩn/hiện ngữ cảnh, ẩn/hiện bảng thông tin, tập trung. Chú thích kèm phím tắt nếu có.
+- Nút `button--icon-only button--tertiary` hình hai tờ giấy là **Sao chép thông tin case** (tên ảnh, frame, đối tượng, annotation, điểm risk, lý do) vào clipboard. Hành vi không đổi.
+- **"So sánh ảnh gốc" đổi thành nhóm "So sánh với: Ảnh gốc | Ảnh có nhãn"** (biểu tượng `compare` mới trong `Icon.tsx`). Chọn một trong hai thì vùng ảnh chia đôi; bấm lại nút đang chọn để tắt.
+  - Khung phải luôn là ảnh có đánh giá của SmartReview như khi không so sánh (điểm risk, số case, đề xuất AI); các nút lọc nhãn và "Khung bao" vẫn dùng được.
+  - Khung trái là thứ được chọn để đối chiếu: **Ảnh gốc** (không có khung nào) hoặc **Ảnh có nhãn** (toàn bộ nhãn đã nhập, một màu, chỉ ghi tên lớp; không điểm risk, không tô nổi annotation đang review, không số thứ tự case, không khung đề xuất AI).
+- Tên nhãn ở khung trái được vẽ to hơn (`labelScale` của `FrameViewer`/`AnnotationOverlay`) vì khung chỉ còn nửa chiều rộng.
+- Bảng thông tin bên phải và phần quyết định không đổi khi so sánh.
+- Kiểm tra: `npm run typecheck`, `npm run build`, và Playwright với API giả lập (1500px và 390px). Chưa chạy `npm run test:ui` (cần DB).
+
+## 2026-10-10 · "Kiểm tra rules": nút tải bản phân tích về dạng Markdown
+
+- Trong pop-up có thêm nút "Tải về (.md)", luôn hiện ở góc phải hàng nút lọc, dùng được ở cả ba mục.
+- Tệp tải về (`<tên guideline>-phan-tich.md`) do trình duyệt tự tạo từ kết quả đang có, không gọi lại máy chủ hay mô hình (`src/features/projects/analysisMarkdown.ts`). Ngôn ngữ theo giao diện đang chọn.
+- Nội dung đầy đủ hơn pop-up: thông tin chung (guideline, mô hình, thời điểm, số đã chọn); bảng so sánh với policy kèm lựa chọn hiện tại; chi tiết từng quy tắc (lớp, điều kiện, câu trích, tham số guideline chưa nêu); cần người kiểm tra; mâu thuẫn; lớp và thuộc tính; định nghĩa; quy tắc bị loại kèm lý do.
+- Mô tả policy lấy từ `shared/policy-rules.ts` (danh mục đã được chuyển về đó; pop-up và tệp tải về dùng chung).
+- Kiểm tra bằng Playwright với phản hồi giả lập: bấm nút tải được tệp, nội dung và lựa chọn đúng.
+
+## 2026-10-10 · Lựa chọn trên guideline làm đổi cách chấm
+
+- Chọn "Theo guideline" ở một quy tắc **Nới hơn** trong pop-up "Kiểm tra rules" giờ có hiệu lực khi tạo dự án: check policy tương ứng được tắt cho các lớp của quy tắc đó (`shared/guideline-waivers.ts`). Không chọn, hoặc chọn "Giữ policy", thì chấm như cũ.
+- Quy tắc **Mới** và **Chặt hơn** vẫn chỉ được ghi lại: chúng là mô tả bằng lời, engine chưa chạy được.
+- Khung "Đã phân tích xong" hiện thêm "N check sẽ tắt khi chấm", đổi ngay theo lựa chọn.
+- Dòng ghi chú màu vàng dưới mục Guideline được viết lại cho đúng hành vi mới (cả `vi` và `en`).
+- Trang Tổng quan của dự án: check bị tắt hiện lý do bỏ qua `guideline_waived` kèm số box, trong mục "Lý do bỏ qua" có sẵn.
+- Lựa chọn chỉ áp dụng lúc tạo dự án; chưa có chỗ đổi lại sau khi dự án đã READY.
+- Kiểm tra: `npm run typecheck`, `tests/guideline-waivers.test.ts`. Chưa xem trên trình duyệt.
+
+## 2026-10-10 · Phân tích Guideline: báo dòng chưa được phân loại
+
+- Khi backend dùng bộ phân tích theo dòng (repo `guideline-rules`, bật bằng `GUIDELINE_RULES_DIR` trong `.env`), kết quả có thêm `unclassified` (dòng mô hình không trả lời sau hai lần hỏi) và `errors` (lần gọi mô hình bị lỗi).
+- Khung "Đã phân tích xong" trong `GuidelineAnalysis.tsx` hiện thêm một dòng đỏ khi có dòng chưa phân loại hoặc lần gọi lỗi. Không có thì giao diện như cũ.
+- Pop-up "Kiểm tra rules" không đổi. Các trường mới của quy tắc (`line`, `downgraded`) chưa được hiển thị.
+- Kiểm tra: `npm run typecheck`, `tests/guideline.test.ts`, và gọi thật route `/api/guideline/analyze` với Gemini trên `fixtures/guideline/sample-2d.txt`. Chưa xem dòng cảnh báo trên trình duyệt.
+
+## 2026-10-10 · "Kiểm tra rules": gọn lại, so sánh guideline với policy và cho chọn
+
+- Pop-up "Kiểm tra rules" (`GuidelineAnalysis.tsx`) bỏ bớt thông tin: còn ba mục "So sánh với policy", "Cần người kiểm tra", "Mâu thuẫn". Các mục lớp/thuộc tính, định nghĩa và quy tắc bị loại không còn hiển thị (vẫn nằm trong dữ liệu lưu kèm dự án).
+- Bảng so sánh có bốn cột, hàng tô nền so le:
+  - Quy tắc từ guideline: điều kiện, mã và mục, câu trích (tối đa hai dòng), tham số guideline chưa nêu.
+  - So sánh: Mới / Chặt hơn / Nới hơn so với policy.
+  - Policy đang áp dụng: mô tả một dòng của check tương ứng trong công cụ kèm mã check, hoặc "Chưa có quy tắc tương ứng". Mô tả nằm trong `src/features/projects/policyRules.ts`, viết theo `core/risk/checks/*`, ngưỡng lấy trực tiếp từ `core/risk/policy.ts`; đủ cho cả 33 check hiện có.
+  - Chọn: "Theo guideline / Giữ policy" (với quy tắc mới là "Thêm vào / Bỏ qua"). Có nút chọn tất cả và bộ đếm "Đã chọn x/y".
+- Chưa phân quyền: ai mở form cũng chọn được.
+- Lựa chọn đi theo dự án: khi bấm "Tạo và nhập dữ liệu", form gửi thêm trường `guideline_rules` (kết quả phân tích + lựa chọn, JSON); `server/projects/upload.ts` lưu thành `guideline/rules.json` cạnh tệp guideline và `service.ts` ghi đường dẫn vào `dataset.metadata.guideline.rules`. Engine chưa đọc tệp này, cách chấm điểm chưa đổi.
+- Kiểm tra bằng Playwright với phản hồi giả lập (sáng/tối, 390px, lựa chọn có trong dữ liệu gửi đi). Chưa chạy với Gemini thật và máy chủ thật.
+
+## 2026-10-10 · Guideline nhận Markdown, DOCX, PDF
+
+- Ô chọn tệp guideline nhận `.md`, `.markdown`, `.txt`, `.docx`, `.pdf`, `.json`; tệp guideline trong tệp nén cũng được nhận diện với các đuôi này. Máy chủ (`server/projects/upload.ts`) nhận thêm `.docx`, `.markdown` khi lưu kèm dự án.
+- "Phân tích Guideline" giờ chạy được với cả ba dạng. Hàm gọi mô hình chỉ nhận chữ, nên trình duyệt rút chữ trước khi gửi (`src/features/projects/guidelineText.ts`); tệp gốc vẫn là thứ được tải lên và lưu.
+  - Markdown / TXT / JSON: đọc nguyên văn.
+  - DOCX: mở bằng bộ đọc ZIP có sẵn, lấy các đoạn trong `word/document.xml` theo thứ tự đọc (gồm cả ô bảng, tab, xuống dòng; bỏ chữ đã xoá trong chế độ theo dõi thay đổi). Số thứ tự do Word tự sinh cho danh sách/tiêu đề không nằm trong tệp dưới dạng chữ nên không có trong kết quả.
+  - PDF: dùng `pdfjs-dist` (thư viện mới, chỉ tải khi mở PDF). PDF không có lớp chữ (bản quét) hoặc có mật khẩu thì báo lỗi rõ, không gửi gì đi.
+- Kiểm tra bằng Playwright: cùng một guideline mẫu (`fixtures/guideline/sample-2d.txt`) ở dạng .md, .docx, .pdf đều cho ra đủ 42/42 câu nguyên văn trong nội dung gửi đi (cần cho bước đối chiếu câu trích ở backend); PDF không có chữ và DOCX hỏng báo lỗi. DOCX/PDF mẫu do tôi tự tạo, chưa thử với tệp xuất từ Word hay PDF nhiều cột.
+
+## 2026-10-10 · Dự án mới: nút "Kiểm tra rules" mở bảng pop-up
+
+- Sau khi "Phân tích Guideline" chạy xong, form không còn trải kết quả ra ngay bên dưới. Thay vào đó là một dòng tóm tắt số lượng và nút "Kiểm tra rules" (`GuidelineAnalysis.tsx`).
+- Nút mở pop-up (HeroUI `Modal`, cỡ `cover`, cuộn bên trong, đóng bằng nút ✕, Esc hoặc bấm ra ngoài) chứa bảng quy tắc: ID, mục, nhóm, lớp, điều kiện, câu trích từ guideline, ghi chú (quan hệ với check hiện có, tham số còn thiếu, dữ liệu cần thêm).
+- Các hàng tô nền so le (`odd:bg-panel even:bg-slate-100`, theo cả nền sáng lẫn tối); tiêu đề cột dính ở đầu bảng khi cuộn.
+- Hàng nút lọc phía trên bảng: tất cả quy tắc, kiểm tra tự động được, cần người kiểm tra, định nghĩa, lớp và thuộc tính, mâu thuẫn, bị loại (kèm lý do bị loại). Mục không có dữ liệu thì nút bị mờ.
+- Kiểm tra bằng Playwright với phản hồi giả lập (sáng/tối, 390px). Chưa chạy với phản hồi thật của Gemini.
+
+## 2026-10-10 · Dự án mới: nút "Phân tích Guideline"
+
+- Trong mục "Thêm Guideline / Policy mới" của `ImportForm` có thêm nút "Phân tích Guideline" (`src/features/projects/GuidelineAnalysis.tsx`). Nút chỉ xuất hiện khi mục này được đánh dấu và chỉ bấm được khi đã có nội dung: tệp MD/TXT/JSON đã chọn, nội dung dán vào, hoặc tệp guideline trong tệp nén (cùng thứ tự ưu tiên với lúc tải lên). PDF chưa phân tích được vì trình duyệt không đọc được chữ trong PDF; form ghi rõ.
+- Đường gọi: nút → `POST /api/guideline/analyze { text }` → `server/guideline/http.ts` → `extractGuideline()` trong `server/guideline/model-call.ts` (lời gọi Gemini có sẵn, không sửa). Route yêu cầu đăng nhập vai trò reviewer như các API khác, nhận tối đa 512 KB văn bản, trả 503 khi backend chưa có `GEMINI_API_KEY` và 502 kèm lý do khi lời gọi mô hình lỗi.
+- Kết quả hiện ngay dưới nút: tên mô hình và số lượng, danh sách lớp và thuộc tính, quy tắc chia ba nhóm (kiểm tra tự động được / cần người kiểm tra / định nghĩa) kèm mục, câu trích, quan hệ với check hiện có, tham số còn thiếu; các chỗ guideline mâu thuẫn; các quy tắc bị loại khi đối chiếu. Đổi nguồn guideline thì kết quả cũ bị bỏ.
+- Kết quả là bản nháp: chưa lưu kèm dự án và chưa đổi cách chấm điểm.
+- Kiểm tra: `tests/guideline.test.ts` thêm ca cho route (văn bản gửi lên tới đúng hàm gọi mô hình, lỗi được báo lại); form kiểm tra bằng Playwright với phản hồi giả lập. Chưa gọi Gemini thật.
+
+## 2026-10-10 · Đổi ngôn ngữ không tải lại trang, không gọi lại API
+
+- Trước đây `setLang` gọi `location.reload()`, nên mỗi lần đổi VI/EN toàn bộ API (phiên đăng nhập, dự án, case, review, ảnh) bị gọi lại.
+- Giờ `lang` đổi tại chỗ (`src/lib/lang.ts`, có `onLang` để đăng ký); `main.tsx` đặt `key` theo ngôn ngữ cho `RouterProvider` để các trang dựng lại bằng ngôn ngữ mới. `AuthProvider` nằm ngoài nên phiên đăng nhập giữ nguyên; ảnh đã tải vẫn nằm trong `imageCache`.
+- Các trang khi dựng lại sẽ hỏi lại dữ liệu, nên `request` (`src/lib/api.ts`) nhớ câu trả lời GET gần nhất của từng đường dẫn (tối đa 200) và trong 3 giây sau khi đổi ngôn ngữ trả lại đúng dữ liệu đó (`reuseAnswers`). Bất kỳ lệnh ghi nào (POST/PUT/DELETE) xoá bộ nhớ này, nên sau khi lưu review thì lần đổi ngôn ngữ kế tiếp sẽ tải lại dữ liệu thật.
+- Hạn chế như trước: trạng thái tạm của trang (bản nháp trong form, tệp đã chọn) mất khi đổi ngôn ngữ.
+- Kiểm tra bằng Playwright (API giả lập) ở `/projects`: đổi VI → EN → VI có 0 lần gọi API và 0 lần tải trang; tải lại trang thật vẫn giữ ngôn ngữ đã chọn.
+
+## 2026-10-10 · Dự án mới: nhập từ tệp nén, dò trường sâu, Guideline/Policy tuỳ chọn
+
+Form `ImportForm` (dùng ở `/projects/new` và ở dashboard của dự án CREATED/FAILED).
+
+### Nguồn dữ liệu: Tệp rời / Tệp nén (.zip)
+
+- Công tắc "Tệp rời / Tệp nén (.zip)", mặc định "Tệp rời" (luồng cũ, nhãn các ô giữ nguyên nên test cũ không đổi).
+- Tệp nén được mở ngay trên trình duyệt (`src/lib/zip.ts`, dùng `DecompressionStream`, không thêm thư viện). Máy chủ vẫn chỉ nhận từng tệp như trước và không giải nén gì. Không đọc ZIP64, ZIP có mật khẩu, kiểu nén khác stored/deflate; mục giải nén ra lớn hơn kích thước khai báo bị từ chối.
+- `readPack` (`src/features/projects/dataset.ts`) tự tìm trong tệp nén, ở mọi thư mục con:
+  - tệp nhãn: nhận diện theo nội dung (CVAT XML 1.1, COCO JSON, SmartReview JSON), định dạng tự chọn theo đó; có nhiều tệp nhãn thì hiện ô chọn;
+  - ảnh: ghép với đường dẫn trong tệp nhãn theo phần đuôi đường dẫn dài nhất (`data/images/a.jpg` khớp `images/a.jpg` hoặc `a.jpg`), tải lên dưới đúng tên tệp nhãn ghi; ảnh không được nhắc tới bị bỏ qua;
+  - CSV thông tin ảnh (có cột tên tệp và env_risk) và tệp guideline (tên chứa guide/policy/quy định/hướng dẫn; .md/.txt/.pdf).
+- Khung "Tìm thấy trong tệp nén" hiện kết quả; thiếu ảnh hoặc trùng tên không phân biệt được thì báo ngay và chặn nút gửi. Bỏ qua `__MACOSX`, tệp ẩn, `Thumbs.db`.
+
+### Dò trường sâu (confidence / score / top-2 / env_risk)
+
+- `core/importers/signals.ts`: thay vì chỉ đọc khoá ở tầng đầu, tìm theo chiều rộng tới 4 tầng trong từng nhãn (ví dụ `attributes.model.score`, `meta.detection.conf`). Trường gần nhãn nhất được dùng; giá trị không đọc được (ví dụ `score: "high"`) không che trường hợp lệ ở sâu hơn. `confidence`, `score`, `conf`, `prob`… được coi như nhau như trước; thêm nhận dạng tên kiểu camelCase (`top2Score`, `envRisk`).
+- Nhóm `top2: { label, score }` được đọc thành lớp thứ hai; điểm trong nhóm này không bao giờ bị lấy làm độ tin cậy của nhãn. Không đi vào mảng (phần tử mảng là bản ghi khác).
+- Chỉ ảnh hưởng dự án nhập mới; dự án đã nhập giữ nguyên dữ liệu đã chuẩn hoá.
+- Form có khung "Trường nhận diện được": đường dẫn trường tìm thấy và số nhãn có trường đó, cho cả hai nguồn. Chọn tệp nhãn khác định dạng đang chọn thì có gợi ý "Đổi định dạng".
+- Test: thêm ca "signals are found at any depth" trong `tests/signals.test.ts`.
+
+### Guideline / Policy mới
+
+- Ô đánh dấu "Thêm Guideline / Policy mới", mặc định tắt; chỉ khi đánh dấu mới mở phần chọn tệp (MD/TXT/PDF/JSON, 10 MB) hoặc dán nội dung. Với tệp nén có sẵn guideline, để trống thì dùng tệp đó; không đánh dấu thì không gửi gì.
+- Máy chủ: `server/projects/upload.ts` nhận thêm trường `guideline`, lưu `guideline/guideline.<đuôi>` trong thư mục dự án; `service.ts` ghi tên tệp vào `dataset.metadata.guideline`.
+- Chưa làm: bộ kiểm tra vẫn chạy policy có sẵn (`core/risk/policy.ts`), chưa đọc guideline. Form ghi rõ điều này.
+
+### Kiểm tra
+
+- `npm run typecheck`, `node --test tests/signals.test.ts tests/coco.test.ts tests/core.test.ts` qua. Form kiểm tra bằng Playwright với API giả lập (tệp nén lồng thư mục, thiếu ảnh, tệp không phải ZIP, sáng/tối, 390px). Chưa chạy với máy chủ thật (`npm test`, `npm run test:ui` cần DB).
+
 ## 2026-10-10 · Trang Review: gom lỗi theo ảnh, xem từng lỗi hoặc cả ảnh
 
 Áp dụng bản demo `demo-group/index.html` (đã được duyệt), ghép vào giao diện hiện có (khung gập, Tập trung, sáng/tối, VI/EN).

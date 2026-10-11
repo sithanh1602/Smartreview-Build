@@ -1,11 +1,13 @@
 import { DropboxStorage } from './dropbox.ts';
 
-// Keys are relative POSIX paths such as projects/<id>/<uuid>.tar.
+// Keys are relative POSIX paths such as projects/<id>/<uuid>/media/street.png.
 export interface RemoteStorage {
   name: 'dropbox';
-  upload(key: string, file: string): Promise<void>;
-  // Resolves false, without creating the file, when the key does not exist.
-  download(key: string, file: string): Promise<boolean>;
+  write(key: string, data: Uint8Array<ArrayBuffer>): Promise<void>;
+  // Commits many local files together. Keys must not differ only by letter case.
+  uploadFiles(files: { key: string; file: string }[]): Promise<void>;
+  // Resolves null when the key does not exist.
+  read(key: string): Promise<Buffer | null>;
   // Removes a file or a whole folder; a missing key is not an error.
   remove(key: string): Promise<void>;
 }

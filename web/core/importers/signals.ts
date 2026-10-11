@@ -25,16 +25,53 @@ export interface ImportOptions {
 
 const object = (value: unknown): value is Record<string, unknown> =>
   value !== null && typeof value === 'object' && !Array.isArray(value);
+// "Score", "top2Score" and "top2-score" all name the same field.
 const key = (name: string) =>
   name
     .trim()
+    .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
     .toLowerCase()
     .replace(/[\s-]+/g, '_');
-function find(sources: unknown[], names: string[]): unknown {
+// An object holding the runner-up class on its own, such as top2: { label, score }.
+const TOP2_GROUP = ['top2', 'top_2', 'second', 'second_best', 'runner_up'];
+const GROUP_LABEL = ['label', 'class', 'class_name', 'category', 'name'];
+// Exporters nest signals at different depths (attributes.model.score, meta.detection.conf), so
+// every source is searched breadth-first: the field nearest the record wins, and an unusable
+// value does not hide a usable one deeper down. Lists are not entered, since their items are
+// other records. A runner-up group is entered only when asked for, so its score is never taken
+// for the confidence of the label itself.
+const MAX_DEPTH = 4,
+  MAX_FIELDS = 400;
+export interface Found<T> {
+  value: T;
+  path: string;
+}
+function find<T>(
+  sources: unknown[],
+  names: string[],
+  read: (value: unknown) => T | undefined,
+  groups: 'skip' | 'only' = 'skip',
+): Found<T> | undefined {
   for (const source of sources) {
     if (!object(source)) continue;
-    for (const [name, value] of Object.entries(source))
-      if (names.includes(key(name)) && value != null && value !== '') return value;
+    let level: [Record<string, unknown>, string, boolean][] = [[source, '', false]],
+      seen = 0;
+    for (let depth = 0; depth <= MAX_DEPTH && level.length; depth++) {
+      const next: typeof level = [];
+      for (const [node, prefix, grouped] of level)
+        for (const [name, raw] of Object.entries(node)) {
+          if (++seen > MAX_FIELDS) break;
+          const path = prefix + name,
+            group = TOP2_GROUP.includes(key(name));
+          if (names.includes(key(name)) && grouped === (groups === 'only')) {
+            const value = read(raw);
+            if (value !== undefined) return { value, path };
+          }
+          if (object(raw) && (grouped || !group || groups === 'only'))
+            next.push([raw, path + '.', grouped || group]);
+        }
+      level = next;
+    }
   }
   return undefined;
 }
@@ -53,20 +90,45 @@ function probability(value: unknown): number | undefined {
   }
   return typeof number === 'number' && number >= 0 && number <= 1 ? number : undefined;
 }
+const text = (value: unknown) =>
+  typeof value === 'string' && value.trim() ? value.trim() : undefined;
 
-// Sources are searched in order, so a field on the annotation wins over its attributes.
-export function readSignals(...sources: unknown[]) {
-  const confidence = probability(find(sources, CONFIDENCE));
-  const label = find(sources, TOP2_LABEL),
-    score = probability(find(sources, TOP2_SCORE));
+// Where each signal sits in a record, for showing the user what an import will read.
+export function locateSignals(...sources: unknown[]) {
   return {
-    ...(confidence !== undefined && { confidence }),
-    ...(typeof label === 'string' &&
-      label.trim() &&
-      score !== undefined && { top2: { label_top2: label.trim(), score_top2: score } }),
+    confidence: find(sources, CONFIDENCE, probability),
+    top2_label: find(sources, TOP2_LABEL, text) ?? find(sources, GROUP_LABEL, text, 'only'),
+    top2_score:
+      find(sources, TOP2_SCORE, probability) ?? find(sources, CONFIDENCE, probability, 'only'),
+    env_risk: find(sources, ENV_RISK, probability),
   };
 }
-export const readEnvRisk = (...sources: unknown[]) => probability(find(sources, ENV_RISK));
+// The signal a single field name stands for, for sources that only list names (CVAT attributes).
+export function signalOf(name: string) {
+  const k = key(name);
+  return CONFIDENCE.includes(k)
+    ? 'confidence'
+    : TOP2_LABEL.includes(k)
+      ? 'top2_label'
+      : TOP2_SCORE.includes(k)
+        ? 'top2_score'
+        : ENV_RISK.includes(k)
+          ? 'env_risk'
+          : undefined;
+}
+// Sources are searched in order, so a field on the annotation wins over its attributes.
+export function readSignals(...sources: unknown[]) {
+  const found = locateSignals(...sources);
+  const confidence = found.confidence?.value,
+    label = found.top2_label?.value,
+    score = found.top2_score?.value;
+  return {
+    ...(confidence !== undefined && { confidence }),
+    ...(label !== undefined &&
+      score !== undefined && { top2: { label_top2: label, score_top2: score } }),
+  };
+}
+export const readEnvRisk = (...sources: unknown[]) => find(sources, ENV_RISK, probability)?.value;
 // Fills confidence and top-2 on a normalized annotation from its own attributes.
 export function applySignals<
   T extends { confidence?: number | null; attributes?: Record<string, unknown> },

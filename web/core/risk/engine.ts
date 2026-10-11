@@ -1,17 +1,20 @@
 import { normalizeDataset } from '../schema/normalize.ts';
-import { POLICY, POLICY_VERSION, MIN_SIDE, canonicalLabel, labelGroup } from './policy.ts';
-import { iou, isLabel } from './checks/shared.ts';
-import { temporalChecks } from './checks/temporal.ts';
-import { confidenceChecks } from './checks/confidence.ts';
-import { generalChecks } from './checks/general.ts';
-import { labelChecks } from './checks/labels.ts';
-import { imageRules } from './image-rules.ts';
+import { POLICY, POLICY_VERSION, canonicalLabel, labelGroup } from './policy.ts';
+import { loadPolicy } from './rules.ts';
+import { measuredVisibility } from './visibility.ts';
+import { isLabel, skip } from './checks/shared.ts';
+import { buildChecks } from './checks/index.ts';
+import { secondOpinion } from './checks/templates.ts';
+import { buildImageRules, missingIn } from './image-rules.ts';
 import * as legacy from '../risk_v1/engine.ts';
+import * as v3 from '../risk_v3/engine.ts';
+import * as v4 from '../risk_v4/engine.ts';
+import type { Patch, Policy } from './rules.ts';
+import type { StaticContext } from './checks/shared.ts';
 import type { Annotation, Frame } from '../schema/types.ts';
 import type {
   AnalyzeOptions,
   Box,
-  Check,
   CheckContext,
   CheckResult,
   CheckStat,
@@ -19,6 +22,7 @@ import type {
   DraftBox,
   Evaluation,
   Finding,
+  Flagged,
   FrameReport,
   GreyBox,
   LegacyRiskReport,
@@ -28,28 +32,56 @@ import type {
   Tier,
 } from './types.ts';
 
-export const checks: Check[] = [
-  ...temporalChecks,
-  ...confidenceChecks,
-  ...generalChecks,
-  ...labelChecks,
-];
-export { imageRules };
+// Everything the engine runs is built from the active rules in policy/ (rules.ts), once for the
+// policy as written and once more for each project that patches it.
+function compile(patches: Patch[] = []) {
+  const policy = loadPolicy(patches);
+  const checks = buildChecks(policy);
+  const ids = new Set(checks.map((c) => c.id));
+  for (const rule of policy.waiveRules)
+    for (const id of rule.params.waives ?? [])
+      if (!ids.has(id)) throw new Error(`policy: rule "${rule.id}" waives unknown check "${id}"`);
+  return {
+    policy,
+    checks,
+    imageRules: buildImageRules(policy),
+    // A low score, a frame cut and a poor image all describe one thing, a weak box.
+    weak: new Set(checks.filter((c) => c.family === 'weak').map((c) => c.id)),
+  };
+}
+type Engine = ReturnType<typeof compile>;
+const builtIn = compile();
+export const { checks, imageRules } = builtIn;
 export const severity = (score: number): Severity =>
   score >= 70 ? 'high' : score >= 40 ? 'medium' : 'low';
-export const ENGINE_VERSION = '4.0.0';
-// The engine version is stored with the project at import time. Projects imported under a
-// 2.x profile keep running on risk_v1, so their scores and dataset fingerprints never change.
+export const ENGINE_VERSION = '5.0.0';
+// The engine version is stored with the project at import time, and a project keeps running on
+// the engine it was imported under, so its scores and dataset fingerprint never change:
+// 2.x on risk_v1, 3.0.0 on risk_v3, 4.0.0 (the policy written in code) on risk_v4.
 export const LATEST_ENGINE_VERSION = ENGINE_VERSION;
 export const LEGACY_ENGINE_VERSION = legacy.ENGINE_VERSION;
+export const ENGINE_VERSIONS = [
+  legacy.ENGINE_VERSION,
+  legacy.LATEST_ENGINE_VERSION,
+  v3.ENGINE_VERSION,
+  v4.ENGINE_VERSION,
+  ENGINE_VERSION,
+];
 export function checksFor(version = ENGINE_VERSION): { id: string; version: string }[] {
-  return version === ENGINE_VERSION ? checks : legacy.checksFor(version);
+  if (version === ENGINE_VERSION) return checks;
+  if (version === v4.ENGINE_VERSION) return v4.checks;
+  if (version === v3.ENGINE_VERSION) return v3.checks;
+  return legacy.checksFor(version);
 }
+// Guideline waivers switch checks off by id; the engines before 4.0.0 know nothing of them.
+export const supportsWaivers = (version: string) =>
+  version === ENGINE_VERSION || version === v4.ENGINE_VERSION;
 
 // draft: model box at or above the working score. manual: no score, drawn by a person.
 // grey: below the working score, a hint of a missed object rather than a label.
-// ignored: below the minimum size of its label, neither right nor wrong.
-function describe(annotation: Annotation, index: number): Box {
+// ignored: below the minimum size of its label, or measured by the dataset as all but hidden:
+// neither right nor wrong.
+function describe(annotation: Annotation, index: number, policy: Policy): Box {
   const g = annotation.geometry,
     label = canonicalLabel(annotation.label),
     confidence = annotation.confidence;
@@ -66,9 +98,14 @@ function describe(annotation: Annotation, index: number): Box {
     height: g.height,
     ratio: g.height / g.width,
   };
-  const side = label === 'pole' ? g.height : Math.max(g.width, g.height);
   if (g.width <= 0 || g.height <= 0) return { ...measured, state: 'invalid' };
-  if (side < (MIN_SIDE[label] ?? 0)) return { ...measured, state: 'ignored' };
+  if (policy.belowMinimum(label, g.width, g.height)) return { ...measured, state: 'ignored' };
+  const visibility = policy.visibilityOf(label),
+    hidden = policy.ignoredVisibility(label);
+  if (visibility && hidden !== undefined) {
+    const seen = measuredVisibility(annotation, visibility);
+    if (seen !== null && seen < hidden) return { ...measured, state: 'ignored' };
+  }
   if (confidence === undefined || !Number.isFinite(confidence))
     return { ...measured, state: 'manual' };
   return { ...measured, confidence, state: confidence < POLICY.workingScore ? 'grey' : 'draft' };
@@ -81,17 +118,33 @@ const leading = <T extends { score: number; error_type?: string }>(findings: T[]
   );
 
 // Without an engine version the current engine runs, so the report has frames and tiers.
-export function analyzeDataset(input: unknown, options?: { minScore?: number }): RiskReport;
+export function analyzeDataset(
+  input: unknown,
+  options?: { minScore?: number; waivers?: Record<string, string[]>; patches?: Patch[] },
+): RiskReport;
 export function analyzeDataset(
   input: unknown,
   options?: AnalyzeOptions,
 ): RiskReport | LegacyRiskReport;
 export function analyzeDataset(
   input: unknown,
-  { minScore = 30, engineVersion = ENGINE_VERSION }: AnalyzeOptions = {},
+  {
+    minScore = 30,
+    engineVersion = ENGINE_VERSION,
+    waivers = {},
+    patches = [],
+  }: AnalyzeOptions = {},
 ): RiskReport | LegacyRiskReport {
-  if (engineVersion !== ENGINE_VERSION)
+  if (engineVersion !== ENGINE_VERSION) {
+    if (patches.length)
+      throw new Error(`Engine ${engineVersion} has its policy in code and takes no patches`);
+    if (engineVersion === v4.ENGINE_VERSION) return v4.analyzeDataset(input, { minScore, waivers });
+    if (engineVersion === v3.ENGINE_VERSION)
+      return v3.analyzeDataset(input, { minScore }) as LegacyRiskReport;
     return legacy.analyzeDataset(input, { minScore, engineVersion });
+  }
+  const engine = patches.length ? compile(patches) : builtIn;
+  const { policy, checks, imageRules } = engine;
   const data = normalizeDataset(input);
   const frames = new Map(data.frames.map((f) => [f.id, f]));
   const media = new Map(data.media.map((m) => [m.id, m]));
@@ -104,7 +157,7 @@ export function analyzeDataset(
     neighbors = new Map<string, { previous?: Annotation; next?: Annotation }>(),
     byFrame = new Map(data.frames.map((f) => [f.id, [] as Box[]]));
   data.annotations.forEach((a, index) => {
-    byFrame.get(a.frame_id)!.push(describe(a, index));
+    byFrame.get(a.frame_id)!.push(describe(a, index, policy));
     if (a.track_id === undefined) return;
     const key = JSON.stringify([frames.get(a.frame_id)!.media_id, a.track_id]);
     if (!histories.has(key)) histories.set(key, []);
@@ -117,6 +170,16 @@ export function analyzeDataset(
     );
   }
   const boxes = new Map([...byFrame.values()].flat().map((b) => [b.id, b]));
+  // Model output and hand-drawn boxes rarely share one attribute schema, so what "the dataset
+  // carries" is asked of each kind apart.
+  const scoredBox = (a: Annotation) => Number.isFinite(a.confidence);
+  const namesOf = (model: boolean) =>
+    new Set(
+      data.annotations
+        .filter((a) => scoredBox(a) === model)
+        .flatMap((a) => Object.keys(a.attributes ?? {})),
+    );
+  const attributeNames = { model: namesOf(true), human: namesOf(false) };
   const contexts = data.annotations.map((current): CheckContext => {
     const frame = frames.get(current.frame_id)!;
     return {
@@ -129,23 +192,60 @@ export function analyzeDataset(
       frameBoxes: byFrame.get(current.frame_id)!,
       env_risk: frameRisk(frame),
       peers: [],
+      attributeNames: attributeNames[scoredBox(current) ? 'model' : 'human'],
     };
   });
   // A box suspected of being no object at all cannot serve as evidence against another box,
   // so rules that look at other boxes run after the suspects are known.
   const outcomes = new Map(contexts.map((c) => [c.current.id, new Map<string, CheckResult>()]));
+  // A project's guideline can outrank the policy: where a person chose a guideline rule that
+  // permits what a check flags, that check does not run on boxes of the rule's classes.
+  const waived = (check: string, label: string) =>
+    waivers[check]?.some((l) => l === '*' || l === label) ?? false;
+  // The policy can stand its own checks down too: a rule of template "waive" does so for a
+  // model draft whose second opinion is the label the rule names.
+  const stoodDown = new Map<string, Set<string>>();
+  const policyWaived = (context: CheckContext, check: string) => {
+    const { box } = context;
+    if (box.state !== 'draft' || !policy.waiveRules.length) return false;
+    if (!stoodDown.has(box.id)) {
+      const draft = context as unknown as StaticContext<DraftBox>;
+      stoodDown.set(
+        box.id,
+        new Set(
+          policy.waiveRules
+            .filter(
+              (rule) =>
+                rule.label === box.label &&
+                secondOpinion(rule, draft)?.label === rule.params.when_second_opinion_is,
+            )
+            .flatMap((rule) => rule.params.waives as string[]),
+        ),
+      );
+    }
+    return stoodDown.get(box.id)!.has(check);
+  };
   const run = (relational: boolean) => {
     for (const context of contexts)
       for (const check of checks)
         if (!!check.relational === relational)
-          outcomes.get(context.current.id)!.set(check.id, check.run(context));
+          outcomes
+            .get(context.current.id)!
+            .set(
+              check.id,
+              waived(check.id, context.box.label)
+                ? skip('guideline_waived')
+                : policyWaived(context, check.id)
+                  ? skip('policy_waived')
+                  : check.run(context),
+            );
   };
   run(false);
   const suspects = new Set(
     contexts
       .filter((c) => {
         const flagged = [...outcomes.get(c.current.id)!.values()].filter(
-          (r) => r.status === 'flagged',
+          (r): r is Flagged => r.status === 'flagged' && r.level !== 'warning',
         );
         return leading(flagged)?.error_type === 'EXTRA_OBJECT';
       })
@@ -174,12 +274,17 @@ export function analyzeDataset(
         stat.skip_reasons[result.reason] = (stat.skip_reasons[result.reason] || 0) + 1;
       return { check_id: check.id, check_version: check.version, ...result };
     });
-    const findings = foldWeak(evaluations.filter((e) => e.status === 'flagged'));
+    const findings = foldWeak(
+      evaluations.filter((e) => e.status === 'flagged'),
+      engine.weak,
+    );
+    // A warning is shown to the reviewer but neither scores the box nor names its error.
+    const counted = findings.filter((f) => f.level !== 'warning');
     const score = Math.min(
       100,
-      findings.reduce((sum, f) => sum + f.score, 0),
+      counted.reduce((sum, f) => sum + f.score, 0),
     );
-    const suspicion = leading(findings);
+    const suspicion = leading(counted);
     return {
       id: current.id,
       dataset_id: data.dataset.id,
@@ -212,7 +317,7 @@ export function analyzeDataset(
   // Imported files rarely say who drew the boxes; scores anywhere mean the set is model output.
   const hasScores = data.annotations.some((a) => Number.isFinite(a.confidence));
   const frameReports = data.frames.map((frame) =>
-    triage(frame, byFrame.get(frame.id)!, scored, {
+    triage(engine, frame, byFrame.get(frame.id)!, scored, {
       env_risk: frameRisk(frame),
       model:
         hasScores || (media.get(frame.media_id)!.source || data.dataset.source)?.kind === 'model',
@@ -222,6 +327,8 @@ export function analyzeDataset(
     schema_version: '1.0.0',
     engine_version: ENGINE_VERSION,
     policy_version: POLICY_VERSION,
+    ...(Object.keys(waivers).length > 0 && { waivers }),
+    ...(patches.length > 0 && { patches }),
     dataset_id: data.dataset.id,
     min_score: minScore,
     checks: summary,
@@ -239,11 +346,16 @@ export function analyzeDataset(
     ),
     frames: frameReports,
     results,
-    // Bonus labels are scored but kept out of the main queue.
-    cases: queue(results.filter((r) => r.score >= minScore && r.group !== 'bonus')),
-    advisory_cases: queue(results.filter((r) => r.score >= minScore && r.group === 'bonus')),
+    cases: queue(results.filter((r) => r.score >= minScore && !advisoryOnly(r.group))),
+    advisory_cases: queue(results.filter((r) => r.score >= minScore && advisoryOnly(r.group))),
+    warning_cases: queue(
+      results.filter((r) => r.score < minScore && r.findings.some((f) => f.level === 'warning')),
+    ),
   };
 }
+// A flagged box of a bonus label is a concrete error like any other; whether it joins the main
+// queue and blocks its frame, or is only listed, is the policy's choice (_dataset.json).
+const advisoryOnly = (group?: string) => group === 'bonus' && !POLICY.bonusBoxesQueue;
 const POSITIONS: ContextPosition[] = ['previous', 'current', 'next'];
 const TIERS: Tier[] = ['auto_accept', 'verify', 'relabel'];
 const queue = (items: RiskResult[]) =>
@@ -255,11 +367,10 @@ const queue = (items: RiskResult[]) =>
   );
 // A low score, a frame cut and a poor image all describe one thing, a weak box. Together they
 // are one finding that counts once, at its strongest member; structural findings still add up.
-const WEAK = new Set(checks.filter((c) => c.family === 'weak').map((c) => c.id));
-function foldWeak(findings: Finding[]): Finding[] {
-  const weak = findings.filter((f) => WEAK.has(f.check_id));
+function foldWeak(findings: Finding[], family: Set<string>): Finding[] {
+  const weak = findings.filter((f) => family.has(f.check_id) && f.level !== 'warning');
   if (weak.length < 2) return findings;
-  const error = weak.find((f) => f.error_type)?.error_type;
+  const named = weak.find((f) => f.error_type);
   const merged: Finding = {
     check_id: 'confidence.weak_box',
     check_version: '1.0.0',
@@ -274,7 +385,8 @@ function foldWeak(findings: Finding[]): Finding[] {
         evidence,
       })),
     },
-    ...(error && { error_type: error }),
+    ...(named && { error_type: named.error_type }),
+    ...(named?.suggested_label && { suggested_label: named.suggested_label }),
   };
   return findings.flatMap((f) => (f === weak[0] ? [merged] : weak.includes(f) ? [] : [f]));
 }
@@ -282,22 +394,18 @@ function foldWeak(findings: Finding[]): Finding[] {
 // The tier is decided here, with no reviewer in the loop: a frame is auto-accepted only when
 // the policy gate (frame rules), the risk gate (box priority) and the confidence gate all hold.
 function triage(
+  { policy, imageRules }: Engine,
   frame: Frame,
   frameBoxes: Box[],
   scored: Map<string, RiskResult>,
   { env_risk, model }: { env_risk?: number; model: boolean },
 ): FrameReport {
-  const { tier: T, coverage: C, autoAccept } = POLICY;
+  const { tier: T, autoAccept } = POLICY;
   const drafts = frameBoxes.filter((b): b is DraftBox => b.state === 'draft');
   const greys = frameBoxes.filter(
     (b): b is GreyBox => b.state === 'grey' && b.confidence >= POLICY.greyFloor,
   );
-  const missing = greys.filter(
-    (b) =>
-      b.confidence >= C.greyScore &&
-      Math.max(b.width, b.height) >= C.greySide &&
-      drafts.every((d) => iou(b.geometry, d.geometry) < C.greyOverlap),
-  );
+  const missing = missingIn(policy, greys, drafts);
   // Coverage rules describe model output; a frame labelled only by people has none to judge.
   const fired = model
     ? imageRules.flatMap((r) => {
@@ -307,8 +415,10 @@ function triage(
     : [];
   const unsupported = frameBoxes.filter((b) => b.state === 'unsupported');
   const flagged = frameBoxes.filter((b) => scored.get(b.id)!.score >= T.flagged);
-  const blocking = flagged.filter((b) => b.group !== 'bonus');
-  const high = blocking.filter((b) => scored.get(b.id)!.score >= T.high);
+  const blocking = flagged.filter((b) => !advisoryOnly(b.group));
+  // Redrawing a whole frame is decided by its core boxes; a wrong bonus box is fixed on its own.
+  const core = blocking.filter((b) => b.group !== 'bonus');
+  const high = core.filter((b) => scored.get(b.id)!.score >= T.high);
   const weak = drafts.filter((b) => b.group !== 'bonus' && b.confidence < autoAccept.minConfidence);
   const gates = {
     policy: !fired.some((r) => r.blocking) && !unsupported.length,
@@ -316,7 +426,7 @@ function triage(
     confidence: !weak.length,
   };
   const tier: Tier =
-    blocking.length >= T.relabelFlagged || high.length >= T.relabelHigh
+    core.length >= T.relabelFlagged || high.length >= T.relabelHigh
       ? 'relabel'
       : Object.values(gates).every(Boolean)
         ? 'auto_accept'
@@ -336,7 +446,7 @@ function triage(
     ),
     image_rules: fired,
     flagged: blocking.map((b) => b.id),
-    advisory: flagged.filter((b) => b.group === 'bonus').map((b) => b.id),
+    advisory: flagged.filter((b) => advisoryOnly(b.group)).map((b) => b.id),
     missing_candidates: missing.map((b) => b.id),
     reason: [
       blocking.length && `${blocking.length} box cần xem`,

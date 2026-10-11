@@ -18,17 +18,19 @@ class FolderRemote implements RemoteStorage {
   constructor(root: string) {
     this.root = root;
   }
-  async upload(key: string, file: string) {
+  async write(key: string, data: Uint8Array<ArrayBuffer>) {
     await fs.mkdir(path.dirname(path.join(this.root, key)), { recursive: true });
-    await fs.copyFile(file, path.join(this.root, key));
+    await fs.writeFile(path.join(this.root, key), data);
   }
-  async download(key: string, file: string) {
+  async uploadFiles(files: { key: string; file: string }[]) {
+    for (const f of files) await this.write(f.key, await fs.readFile(f.file));
+  }
+  async read(key: string) {
     try {
-      await fs.copyFile(path.join(this.root, key), file);
-      return true;
+      return await fs.readFile(path.join(this.root, key));
     } catch (e) {
       if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e;
-      return false;
+      return null;
     }
   }
   async remove(key: string) {
@@ -79,21 +81,37 @@ after(async () => {
   if (pool) await pool.end();
   if (tmp) await fs.rm(tmp, { recursive: true, force: true });
 });
-test('import publishes the project and another backend opens it from the remote', async () => {
+const missing = (file: string) => assert.rejects(fs.access(file), { code: 'ENOENT' });
+test('import keeps nothing on disk and another backend reads the project from the remote', async () => {
   const id = await importProject();
   const row = await first.row(id);
   assert.equal(row.storage_provider, 'dropbox');
   assert.match(row.storage_key, new RegExp(`^projects/${id}/[a-f0-9-]{36}$`));
   assert.ok(row.storage_synced_at);
-  await fs.access(path.join(remote.root, row.storage_key + '.tar'));
+  assert.equal(row.dataset_path, null);
   assert.equal('storage_key' in (await first.get(id)), false);
+  await fs.access(path.join(remote.root, row.storage_key, 'dataset.json'));
+  await fs.access(path.join(remote.root, row.storage_key, 'risk', 'report.json'));
+  assert.deepEqual(
+    await fs.readFile(path.join(remote.root, row.storage_key, 'media', 'street.png')),
+    png,
+  );
+  await missing(path.join(tmp, 'first', 'projects', id));
 
+  const { dataset: own } = await first.context(id);
   const { dataset: opened } = await second.context(id);
-  assert.equal(opened.meta.dataset_id, (await first.context(id)).dataset.meta.dataset_id);
-  const asset = [...opened.assets.values()][0];
-  assert.ok(asset.startsWith(path.join(tmp, 'second', row.storage_key)));
-  assert.deepEqual(await fs.readFile(asset), png);
-  assert.deepEqual(await fs.readdir(path.join(tmp, 'second', '.tmp')), []);
+  assert.equal(opened.remote, true);
+  assert.equal(opened.meta.dataset_id, own.meta.dataset_id);
+  const frame = [...opened.assets.keys()][0];
+  assert.deepEqual(await opened.readAsset(frame), png);
+  await missing(path.join(tmp, 'second'));
+
+  const url = own.allCases
+    .map((c) => (Object.values(c.context)[0] as any)?.image_url)
+    .find(Boolean);
+  const served = await fetch(base + url);
+  assert.equal(served.status, 200);
+  assert.deepEqual(Buffer.from(await served.arrayBuffer()), png);
 });
 test('a backend without the remote explains why shared data is unavailable', async () => {
   const id = await importProject();
@@ -103,10 +121,9 @@ test('a backend without the remote explains why shared data is unavailable', asy
 test('delete removes the remote copy', async () => {
   const id = await importProject();
   assert.deepEqual(await first.remove(id), { deleted: true, cleanupPending: false });
-  await assert.rejects(fs.access(path.join(remote.root, 'projects', id)), { code: 'ENOENT' });
+  await missing(path.join(remote.root, 'projects', id));
 });
-test('share publishes a project imported before shared storage', async () => {
-  const local = new ProjectService(pool, path.join(tmp, 'first'));
+test('share moves a locally stored project to the remote', async () => {
   const previous = first.remote;
   first.remote = null;
   let id: string;
@@ -115,9 +132,15 @@ test('share publishes a project imported before shared storage', async () => {
   } finally {
     first.remote = previous;
   }
-  assert.equal((await local.row(id)).storage_key, null);
+  const before = await first.row(id);
+  assert.equal(before.storage_key, null);
+  await fs.access(before.dataset_path);
+  first.cache.delete(id);
   assert.equal(await first.share(id), true);
   assert.equal(await first.share(id), false);
-  const asset = [...(await second.context(id)).dataset.assets.values()][0];
-  assert.ok(asset.startsWith(path.join(tmp, 'second', 'projects', id)));
+  const row = await first.row(id);
+  assert.equal(row.dataset_path, null);
+  await missing(path.join(tmp, 'first', 'projects', id));
+  const { dataset: opened } = await second.context(id);
+  assert.deepEqual(await opened.readAsset([...opened.assets.keys()][0]), png);
 });

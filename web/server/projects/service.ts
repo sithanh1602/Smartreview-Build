@@ -5,19 +5,22 @@ import { randomUUID } from 'node:crypto';
 import { importAnnotations, importers } from '../../core/importers/index.ts';
 import { applyEnvRisk, parseImageTable } from '../../core/importers/signals.ts';
 import { normalizeDataset } from '../../core/schema/normalize.ts';
-import { LEGACY_ENGINE_VERSION, LATEST_ENGINE_VERSION } from '../../core/risk/engine.ts';
-import { loadDataset } from '../repository.ts';
+import { LEGACY_ENGINE_VERSION, LATEST_ENGINE_VERSION, checksFor } from '../../core/risk/engine.ts';
+import { waiversFrom } from '../../shared/guideline-waivers.ts';
+import { buildDataset, loadDataset } from '../repository.ts';
 import { ReviewStore } from '../reviews/store.ts';
 import { ReviewError } from '../../shared/review.ts';
 import { receiveUpload, safePath } from './upload.ts';
-import { pack, unpack } from '../storage/archive.ts';
 import type { RemoteStorage } from '../storage/remote.ts';
+import type { AssetSource, DatasetOptions } from '../repository.ts';
 import type { Untrusted } from '../../shared/review.ts';
 import type { Dataset } from '../../core/schema/types.ts';
 import type { Connection, Db, LoadedDataset, ProjectContext, Req, Result, Rows } from '../types.ts';
 
 type ProjectRow = Rows[number];
 const STORAGE_KEY = /^projects\/[a-f0-9-]{36}\/[a-f0-9-]{36}$/;
+// Frames fetched from the remote stay in memory only; nothing is written to disk.
+const ASSET_CACHE_BYTES = 64 * 1024 * 1024;
 const publicProject = ({
   dataset_path,
   dataset_revision_id,
@@ -35,6 +38,8 @@ export class ProjectService {
   ai: AiService;
   remote: RemoteStorage | null;
   demos: Map<string, string>;
+  assets: Map<string, Buffer>;
+  assetBytes: number;
   constructor(pool: Db, storageRoot: string, remote: RemoteStorage | null = null) {
     this.pool = pool;
     this.storageRoot = path.resolve(storageRoot);
@@ -42,6 +47,8 @@ export class ProjectService {
     this.cache = new Map();
     this.deleting = new Set();
     this.demos = new Map();
+    this.assets = new Map();
+    this.assetBytes = 0;
     this.ai = new AiService(this);
   }
   async recover() {
@@ -174,81 +181,130 @@ export class ProjectService {
     );
     return row.id as string;
   }
-  async push(key: string) {
-    const tmp = path.join(this.storageRoot, '.tmp');
-    await fs.mkdir(tmp, { recursive: true });
-    const archive = path.join(tmp, randomUUID() + '.tar');
-    try {
-      await pack(path.join(this.storageRoot, key), archive);
-      await this.remote!.upload(key + '.tar', archive);
-    } finally {
-      await fs.rm(archive, { force: true });
+  // Every file of an import directory goes to the remote under the same relative path.
+  async publish(key: string) {
+    const directory = path.join(this.storageRoot, key);
+    const entries = await fs.readdir(directory, { recursive: true, withFileTypes: true });
+    const files = entries
+      .filter((e) => e.isFile())
+      .map((e) => {
+        const file = path.join(e.parentPath, e.name);
+        const relative = path.relative(directory, file).split(path.sep).join('/');
+        return { file, key: `${key}/${relative}` };
+      });
+    // Dropbox paths ignore letter case, so two such names would silently become one file.
+    const seen = new Set<string>();
+    for (const f of files) {
+      const folded = f.key.toLowerCase();
+      if (seen.has(folded))
+        throw new ReviewError(
+          422,
+          `Tên file chỉ khác nhau chữ hoa/thường: ${f.key.slice(key.length + 1)}`,
+        );
+      seen.add(folded);
     }
+    await this.remote!.uploadFiles(files);
   }
-  async pull(key: string) {
-    const tmp = path.join(this.storageRoot, '.tmp');
-    await fs.mkdir(tmp, { recursive: true });
-    const archive = path.join(tmp, randomUUID() + '.tar'),
-      staging = path.join(tmp, randomUUID());
+  async readRemote(key: string) {
     try {
-      if (!(await this.remote!.download(key + '.tar', archive)))
-        throw new ReviewError(409, 'Không tìm thấy dữ liệu project trên kho lưu trữ chung.');
-      await fs.mkdir(staging, { mode: 0o700 });
-      await unpack(archive, staging);
-      const directory = path.join(this.storageRoot, key);
-      await fs.mkdir(path.dirname(directory), { recursive: true });
-      await fs.rename(staging, directory);
+      return await this.remote!.read(key);
     } catch (e) {
-      if (e instanceof ReviewError) throw e;
-      console.error('Remote project download failed:', (e as Error).message);
+      console.error('Remote storage read failed:', (e as Error).message);
       throw new ReviewError(
         502,
-        'Không tải được dữ liệu project từ kho lưu trữ chung. Kiểm tra mạng và cấu hình Dropbox.',
+        'Không đọc được dữ liệu từ kho lưu trữ chung. Kiểm tra mạng và cấu hình Dropbox.',
       );
-    } finally {
-      await fs.rm(archive, { force: true });
-      await fs.rm(staging, { recursive: true, force: true });
     }
   }
-  // Shared projects sit under storage_key on every machine; the archive is fetched once, then read from disk.
-  async datasetFile(row: ProjectRow): Promise<string> {
-    if (row.demo_key && this.demos.has(row.demo_key)) return this.demos.get(row.demo_key)!;
-    if (!row.storage_key) return row.dataset_path;
+  remoteSource(key: string): AssetSource {
+    return {
+      remote: true,
+      locate(image) {
+        const relative = path.posix.normalize(image);
+        if (relative.startsWith('../') || relative.startsWith('/') || image.includes('\\'))
+          throw new Error('Frame image escapes dataset directory');
+        return `${key}/${relative}`;
+      },
+      read: async (asset) => {
+        const cached = this.assets.get(asset);
+        if (cached) {
+          // Re-insert so the map order keeps the most recently used frames last.
+          this.assets.delete(asset);
+          this.assets.set(asset, cached);
+          return cached;
+        }
+        const data = await this.readRemote(asset);
+        if (!data || data.length > ASSET_CACHE_BYTES) return data;
+        this.assets.set(asset, data);
+        this.assetBytes += data.length;
+        for (const [oldest, bytes] of this.assets) {
+          if (this.assetBytes <= ASSET_CACHE_BYTES) break;
+          this.assets.delete(oldest);
+          this.assetBytes -= bytes.length;
+        }
+        return data;
+      },
+    };
+  }
+  async load(row: ProjectRow, options: DatasetOptions) {
+    if (row.demo_key && this.demos.has(row.demo_key))
+      return loadDataset(this.demos.get(row.demo_key)!, options);
+    if (!row.storage_key)
+      return loadDataset(row.dataset_path, options).catch((e) => {
+        if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e;
+        throw new ReviewError(
+          409,
+          'Project này chỉ có dữ liệu trên máy đã import. Chạy npm run storage:push trên máy đó để chia sẻ.',
+        );
+      });
     if (!STORAGE_KEY.test(row.storage_key) || !row.storage_key.startsWith(`projects/${row.id}/`))
       throw new ReviewError(409, 'Storage key của project không hợp lệ.');
-    const file = path.join(this.storageRoot, row.storage_key, 'dataset.json');
-    try {
-      await fs.access(file);
-      return file;
-    } catch {}
     if (!this.remote || row.storage_provider !== this.remote.name)
       throw new ReviewError(
         409,
-        `Dữ liệu project nằm trên ${row.storage_provider}. Cấu hình SMARTREVIEW_REMOTE_STORAGE trong .env để tải về.`,
+        `Dữ liệu project nằm trên ${row.storage_provider}. Cấu hình SMARTREVIEW_REMOTE_STORAGE trong .env để đọc.`,
       );
-    await this.pull(row.storage_key);
-    return file;
+    const text = await this.readRemote(`${row.storage_key}/dataset.json`);
+    if (!text)
+      throw new ReviewError(
+        409,
+        'Không tìm thấy dữ liệu project trên kho lưu trữ chung. Nếu project được chia sẻ ở dạng .tar cũ, chạy npm run storage:push trên máy còn giữ file.',
+      );
+    return buildDataset(text.toString('utf8'), options, this.remoteSource(row.storage_key));
   }
-  // One-off for projects imported before shared storage: publish the local copy and record its key.
+  // Moves a project whose files are still on this machine to the remote: imports made without
+  // remote storage and projects shared earlier as a single .tar.
   async share(id: string) {
     const row = await this.row(id);
     if (!this.remote) throw new Error('Remote storage is not configured.');
-    if (row.status !== 'READY' || row.demo_key || row.storage_key) return false;
-    const key = path
-      .relative(this.storageRoot, path.dirname(row.dataset_path))
-      .split(path.sep)
-      .join('/');
+    if (row.status !== 'READY' || row.demo_key) return false;
+    const key: string =
+      row.storage_key ??
+      path
+        .relative(this.storageRoot, path.dirname(row.dataset_path ?? ''))
+        .split(path.sep)
+        .join('/');
     if (!STORAGE_KEY.test(key) || !key.startsWith(`projects/${id}/`)) return false;
     try {
-      await fs.access(row.dataset_path);
+      await fs.access(path.join(this.storageRoot, key, 'dataset.json'));
     } catch {
       return false;
     }
-    await this.push(key);
+    await this.publish(key);
+    const local = path.join(this.storageRoot, 'projects', id);
+    try {
+      const ai = await fs.readFile(path.join(local, 'ai', 'latest.json'));
+      await this.remote.write(`projects/${id}/ai/latest.json`, ai);
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e;
+    }
     await this.pool.execute<Rows>(
-      'UPDATE projects SET storage_provider=?,storage_key=?,storage_synced_at=UTC_TIMESTAMP(3) WHERE id=? AND storage_key IS NULL',
+      'UPDATE projects SET storage_provider=?,storage_key=?,storage_synced_at=UTC_TIMESTAMP(3),dataset_path=NULL WHERE id=?',
       [this.remote.name, key, id],
     );
+    await this.remote.remove(key + '.tar');
+    await fs.rm(local, { recursive: true, force: true });
+    this.cache.delete(id);
     return true;
   }
   async context(id: string): Promise<ProjectContext> {
@@ -260,16 +316,11 @@ export class ProjectService {
         // The engine version is fixed at import time. Projects created before versioning
         // have none stored and keep the legacy 2.0.0 profile, so their fingerprint and scores never change.
         const stored = typeof row.metadata === 'string' ? JSON.parse(row.metadata) : row.metadata;
-        const dataset = await loadDataset(await this.datasetFile(row), {
+        const dataset = await this.load(row, {
           namespace: row.demo_key ? '' : id,
           apiPrefix: `/api/projects/${id}`,
           engineVersion: stored?.engine_version || LEGACY_ENGINE_VERSION,
-        }).catch((e) => {
-          if ((e as NodeJS.ErrnoException).code !== 'ENOENT' || row.storage_key) throw e;
-          throw new ReviewError(
-            409,
-            'Project này chỉ có dữ liệu trên máy đã import. Chạy npm run storage:push trên máy đó để chia sẻ.',
-          );
+          waivers: stored?.guideline_waivers,
         });
         dataset.meta.project_name = row.name;
         const reviews = new ReviewStore(this.pool, dataset);
@@ -311,6 +362,7 @@ export class ProjectService {
       );
     const key = `projects/${id}/${randomUUID()}`;
     const directory = path.join(this.storageRoot, key);
+    let published = false;
     try {
       const uploaded = await receiveUpload(req, directory, row.format);
       await this.status(id, 'VALIDATING');
@@ -361,32 +413,59 @@ export class ProjectService {
         if (g.type === 'bbox' && (g.width <= 0 || g.height <= 0))
           throw new ReviewError(422, `BBox ${a.id}: width và height phải > 0.`);
       }
+      // The guideline travels with the dataset. Only the choices a person made on its rules
+      // reach the engine, as waivers; with none it applies its built-in policy.
+      if (uploaded.guideline)
+        data.dataset.metadata = {
+          ...data.dataset.metadata,
+          guideline: {
+            file: path.relative(directory, uploaded.guideline.file).split(path.sep).join('/'),
+            name: uploaded.guideline.name,
+            ...(uploaded.rules && {
+              rules: path.relative(directory, uploaded.rules).split(path.sep).join('/'),
+            }),
+          },
+        };
       data = normalizeDataset(data);
       const datasetPath = path.join(directory, 'dataset.json');
-      await fs.writeFile(datasetPath, JSON.stringify(data, null, 2), {
-        flag: 'wx',
-      });
+      const json = JSON.stringify(data, null, 2);
+      await fs.writeFile(datasetPath, json, { flag: 'wx' });
       await this.status(id, 'ANALYZING');
-      const dataset = await loadDataset(datasetPath, {
+      const options = {
         namespace: id,
         apiPrefix: `/api/projects/${id}`,
         engineVersion: LATEST_ENGINE_VERSION,
-      });
-      dataset.meta.project_name = row.name;
+        waivers: uploaded.rules
+          ? waiversFrom(
+              await fs
+                .readFile(uploaded.rules, 'utf8')
+                .then(JSON.parse)
+                .catch(() => {
+                  throw new ReviewError(422, 'File lựa chọn quy tắc không phải JSON hợp lệ.');
+                }),
+              checksFor(LATEST_ENGINE_VERSION).map((c) => c.id),
+            )
+          : {},
+      };
+      let dataset = await loadDataset(datasetPath, options);
       await fs.mkdir(path.join(directory, 'risk'));
       await fs.writeFile(
         path.join(directory, 'risk', 'report.json'),
         JSON.stringify(dataset.report, null, 2),
       );
-      // Publish before the project turns READY so other backends never see a project without data.
-      if (this.remote) await this.push(key);
+      // With a remote, the upload directory is only a staging area: publish it, then serve from the remote.
+      if (this.remote) {
+        published = true;
+        await this.publish(key);
+        dataset = await buildDataset(json, options, this.remoteSource(key));
+      }
+      dataset.meta.project_name = row.name;
       const reviews = new ReviewStore(this.pool, dataset);
       await reviews.initialize();
-      // dataset_path stays for backends that predate shared storage; without a remote the project is local-only.
       await this.pool.execute<Rows>(
         "UPDATE projects SET status='READY',dataset_path=?,dataset_revision_id=?,metadata=?,error_message=NULL,storage_provider=?,storage_key=?,storage_synced_at=? WHERE id=?",
         [
-          datasetPath,
+          this.remote ? null : datasetPath,
           reviews.datasetId,
           JSON.stringify(dataset.meta),
           this.remote?.name ?? 'local',
@@ -396,6 +475,10 @@ export class ProjectService {
         ],
       );
       this.cache.set(id, Promise.resolve({ dataset, reviews }));
+      if (this.remote) {
+        await fs.rm(directory, { recursive: true, force: true });
+        await fs.rmdir(path.dirname(directory)).catch(() => {});
+      }
       return this.get(id);
     } catch (e) {
       await this.status(
@@ -406,6 +489,10 @@ export class ProjectService {
           : 'Không thể xử lý import. Kiểm tra storage/MySQL rồi thử lại.',
       );
       await fs.rm(directory, { recursive: true, force: true });
+      if (published)
+        await this.remote!.remove(key).catch((error) =>
+          console.error('Remote import cleanup pending:', key, (error as Error).message),
+        );
       throw e;
     }
   }

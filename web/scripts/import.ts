@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { parseArgs } from 'node:util';
 import { importAnnotations } from '../core/importers/index.ts';
-import { analyzeDataset } from '../core/risk/engine.ts';
+import { analyzeDataset, ENGINE_VERSION, ENGINE_VERSIONS } from '../core/risk/engine.ts';
 import { applyEnvRisk, parseImageTable } from '../core/importers/signals.ts';
 
 const { values } = parseArgs({
@@ -13,12 +13,17 @@ const { values } = parseArgs({
     images: { type: 'string' },
     metadata: { type: 'string' },
     id: { type: 'string' },
+    engine: { type: 'string' },
   },
 });
 if (!values.format || !values.input || !values.out)
   throw new Error(
-    'Usage: npm run import -- --format cvat-images|coco-detection|smartreview-json --input FILE --out NEW_DIRECTORY [--images IMAGE_DIRECTORY] [--metadata IMAGES_CSV] [--id DATASET_ID]',
+    'Usage: npm run import -- --format cvat-images|coco-detection|smartreview-json --input FILE --out NEW_DIRECTORY [--images IMAGE_DIRECTORY] [--metadata IMAGES_CSV] [--id DATASET_ID] [--engine VERSION]',
   );
+// Without --engine the latest engine scores the import; an older one reproduces old scores.
+const engineVersion = values.engine || ENGINE_VERSION;
+if (!ENGINE_VERSIONS.includes(engineVersion))
+  throw new Error(`Unknown engine ${engineVersion}; choose one of ${ENGINE_VERSIONS.join(', ')}`);
 const data = importAnnotations(values.format, await fs.readFile(values.input, 'utf8'), {
   ...(values.id ? { id: values.id } : {}),
 });
@@ -44,11 +49,11 @@ try {
     await fs.mkdir(path.dirname(target), { recursive: true });
     await fs.copyFile(source, target);
   }
-  const report = analyzeDataset(data);
+  const report = analyzeDataset(data, { engineVersion });
   await fs.writeFile(path.join(destination, 'dataset.json'), JSON.stringify(data, null, 2));
   await fs.writeFile(path.join(destination, 'risk-report.json'), JSON.stringify(report, null, 2));
   console.log(
-    `Imported ${data.annotations.length} annotations, ${report.cases.length} suspicious cases into ${destination}`,
+    `Imported ${data.annotations.length} annotations, ${report.cases.length} suspicious cases into ${destination} (engine ${report.engine_version})`,
   );
 } catch (error) {
   throw new Error(

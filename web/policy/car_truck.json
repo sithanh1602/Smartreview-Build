@@ -1,0 +1,590 @@
+{
+  "car_truck_policy": {
+    "schema_version": "1.0.0",
+    "pair": ["car", "truck"],
+    "purpose": "Luật cho trường hợp một xe bị phân vân, nhầm hoặc gán sai giữa car và truck. File này bổ sung cho car.json và truck.json; luật riêng của từng nhãn vẫn nằm ở hai file đó.",
+    "sources": [
+      {
+        "id": "label_policy",
+        "ref": "Build/Policy/label_policy/car.md, truck.md, 00_chung.md"
+      },
+      {
+        "id": "engine",
+        "ref": "SmartReview web/core/risk, engine 4.0.0, policy 2.0.0"
+      }
+    ],
+    "naming": {
+      "note": "Bảng đặt tên của policy. Chủ dự án xác nhận ngày 2026-10-10: xe bán tải là truck.",
+      "table": [
+        {
+          "vehicle": "Sedan, hatchback, taxi",
+          "label": "car"
+        },
+        {
+          "vehicle": "SUV, xe van gia đình, minivan",
+          "label": "car"
+        },
+        {
+          "vehicle": "Xe bán tải",
+          "label": "truck"
+        },
+        {
+          "vehicle": "Xe van chở hàng thùng kín, không cửa sổ sau",
+          "label": "truck"
+        },
+        {
+          "vehicle": "Xe tải thùng, xe ben, xe bồn, xe container, xe cứu hộ, xe chở rác",
+          "label": "truck"
+        },
+        {
+          "vehicle": "Đầu kéo, có hoặc không có rơ-moóc",
+          "label": "truck"
+        },
+        {
+          "vehicle": "Cabin của một xe tải",
+          "label": "không gán riêng; là một phần của box truck"
+        },
+        {
+          "vehicle": "Minibus, xe khách cỡ nhỏ nhiều hàng ghế",
+          "label": "bus (ngoài phạm vi file này)"
+        }
+      ],
+      "hard_cases": [
+        "Xe bán tải",
+        "Xe van: chở người là car, chở hàng thùng kín là truck",
+        "SUV cỡ lớn nhìn từ sau",
+        "Xe tải nhỏ nhìn từ xa"
+      ]
+    },
+    "convention_warning": {
+      "summary": "Nhãn đúng dùng để đo không theo hoàn toàn bảng naming: nó gọi một số xe bán tải và xe van chở hàng là car. Phần lệch này nhỏ ở các luật dựa trên ý kiến thứ hai, và đáng kể ở nhóm box truck tự tin đứng một mình.",
+      "what_the_disagreements_are": "Xem bằng mắt 60 box truck của mô hình mà nhãn đúng ghi car cho thấy phần lớn không phải bán tải mà là SUV: mô hình gọi SUV là truck. Theo bảng naming, SUV là car, nên ở các box đó mô hình sai thật.",
+      "consequence": "Các luật gợi ý car vẫn dùng được với quy ước bán tải là truck. Khi luật gợi ý car, người duyệt cần loại trừ ba trường hợp mà truck mới đúng: bán tải, van chở hàng thùng kín, và xe tải thật."
+    },
+    "visual_check": {
+      "what": "Xem bằng mắt ảnh cắt của các box truck của mô hình mà nhãn đúng ghi car, để biết đó là khác quy ước hay mô hình nhầm.",
+      "sample": "30 box mỗi nhóm, lấy ngẫu nhiên trong các box có cạnh ngắn từ 60 px. Phân loại do một lần xem, chưa có người thứ hai kiểm lại.",
+      "truck_alone_confidence_from_0_7": {
+        "boxes_seen": 30,
+        "suv": 14,
+        "passenger_van": 4,
+        "cargo_van_or_mail_truck": 8,
+        "pickup": 2,
+        "real_truck": 2,
+        "car_by_naming_table": 0.6,
+        "truck_by_naming_table": 0.4,
+        "note": "Trong 8 xe van chở hàng, 4 chiếc rõ ràng, 4 chiếc đoán theo hình dáng."
+      },
+      "truck_with_car_second_opinion": {
+        "boxes_seen": 30,
+        "suv_or_sedan": 26,
+        "van_unclear": 3,
+        "pickup": 1,
+        "car_by_naming_table": 0.87,
+        "truck_by_naming_table_at_most": 0.13
+      },
+      "reading": [
+        "Xe bán tải chỉ chiếm 3–7% các trường hợp lệch; nó không phải nguyên nhân chính.",
+        "Lỗi chính của mô hình trên cặp này là gọi SUV là truck.",
+        "Xe van là vùng xám thật: van chở người và van chở hàng trông gần giống nhau, và nhãn đúng gọi cả hai là car."
+      ],
+      "adjusted_estimates": {
+        "truck_alone_confidence_from_0_7_correct_by_naming": 0.73,
+        "how": "58,4% đã khớp nhãn đúng, cộng 40% của 36,2% mà nhãn đúng ghi car.",
+        "truck_with_car_second_opinion_car_correct_by_naming": 0.75,
+        "how_2": "86,5% nhãn đúng ghi car, nhân với 87% trong số đó là car theo bảng naming."
+      }
+    },
+    "second_opinion": {
+      "meaning": "Ý kiến thứ hai của mô hình về tên của cùng một vật. Mọi luật trong file này dựa vào nó.",
+      "sources_in_order": [
+        {
+          "from": "label_top2 và score_top2 của box",
+          "use": "Dùng trực tiếp",
+          "trust": "high"
+        },
+        {
+          "from": "một box mang nhãn kia nằm gần trùng chỗ",
+          "use": "Box nhãn kia có mức chồng từ 0,8 với box đang xét, ở bất kỳ confidence nào từ 0,05 trở lên, kể cả box vùng xám",
+          "trust": "medium"
+        }
+      ],
+      "params": {
+        "min_overlap": 0.8,
+        "min_rival_confidence": 0.05
+      },
+      "margin": "confidence của box đang xét trừ confidence của ý kiến thứ hai. Âm nghĩa là nhãn kia mạnh hơn.",
+      "note": "Mọi số đo dưới đây dùng nguồn thứ hai (box trùng chỗ), vì dự đoán đã đo không có label_top2."
+    },
+    "calibration": {
+      "what": "Với mỗi box car hoặc truck của mô hình, xem nhãn đúng ở cùng chỗ gọi vật đó là gì.",
+      "model_boxes": {
+        "truck": 4846,
+        "car": 47381
+      },
+      "images": 8000,
+      "min_confidence": 0.3,
+      "match": "Nhãn đúng ở cùng chỗ là box nhãn đúng chồng nhiều nhất với box của mô hình, từ 0,5 trở lên.",
+      "truck_boxes": {
+        "all": {
+          "gt_truck": 0.33,
+          "gt_car": 0.553,
+          "gt_bus": 0.052,
+          "nothing_there": 0.065
+        },
+        "with_car_second_opinion": {
+          "share": 0.32,
+          "gt_truck": 0.1,
+          "gt_car": 0.865
+        },
+        "without_car_second_opinion": {
+          "share": 0.68,
+          "gt_truck": 0.438,
+          "gt_car": 0.407
+        },
+        "by_margin_over_car": [
+          {
+            "margin": "car mạnh hơn trên 0,15",
+            "boxes": 288,
+            "gt_truck": 0.045,
+            "gt_car": 0.944
+          },
+          {
+            "margin": "car mạnh hơn 0–0,15",
+            "boxes": 477,
+            "gt_truck": 0.071,
+            "gt_car": 0.906
+          },
+          {
+            "margin": "truck hơn 0–0,15",
+            "boxes": 431,
+            "gt_truck": 0.1,
+            "gt_car": 0.863
+          },
+          {
+            "margin": "truck hơn 0,15–0,25",
+            "boxes": 180,
+            "gt_truck": 0.1,
+            "gt_car": 0.817
+          },
+          {
+            "margin": "truck hơn 0,25–0,5",
+            "boxes": 158,
+            "gt_truck": 0.253,
+            "gt_car": 0.69
+          },
+          {
+            "margin": "truck hơn trên 0,5",
+            "boxes": 16,
+            "gt_truck": 0.438,
+            "gt_car": 0.562
+          }
+        ],
+        "without_second_opinion_by_confidence": [
+          {
+            "confidence": "từ 0,7",
+            "boxes": 1321,
+            "gt_truck": 0.584,
+            "gt_car": 0.362,
+            "nothing_there": 0.01
+          },
+          {
+            "confidence": "0,5–0,7",
+            "boxes": 1028,
+            "gt_truck": 0.366,
+            "gt_car": 0.503,
+            "nothing_there": 0.066
+          },
+          {
+            "confidence": "dưới 0,5",
+            "boxes": 947,
+            "gt_truck": 0.314,
+            "gt_car": 0.364,
+            "nothing_there": 0.213
+          }
+        ],
+        "by_height_relative_to_nearby_cars": [
+          {
+            "relative_height": "dưới 1,3",
+            "boxes": 516,
+            "gt_truck": 0.318,
+            "gt_car": 0.541
+          },
+          {
+            "relative_height": "1,3–1,7",
+            "boxes": 567,
+            "gt_truck": 0.346,
+            "gt_car": 0.504
+          },
+          {
+            "relative_height": "1,7–2,5",
+            "boxes": 743,
+            "gt_truck": 0.401,
+            "gt_car": 0.456
+          },
+          {
+            "relative_height": "từ 2,5",
+            "boxes": 539,
+            "gt_truck": 0.566,
+            "gt_car": 0.286
+          }
+        ],
+        "with_bus_second_opinion": {
+          "boxes": 343,
+          "gt_truck": 0.259,
+          "gt_car": 0.42,
+          "gt_bus": 0.251
+        }
+      },
+      "car_boxes": {
+        "all": {
+          "gt_car": 0.86,
+          "gt_truck": 0.008,
+          "nothing_there": 0.131
+        },
+        "with_truck_second_opinion": {
+          "share": 0.036,
+          "gt_car": 0.887,
+          "gt_truck": 0.072
+        },
+        "by_margin_over_truck": [
+          {
+            "margin": "truck mạnh hơn trên 0,15",
+            "boxes": 151,
+            "gt_car": 0.834,
+            "gt_truck": 0.159
+          },
+          {
+            "margin": "truck mạnh hơn 0–0,15",
+            "boxes": 359,
+            "gt_car": 0.889,
+            "gt_truck": 0.095
+          },
+          {
+            "margin": "car hơn 0–0,15",
+            "boxes": 573,
+            "gt_car": 0.897,
+            "gt_truck": 0.065
+          },
+          {
+            "margin": "car hơn 0,15–0,25",
+            "boxes": 328,
+            "gt_car": 0.884,
+            "gt_truck": 0.049
+          },
+          {
+            "margin": "car hơn 0,25–0,5",
+            "boxes": 240,
+            "gt_car": 0.883,
+            "gt_truck": 0.046
+          },
+          {
+            "margin": "car hơn trên 0,5",
+            "boxes": 37,
+            "gt_car": 1,
+            "gt_truck": 0
+          }
+        ]
+      },
+      "ground_truth_trucks": {
+        "boxes": 3437,
+        "found_as_truck": 0.439,
+        "found_as_car": 0.088,
+        "found_as_bus": 0.032,
+        "missed": 0.441
+      },
+      "reading": [
+        "Sự nhầm lẫn gần như một chiều: box truck của mô hình thường là car, còn box car hiếm khi là truck (0,8%).",
+        "Khi mô hình vẽ cả car lẫn truck ở cùng một chỗ, nhãn đúng là car trong khoảng 87% trường hợp, bất kể bên nào mạnh hơn. Truck chỉ thắng nổi khi hơn car trên 0,5, và khi đó cũng chỉ ngang ngửa.",
+        "Box truck không có ý kiến thứ hai và rất tự tin (từ 0,7) đúng 58,4%. Đây là nhóm đáng tin nhất của truck.",
+        "Xe cao gấp 2,5 lần các ô tô đứng cùng tầm xa đúng là truck 56,6%; xe không cao hơn bao nhiêu chỉ đúng khoảng 32%."
+      ],
+      "limits": [
+        "Nhãn đúng gọi một số bán tải và van chở hàng là car, khác bảng naming. Mục visual_check ước lượng phần lệch này.",
+        "Chỉ một mô hình và một bộ ảnh.",
+        "Ý kiến thứ hai lấy từ box trùng chỗ, không phải label_top2; với label_top2 thật con số có thể khác.",
+        "Nhóm truck hơn car trên 0,5 chỉ có 16 box."
+      ]
+    },
+    "rules": [
+      {
+        "id": "car_truck.same_place_flag_truck",
+        "status": "active",
+        "check": "pair.same_place",
+        "template": "forbidden_overlap",
+        "params": {
+          "between": ["car", "truck"],
+          "iou": 0.8,
+          "flag": "truck",
+          "min_rival_confidence": 0.05,
+          "score_by_margin": [
+            {
+              "lead_below": 0.25,
+              "score": 50,
+              "when": "car mạnh hơn, hoặc truck hơn dưới 0,25"
+            },
+            {
+              "lead_below": 0.5,
+              "score": 30,
+              "when": "truck hơn từ 0,25 đến dưới 0,5"
+            },
+            {
+              "score": 10,
+              "level": "warning",
+              "when": "truck hơn từ 0,5 trở lên"
+            }
+          ],
+          "lead": "confidence của box truck trừ confidence của box car"
+        },
+        "applies_to": "model",
+        "error_type": "CLASS",
+        "suggests": "car",
+        "replaces": [
+          {
+            "check": "geometry.cross_class_overlap",
+            "for_pair": ["car", "truck"],
+            "why": "Check hiện có gắn cờ box yếu hơn. Với cặp car–truck, box sai gần như luôn là box truck, kể cả khi nó mạnh hơn."
+          },
+          {
+            "check": "geometry.stronger_duplicate",
+            "for_pair": ["car", "truck"],
+            "why": "truck.same_object_as_weaker_box nói cùng một việc cho cặp này; chỉ tính một lần, ở đây."
+          }
+        ],
+        "text": "Một box car và một box truck gần trùng chỗ: gắn cờ box truck và gợi ý car, dù box nào có confidence cao hơn.",
+        "principle": "N3, N11",
+        "examples": ["TRUCK-3", "CAR-2"],
+        "evidence": "32,0% box truck của mô hình có một box car trùng chỗ; trong số đó nhãn đúng là car 86,5% và truck 10,0%. Khi car mạnh hơn: car đúng 91–94%. Khi truck hơn dưới 0,25: car vẫn đúng 82–86%. Khi truck hơn 0,25–0,5: car đúng 69,0%.",
+        "measured": {
+          "flagged_share_of_truck_boxes": 0.32,
+          "error_rate": 0.9,
+          "gt_is_car": 0.865
+        },
+        "source": "số đo",
+        "note": "Theo bảng naming (bán tải là truck), car đúng ở khoảng ba phần tư số box bị gắn cờ, thấp hơn con số 86,5% đo theo nhãn đúng. Người duyệt cần loại trừ bán tải và van chở hàng trước khi đổi tên."
+      },
+      {
+        "id": "car_truck.car_keeps_name",
+        "status": "active",
+        "check": null,
+        "template": "waive",
+        "params": {
+          "label": "car",
+          "when_second_opinion_is": "truck",
+          "waives": [
+            "confidence.class_margin",
+            "confidence.vehicle_confusion",
+            "geometry.cross_class_overlap"
+          ]
+        },
+        "applies_to": "model",
+        "text": "Box car có ý kiến thứ hai là truck không bị cộng điểm vì phân vân nhãn: trong cặp này car gần như luôn đúng.",
+        "principle": "N11",
+        "note": "Đây là luật nới: nó tắt ba check hiện có cho box car khi nhãn kia là truck. Các check đó vẫn chạy khi nhãn kia là bus. Trường hợp truck mạnh hơn car trên 0,15 vẫn nên cho người xem ở mức cảnh báo (truck đúng 15,9%).",
+        "evidence": "Box car có box truck trùng chỗ: nhãn đúng là car 88,7%, truck 7,2%. Ngay cả khi truck mạnh hơn trên 0,15, car vẫn đúng 83,4%. Khi car hơn dưới 0,15, đúng mức mà confidence.class_margin đang bắt lỗi, car đúng 89,7%.",
+        "measured": {
+          "affected_share_of_car_boxes": 0.036,
+          "car_correct": 0.887
+        },
+        "source": "số đo"
+      },
+      {
+        "id": "car_truck.truck_stronger_than_car_by_far",
+        "status": "active",
+        "check": "pair.second_opinion_margin",
+        "template": "class_margin",
+        "params": {
+          "label": "car",
+          "second_opinion": "truck",
+          "margin_below": -0.15
+        },
+        "applies_to": "model",
+        "level": "warning",
+        "score": 10,
+        "error_type": "CLASS",
+        "suggests": "truck",
+        "text": "Box car mà mô hình nghiêng hẳn về truck (truck mạnh hơn trên 0,15): cảnh báo để người xem có phải xe tải thật không.",
+        "principle": "N11",
+        "evidence": "Trong nhóm này nhãn đúng là truck 15,9%, cao nhất trong các nhóm của box car (mức chung 0,8%), nhưng car vẫn đúng 83,4%. Chỉ có 151 box.",
+        "measured": {
+          "boxes": 151,
+          "gt_is_truck": 0.159
+        },
+        "source": "số đo"
+      },
+      {
+        "id": "car_truck.truck_name_unsupported",
+        "status": "active",
+        "check": "pair.unsupported_name",
+        "template": "low_confidence",
+        "params": {
+          "label": "truck",
+          "below": 0.7,
+          "only_without_second_opinion": true
+        },
+        "applies_to": "model",
+        "score": 20,
+        "error_type": "CLASS",
+        "suggests": "car",
+        "text": "Box truck không có ý kiến thứ hai và confidence dưới 0,7: tên truck chưa đủ căn cứ.",
+        "principle": "N5, N11",
+        "note": "20 điểm, dưới ngưỡng vào hàng đợi: chỉ có tác dụng khi đi cùng tín hiệu khác. Box dưới 0,5 đã có truck.low_confidence, nên luật này thực chất thêm điểm cho khoảng 0,5–0,7. Theo bảng naming, tỉ lệ đúng thật của nhóm này cao hơn số đo, vì một phần box mà nhãn đúng ghi car là van chở hàng và bán tải. Thuộc nhóm weak: cùng với truck.low_confidence chỉ tính một lần, lấy điểm cao nhất.",
+        "evidence": "Box truck không có ý kiến thứ hai: confidence từ 0,7 đúng 58,4%; trong khoảng 0,5–0,7 chỉ đúng 36,6% và nhãn đúng là car 50,3%; dưới 0,5 đúng 31,4% và 21,3% là box thừa.",
+        "measured": {
+          "flagged_share_of_truck_boxes": 0.212,
+          "truck_correct": 0.366,
+          "gt_is_car": 0.503
+        },
+        "source": "số đo",
+        "family": "weak"
+      },
+      {
+        "id": "car_truck.truck_no_taller_than_cars",
+        "status": "active",
+        "check": "pair.relative_size",
+        "template": "relative_size",
+        "params": {
+          "label": "truck",
+          "compare_to": "car",
+          "same_depth_within_bottom_fraction": 0.05,
+          "min_neighbours": 2,
+          "height_ratio_below": 1.3
+        },
+        "applies_to": "any",
+        "score": 10,
+        "error_type": "CLASS",
+        "suggests": "car",
+        "text": "Box truck không cao hơn bao nhiêu so với các ô tô đứng cùng tầm xa (dưới 1,3 lần): xe tải thật thường cao hơn hẳn.",
+        "principle": "N2",
+        "note": "Chỉ chạy khi ảnh có từ hai box car có đáy lệch không quá 5% chiều cao ảnh so với box đang xét. Tín hiệu yếu, chỉ để cộng thêm.",
+        "evidence": "Tỉ lệ đúng là truck tăng dần theo chiều cao tương đối: 31,8% khi dưới 1,3 lần, 34,6% ở 1,3–1,7, 40,1% ở 1,7–2,5, và 56,6% khi từ 2,5 lần. Đo được trên 48,8% box truck (phần còn lại không đủ ô tô lân cận).",
+        "measured": {
+          "flagged_share_of_truck_boxes": 0.106,
+          "truck_correct": 0.318,
+          "truck_correct_when_2_5_times_taller": 0.566
+        },
+        "source": "số đo"
+      },
+      {
+        "id": "car_truck.three_way_with_bus",
+        "status": "manual",
+        "template": "manual",
+        "text": "Box truck có ý kiến thứ hai là bus: cần người xem, số liệu không nghiêng về bên nào.",
+        "evidence": "343 box: nhãn đúng là car 42,0%, truck 25,9%, bus 25,1%.",
+        "source": "số đo"
+      },
+      {
+        "id": "car_truck.suv_called_truck",
+        "status": "manual",
+        "template": "manual",
+        "text": "SUV là car. Mô hình hay gọi SUV là truck; đây là lỗi sai tên phổ biến nhất của cặp này.",
+        "note": "Phần bắt được bằng số: car_truck.same_place_flag_truck (khi mô hình cũng vẽ một box car ở đó) và car_truck.truck_no_taller_than_cars. SUV đứng một mình với confidence cao thì không tín hiệu số nào bắt được.",
+        "evidence": "Trong 60 box truck đã xem mà nhãn đúng ghi car, khoảng 40 là SUV.",
+        "source": "xem ảnh"
+      },
+      {
+        "id": "car_truck.pickup",
+        "status": "manual",
+        "template": "manual",
+        "text": "Xe bán tải gán truck.",
+        "examples": ["CAR-2"],
+        "note": "Chủ dự án xác nhận. Nhãn đúng dùng để đo có chỗ ghi bán tải là car, nhưng bán tải chỉ chiếm 3–7% các trường hợp lệch đã xem. Không có tín hiệu số nào phân biệt được bán tải với SUV, nên đây vẫn là việc của người duyệt.",
+        "source": "label_policy"
+      },
+      {
+        "id": "car_truck.van",
+        "status": "manual",
+        "template": "manual",
+        "text": "Xe van chở người (có cửa sổ sau, nhiều hàng ghế) là car; xe van chở hàng thùng kín, không cửa sổ sau là truck.",
+        "examples": ["TRUCK-5"],
+        "source": "label_policy"
+      },
+      {
+        "id": "car_truck.cab_drawn_as_car",
+        "status": "manual",
+        "template": "manual",
+        "text": "Cabin của xe tải bị vẽ thành một box car riêng: xoá box car, không đổi tên.",
+        "examples": ["CAR-3"],
+        "note": "Phần bắt được bằng số nằm ở car.inside_large_vehicle (box car nằm trọn trong box truck).",
+        "source": "label_policy"
+      }
+    ],
+    "existing_checks_on_this_pair": [
+      {
+        "check": "confidence.class_margin",
+        "does": "Cộng 30 điểm khi nhãn thứ hai cách dưới 0,15, và gợi ý nhãn thứ hai.",
+        "on_this_pair": "Với box truck: đúng hướng (car đúng 86%). Với box car: sai hướng, vì car đúng 89,7% trong đúng khoảng margin này."
+      },
+      {
+        "check": "confidence.vehicle_confusion",
+        "does": "Cộng 20 điểm khi nhãn thứ hai là xe gần giống và cách dưới 0,25.",
+        "on_this_pair": "Như trên: có ích cho box truck, báo động giả cho box car."
+      },
+      {
+        "check": "geometry.cross_class_overlap",
+        "does": "Cộng 40 điểm cho box yếu hơn khi hai box khác nhãn chồng nhau từ 0,8.",
+        "on_this_pair": "Chọn đúng box khi car mạnh hơn. Khi truck mạnh hơn, nó gắn cờ box car trong khi car đúng 83–89%."
+      }
+    ],
+    "what_to_do": [
+      {
+        "situation": "Có cả box car và box truck ở cùng chỗ",
+        "action": "Giữ một box. Mặc định theo số đo: giữ car, xoá truck. Xem ảnh nếu đó có thể là bán tải hoặc van chở hàng."
+      },
+      {
+        "situation": "Chỉ có box truck, confidence từ 0,7",
+        "action": "Tin được hơn cả; chỉ xem khi có tín hiệu khác."
+      },
+      {
+        "situation": "Chỉ có box truck, confidence 0,5–0,7",
+        "action": "Xem tên: một nửa là car trong nhãn đúng."
+      },
+      {
+        "situation": "Chỉ có box truck, confidence dưới 0,5",
+        "action": "Xem cả tên lẫn việc có vật ở đó không: một phần năm là box thừa."
+      },
+      {
+        "situation": "Box car có ý kiến thứ hai là truck",
+        "action": "Để nguyên, trừ khi truck mạnh hơn hẳn (trên 0,15) thì liếc qua."
+      },
+      {
+        "situation": "Box truck có ý kiến thứ hai là bus",
+        "action": "Luôn cần người xem."
+      }
+    ],
+    "decisions": [
+      {
+        "question": "Xe bán tải là truck hay car?",
+        "decision": "Truck.",
+        "basis": "Chủ dự án xác nhận ngày 2026-10-10. Xem ảnh cho thấy bán tải chỉ chiếm 3–7% các box lệch với nhãn đúng, nên quyết định này không làm đổi hướng của các luật."
+      },
+      {
+        "question": "Khi car và truck trùng chỗ, gắn cờ box nào?",
+        "decision": "Luôn gắn cờ box truck và gợi ý car; điểm giảm dần khi truck càng mạnh hơn.",
+        "basis": "Nhãn đúng là car 86,5% trong các cặp này; bên nào mạnh hơn chỉ đổi con số từ 94% xuống 69%."
+      },
+      {
+        "question": "Có cộng điểm phân vân cho box car khi nhãn kia là truck không?",
+        "decision": "Không. Chỉ cảnh báo khi truck mạnh hơn car trên 0,15.",
+        "basis": "Car đúng 88,7% trong nhóm này; ba check hiện có sẽ báo động giả ở khoảng chín trên mười box."
+      },
+      {
+        "question": "Ngưỡng confidence để tin tên truck khi không có ý kiến thứ hai?",
+        "decision": "0,7.",
+        "basis": "Từ 0,7: đúng 58,4%. Khoảng 0,5–0,7: đúng 36,6%."
+      },
+      {
+        "question": "Điểm cho tín hiệu chiều cao tương đối?",
+        "decision": "10 điểm, chỉ để cộng thêm.",
+        "basis": "Tín hiệu có thật nhưng yếu: từ 31,8% lên 56,6% giữa hai đầu, và chỉ đo được trên nửa số box."
+      }
+    ],
+    "open_questions": [
+      "Xe van: nhãn đúng gọi cả van chở người lẫn van chở hàng là car, còn bảng naming tách hai loại. Khoảng một phần tư box truck tự tin bị nhãn đúng ghi car là van chở hàng. Cần quy tắc nhận biết rõ hơn (cửa sổ sau, số hàng ghế) nếu muốn người duyệt làm nhất quán.",
+      "Phân loại bằng mắt mới làm trên 60 box, một lần xem, và chỉ với box đủ lớn. Nên xem thêm trước khi tin các con số điều chỉnh.",
+      "Các số đo dùng box trùng chỗ làm ý kiến thứ hai. Khi có label_top2 thật, cần đo lại car_truck.same_place_flag_truck và car_truck.car_keeps_name.",
+      "car_truck.truck_no_taller_than_cars dùng khuôn relative_size; car_truck.car_keeps_name dùng khuôn waive có điều kiện theo nhãn thứ hai. Cả hai đã được mô tả trong docs/policy-format.md (mục 4.2 và 4.8) nhưng engine chưa có.",
+      "File này chưa xét cặp truck–bus và car–bus."
+    ]
+  }
+}

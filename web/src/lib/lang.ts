@@ -11,15 +11,25 @@ function stored(): Lang {
     return 'vi';
   }
 }
-export const lang: Lang = stored();
+export let lang: Lang = stored();
 if (typeof document !== 'undefined') document.documentElement.lang = lang;
 
-// Text is translated while rendering, so the page reloads to apply the other language.
+const listeners = new Set<() => void>();
+export function onLang(listener: () => void) {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+// Text is translated while rendering, so the app re-renders its pages (see main.tsx) instead of
+// reloading: the session, the scripts and the images already downloaded all stay.
 export function setLang(next: Lang) {
   try {
     localStorage.setItem(KEY, next);
   } catch {
-    return;
+    // The choice still applies to this page.
   }
-  location.reload();
+  lang = next;
+  document.documentElement.lang = next;
+  for (const listener of listeners) listener();
 }

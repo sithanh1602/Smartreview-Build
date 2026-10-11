@@ -2,7 +2,13 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import { importAnnotations } from '../core/importers/index.ts';
-import { applyEnvRisk, parseImageTable, readSignals } from '../core/importers/signals.ts';
+import {
+  applyEnvRisk,
+  locateSignals,
+  parseImageTable,
+  readSignals,
+  signalOf,
+} from '../core/importers/signals.ts';
 import { analyzeDataset } from '../core/risk/engine.ts';
 
 const coco = JSON.parse(
@@ -35,11 +41,36 @@ test('confidence is read under common names and scales, never guessed', () => {
   assert.equal(readSignals({ label_top2: 'truck' }).top2, undefined);
 });
 
+test('signals are found at any depth; the nearest usable field wins', () => {
+  for (const [source, expected] of [
+    [{ attributes: { model: { Score: '0.7' } } }, 0.7],
+    [{ score: 0.4, attributes: { score: 0.9 } }, 0.4],
+    [{ score: 'high', meta: { detection: { conf: 0.2 } } }, 0.2],
+    [{ candidates: [{ score: 0.1 }] }, undefined],
+    [{ top2: { label: 'truck', score: 0.4 } }, undefined],
+    [{ a: { b: { c: { d: { e: { score: 0.5 } } } } } }, undefined],
+  ])
+    assert.equal(readSignals(source).confidence, expected, JSON.stringify(source));
+  assert.deepEqual(
+    readSignals({ prediction: { confidence: 0.8, top2: { class: 'bus', prob: '30%' } } }),
+    { confidence: 0.8, top2: { label_top2: 'bus', score_top2: 0.3 } },
+  );
+  assert.deepEqual(readSignals({ labelTop2: 'bus', top2Score: 0.3 }).top2, {
+    label_top2: 'bus',
+    score_top2: 0.3,
+  });
+  assert.equal(
+    locateSignals({ attributes: { model: { score: 0.7 } } }).confidence.path,
+    'attributes.model.score',
+  );
+  assert.equal(signalOf('Top2-Score'), 'top2_score');
+});
+
 test('CVAT, COCO and SmartReview JSON importers carry score, top-2 and env_risk', () => {
   const xml = importAnnotations(
     'cvat-images',
     cvat(
-      '<attribute name="score">0.48</attribute><attribute name="label_top2">truck</attribute><attribute name="score_top2">0.40</attribute>',
+      '<attribute name="score">0.48</attribute><attribute name="label_top2">bus</attribute><attribute name="score_top2">0.40</attribute>',
     ),
   );
   assert.equal(xml.annotations[0].confidence, 0.48);

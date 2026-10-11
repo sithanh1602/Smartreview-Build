@@ -13,6 +13,7 @@ RUN npm ci --omit=dev && npm cache clean --force
 COPY --from=build /app/web/dist ./dist
 COPY web/server ./server
 COPY web/core ./core
+COPY web/policy ./policy
 COPY web/shared ./shared
 COPY web/scripts ./scripts
 COPY docker/entrypoint.sh /app/entrypoint.sh

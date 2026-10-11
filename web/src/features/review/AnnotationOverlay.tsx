@@ -15,6 +15,7 @@ export function AnnotationOverlay({
   onSelect,
   onOpen,
   mark,
+  labelScale = 1,
 }: {
   annotation: Drawable;
   active?: boolean;
@@ -26,6 +27,8 @@ export function AnnotationOverlay({
   // A numbered case of the image: clicking opens it rather than only inspecting it.
   onOpen?: () => void;
   mark?: Mark;
+  // Enlarges the name tag where the viewer is narrower than usual.
+  labelScale?: number;
 }) {
   // Stored geometry is drawn only after its numbers have been checked here.
   const g: any = annotation.geometry || {};
@@ -38,7 +41,7 @@ export function AnnotationOverlay({
     g.points.every((p: unknown) => Array.isArray(p) && p.length === 2 && p.every(Number.isFinite));
   if (!box && !points) return null;
   const [x, y, width, height] = bounds;
-  const size = width * 0.016;
+  const size = width * 0.016 * labelScale;
   const tag = mark ? `${mark.n}${mark.done ? ' ✓' : ''}` : '';
   const name = `${active && risk !== undefined ? `${hint('Risk').toUpperCase()} ${risk} · ` : ''}${annotation.class_name || annotation.label}`;
   const label = !tag ? name : mark!.dim && !active ? tag : `${tag} · ${name}`;

@@ -1,15 +1,12 @@
 import fs from 'node:fs/promises';
-import { createWriteStream } from 'node:fs';
-import { Readable } from 'node:stream';
-import { pipeline } from 'node:stream/promises';
 import { setTimeout as sleep } from 'node:timers/promises';
-import type { ReadableStream } from 'node:stream/web';
 import type { RemoteStorage } from './remote.ts';
 
 const API = 'https://api.dropboxapi.com',
   CONTENT = 'https://content.dropboxapi.com';
-const CHUNK = 8 * 1024 * 1024;
-const EMPTY = new Uint8Array(0);
+// finish_batch_v2 accepts at most 1000 entries per call.
+const BATCH = 1000;
+const PARALLEL = 4;
 
 interface DropboxOptions {
   appKey: string;
@@ -22,13 +19,17 @@ interface Call {
   json?: unknown;
   body?: Uint8Array<ArrayBuffer>;
 }
+// HTTP headers are ASCII, so non-ASCII file names are escaped inside the JSON argument.
+const headerJson = (value: unknown) =>
+  JSON.stringify(value).replace(
+    /[\u007f-￿]/g,
+    (c) => '\\u' + c.charCodeAt(0).toString(16).padStart(4, '0'),
+  );
 async function failure(res: Response, action: string) {
   return new Error(`Dropbox ${action} failed (${res.status}): ${(await res.text()).slice(0, 300)}`);
 }
 async function notFound(res: Response) {
-  if (res.status !== 409) return false;
-  const text = await res.clone().text();
-  return text.includes('not_found');
+  return res.status === 409 && (await res.clone().text()).includes('not_found');
 }
 export class DropboxStorage implements RemoteStorage {
   name = 'dropbox' as const;
@@ -64,7 +65,7 @@ export class DropboxStorage implements RemoteStorage {
         headers['content-type'] = 'application/json';
         body = JSON.stringify(call.json);
       } else {
-        headers['dropbox-api-arg'] = JSON.stringify(call.arg);
+        headers['dropbox-api-arg'] = headerJson(call.arg);
         if (call.body) {
           headers['content-type'] = 'application/octet-stream';
           body = call.body;
@@ -79,49 +80,55 @@ export class DropboxStorage implements RemoteStorage {
       await res.body?.cancel();
     }
   }
-  // Upload sessions have no 150 MB cap, so every file takes the same path.
-  async upload(key: string, file: string) {
-    const handle = await fs.open(file);
-    try {
-      const session = `${CONTENT}/2/files/upload_session`;
-      const start = await this.request(`${session}/start`, { arg: { close: false }, body: EMPTY });
-      if (!start.ok) throw await failure(start, 'upload');
-      const { session_id } = (await start.json()) as { session_id: string };
-      const buffer = new Uint8Array(CHUNK);
-      let offset = 0;
-      for (;;) {
-        const { bytesRead } = await handle.read(buffer, 0, CHUNK, offset);
-        if (!bytesRead) break;
-        const res = await this.request(`${session}/append_v2`, {
-          arg: { cursor: { session_id, offset }, close: false },
-          body: buffer.subarray(0, bytesRead),
+  async write(key: string, data: Uint8Array<ArrayBuffer>) {
+    const res = await this.request(`${CONTENT}/2/files/upload`, {
+      arg: { path: '/' + key, mode: 'overwrite', mute: true },
+      body: data,
+    });
+    if (!res.ok) throw await failure(res, 'upload');
+    await res.body?.cancel();
+  }
+  // Parallel single-file uploads fight over one namespace lock. Sessions upload the bytes in parallel
+  // and a batch finish commits them under a single lock.
+  async uploadFiles(files: { key: string; file: string }[]) {
+    const entries: unknown[] = [];
+    let next = 0;
+    const worker = async () => {
+      while (next < files.length) {
+        const { key, file } = files[next++];
+        const data = await fs.readFile(file);
+        const res = await this.request(`${CONTENT}/2/files/upload_session/start`, {
+          arg: { close: true },
+          body: data,
         });
         if (!res.ok) throw await failure(res, 'upload');
-        await res.body?.cancel();
-        offset += bytesRead;
-      }
-      const finish = await this.request(`${session}/finish`, {
-        arg: {
-          cursor: { session_id, offset },
+        const { session_id } = (await res.json()) as { session_id: string };
+        entries.push({
+          cursor: { session_id, offset: data.length },
           commit: { path: '/' + key, mode: 'overwrite', mute: true },
-        },
-        body: EMPTY,
+        });
+      }
+    };
+    await Promise.all(Array.from({ length: PARALLEL }, worker));
+    for (let i = 0; i < entries.length; i += BATCH) {
+      const res = await this.request(`${API}/2/files/upload_session/finish_batch_v2`, {
+        json: { entries: entries.slice(i, i + BATCH) },
       });
-      if (!finish.ok) throw await failure(finish, 'upload');
-      await finish.body?.cancel();
-    } finally {
-      await handle.close();
+      if (!res.ok) throw await failure(res, 'upload commit');
+      const result = (await res.json()) as { entries: { '.tag': string }[] };
+      const failed = result.entries.find((e) => e['.tag'] !== 'success');
+      if (failed)
+        throw new Error('Dropbox upload commit failed: ' + JSON.stringify(failed).slice(0, 300));
     }
   }
-  async download(key: string, file: string) {
+  async read(key: string) {
     const res = await this.request(`${CONTENT}/2/files/download`, { arg: { path: '/' + key } });
     if (await notFound(res)) {
       await res.body?.cancel();
-      return false;
+      return null;
     }
-    if (!res.ok || !res.body) throw await failure(res, 'download');
-    await pipeline(Readable.fromWeb(res.body as ReadableStream), createWriteStream(file));
-    return true;
+    if (!res.ok) throw await failure(res, 'download');
+    return Buffer.from(await res.arrayBuffer());
   }
   async remove(key: string) {
     const res = await this.request(`${API}/2/files/delete_v2`, { json: { path: '/' + key } });

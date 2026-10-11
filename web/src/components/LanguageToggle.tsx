@@ -1,5 +1,6 @@
 import React from 'react';
 import { lang, setLang } from '../lib/lang';
+import { reuseAnswers } from '../lib/api';
 
 export function LanguageToggle({ className = 'sr-button min-h-8 px-2.5 py-1 text-xs' }) {
   const next = lang === 'en' ? 'vi' : 'en';
@@ -9,7 +10,10 @@ export function LanguageToggle({ className = 'sr-button min-h-8 px-2.5 py-1 text
       className={className}
       lang={next}
       aria-label={next === 'en' ? 'Switch to English' : 'Chuyển sang tiếng Việt'}
-      onClick={() => setLang(next)}
+      onClick={() => {
+        reuseAnswers();
+        setLang(next);
+      }}
     >
       {lang.toUpperCase()}
     </button>

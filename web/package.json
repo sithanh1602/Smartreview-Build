@@ -22,7 +22,9 @@
     "storage:push": "node scripts/storage-push.ts",
     "user:create": "node scripts/user.ts",
     "user:update": "node scripts/user.ts --update",
-    "db:prepare": "node scripts/db-prepare.ts"
+    "db:prepare": "node scripts/db-prepare.ts",
+    "guideline:extract": "node scripts/guideline.ts",
+    "policy:check": "node scripts/policy.ts"
   },
   "dependencies": {
     "@heroui/react": "^3.2.6",
@@ -31,6 +33,7 @@
     "busboy": "^1.6.0",
     "fast-xml-parser": "^5.11.2",
     "mysql2": "^3.24.5",
+    "pdfjs-dist": "^5.7.284",
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "react-router-dom": "7.9.4",

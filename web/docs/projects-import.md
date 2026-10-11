@@ -6,7 +6,7 @@ Mở `/projects` → **+ New Project** → tên/mô tả/format → chọn annot
 
 Các importer được hỗ trợ: COCO Detection JSON (bbox), **CVAT for images 1.1 XML** (box/polygon/polyline) và **SmartReview JSON schema 1.0.0**. Không chạy YOLO/ByteTrack khi upload. Confidence, track và model metadata vẫn optional. JSON cần đúng schema chuẩn, không phải một mảng bbox tùy ý.
 
-Phase này upload ảnh PNG/JPEG/WebP/GIF tĩnh. Không nhận video gốc, ZIP, SVG hoặc CVAT video tracks. JSON có media type video được nhận nếu upload đủ các frame ảnh được tham chiếu. Demo video cũ vẫn dùng các ảnh đã trích như trước. Schema/engine và importer CLI cũ giữ nguyên; chỉ boundary upload web thêm validation media.
+Phase này upload ảnh PNG/JPEG/WebP/GIF tĩnh. Không nhận video gốc, SVG hoặc CVAT video tracks. ZIP được mở trên trình duyệt rồi gửi từng tệp bên trong; máy chủ không giải nén. JSON có media type video được nhận nếu upload đủ các frame ảnh được tham chiếu. Demo video cũ vẫn dùng các ảnh đã trích như trước. Schema/engine và importer CLI cũ giữ nguyên; chỉ boundary upload web thêm validation media.
 
 ## Database và compatibility
 

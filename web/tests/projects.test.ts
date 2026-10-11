@@ -174,11 +174,60 @@ test('new imports pin the latest engine version and reload with the same fingerp
   const p = await create();
   const r = await upload(p);
   assert.equal(r.status, 201, JSON.stringify(r.body));
-  assert.equal(r.body.metadata.engine_version, '4.0.0');
+  assert.equal(r.body.metadata.engine_version, '5.0.0');
   const { dataset } = await new ProjectService(pool, storage).context(p.id);
-  assert.equal(dataset.meta.engine_version, '4.0.0');
+  assert.equal(dataset.meta.engine_version, '5.0.0');
   assert.equal(dataset.meta.dataset_id, r.body.metadata.dataset_id);
   assert.equal('policy_version' in dataset.report, true);
+});
+test('guideline choices that loosen the policy change scoring; without them the policy runs as built', async () => {
+  // The fixture's one box crosses the image edge, which geometry.bbox_validity flags.
+  const rules = {
+    rules: [
+      {
+        id: 'G-001',
+        kind: 'check',
+        verdict: 'accept',
+        classes: ['car'],
+        overrides: ['geometry.bbox_validity'],
+      },
+    ],
+  };
+  const importWith = async (choices: object | null) => {
+    const p = await create();
+    const form = new FormData();
+    form.append('annotation', new Blob([JSON.stringify(jsonData)]), 'dataset.json');
+    form.append('media', new Blob([png]), 'street.png');
+    form.append('guideline', new Blob(['Box chạm mép ảnh vẫn gán.']), 'guideline.md');
+    if (choices)
+      form.append(
+        'guideline_rules',
+        new Blob([JSON.stringify({ ...rules, choices })]),
+        'rules.json',
+      );
+    const res = await fetch(`${base}/api/projects/${p.id}/import`, { method: 'POST', body: form });
+    assert.equal(res.status, 201);
+    return { p, meta: (await res.json()).metadata };
+  };
+  const plain = await importWith(null);
+  const kept = await importWith({ 'G-001': 'policy' });
+  const loosened = await importWith({ 'G-001': 'guideline' });
+  for (const { meta } of [plain, kept]) {
+    assert.equal(meta.total_cases, 1);
+    assert.equal('guideline_waivers' in meta, false);
+  }
+  assert.equal(loosened.meta.total_cases, 0);
+  assert.deepEqual(loosened.meta.guideline_waivers, { 'geometry.bbox_validity': ['car'] });
+  assert.equal(loosened.meta.checks['geometry.bbox_validity'].skip_reasons.guideline_waived, 1);
+  // A fresh process reads the waivers back from the project and lands on the same revision.
+  const { dataset } = await new ProjectService(pool, storage).context(loosened.p.id);
+  assert.equal(dataset.meta.dataset_id, loosened.meta.dataset_id);
+  assert.equal(dataset.cases.length, 0);
+  assert.deepEqual((dataset.report as any).waivers, { 'geometry.bbox_validity': ['car'] });
+  assert.equal(
+    (await new ProjectService(pool, storage).context(plain.p.id)).dataset.cases.length,
+    1,
+  );
 });
 test('CVAT XML upload uses existing importer and risk engine', async () => {
   const p = await create('cvat-images');
