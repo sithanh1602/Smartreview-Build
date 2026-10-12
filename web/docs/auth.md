@@ -7,15 +7,15 @@ Chạy migration trước khi khởi động phiên bản này: `npm run db:migr
 Chạy trong terminal tương tác, mật khẩu được nhập ẩn và xác nhận lại (12–128 ký tự):
 
 ```bash
-npm run user:create -- --username thanh-review --role reviewer
-npm run user:create -- --username thanh-anno --role annotator
+npm run user:create -- --username thanh-lead --role leader
+npm run user:create -- --username thanh-anno --role member
 ```
 
-Người dùng có thể tự đăng ký tại `/register` (liên kết từ trang đăng nhập). Nhập tên đăng nhập, mật khẩu và xác nhận mật khẩu; đăng ký thành công chuyển về `/login`. Tài khoản tự đăng ký luôn có quyền `annotator`; người quản lý cấp quyền `reviewer` bằng CLI. Không có tài khoản/mật khẩu mặc định hoặc đăng ký tự chọn quyền. Tên đăng nhập 3–64 ký tự chữ, số, `_`, `.` và `-`, không phân biệt hoa thường.
+Người dùng có thể tự đăng ký tại `/register` (liên kết từ trang đăng nhập). Nhập tên đăng nhập, mật khẩu và xác nhận mật khẩu; đăng ký thành công chuyển về `/login`. Khi đăng ký, người dùng chọn loại tài khoản `member` (mặc định) hoặc `leader`. Không có tài khoản/mật khẩu mặc định. Tên đăng nhập 3–64 ký tự chữ, số, `_`, `.` và `-`, không phân biệt hoa thường.
 
 ```bash
 npm run user:update -- --username thanh-review --reset-password
-npm run user:update -- --username thanh-anno --role reviewer
+npm run user:update -- --username thanh-anno --role leader
 npm run user:update -- --username thanh-anno --disable
 npm run user:update -- --username thanh-anno --enable
 ```
@@ -24,13 +24,15 @@ Mỗi lần cập nhật thu hồi toàn bộ phiên của tài khoản đó. M�
 
 ## Quyền truy cập
 
-| Vai trò        | Trang sau đăng nhập | API được phép                                                                                                    |
-| -------------- | ------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| reviewer       | /projects           | Các chức năng review hiện có: projects, import, xóa, ảnh, annotations, quyết định review, frame review, AI check |
-| annotator      | /annotation         | /api/annotator/home và API phiên cá nhân                                                                         |
-| Chưa đăng nhập | /login              | POST /api/auth/register, POST /api/auth/login, GET /api/health                                                   |
+Từ migration 006, quyền gắn với từng project. Chi tiết về vai trò, mã mời và API: [project-roles.md](project-roles.md).
 
-Trang annotation hiện là trang chờ để phát triển tiếp. Backend kiểm tra quyền trước khi đọc dữ liệu hoặc xử lý tác vụ; annotator gọi API reviewer nhận 403. Thiếu/không hợp lệ/hết hạn access token nhận 401. Quyền reviewer hiện áp dụng cho toàn bộ dự án; chưa có phân công quyền theo từng dự án.
+| Loại tài khoản | Trang sau đăng nhập                            | Được phép                                                             |
+| -------------- | ---------------------------------------------- | --------------------------------------------------------------------- |
+| leader         | /projects                                      | Tạo và quản lý project của mình, mã mời, thành viên, import, AI Check |
+| member         | /role (chọn Reviewer/Annotator), rồi /projects | Xem và sửa trong các project đã tham gia bằng mã mời                  |
+| Chưa đăng nhập | /login                                         | POST /api/auth/register, POST /api/auth/login, GET /api/health        |
+
+Backend kiểm tra vai trò trong project trước khi đọc dữ liệu hoặc xử lý tác vụ. Thiếu/không hợp lệ/hết hạn access token nhận 401; member gọi chức năng của leader nhận 403; project mình không thuộc về nhận 404.
 
 ## Phiên đăng nhập
 
@@ -48,4 +50,4 @@ Chạy `npm test` và `npm run test:ui` trên database test riêng. Các tài kh
 
 ## API đăng ký
 
-`POST /api/auth/register` nhận JSON `{ username, password }`, trả 201 với thông tin tài khoản, không tạo phiên đăng nhập. Tên trùng (không phân biệt hoa thường) trả 409; dữ liệu không hợp lệ hoặc thêm trường quyền trả 400. Mật khẩu 12–128 ký tự được lưu bằng scrypt. API kiểm tra cùng origin và giới hạn 10 lần/tài khoản, 10 lần/IP trong 15 phút (bộ đếm riêng với đăng nhập), trả 429 khi vượt giới hạn. Đăng ký và đăng nhập dùng chung giới hạn tối đa hai phép xử lý mật khẩu đồng thời. Không cần migration bổ sung.
+`POST /api/auth/register` nhận JSON `{ username, password, role? }` (`role` là `leader` hoặc `member`, mặc định `member`), trả 201 với thông tin tài khoản, không tạo phiên đăng nhập. Tên trùng (không phân biệt hoa thường) trả 409; dữ liệu không hợp lệ, `role` khác hai giá trị trên hoặc trường lạ trả 400. Mật khẩu 12–128 ký tự được lưu bằng scrypt. API kiểm tra cùng origin và giới hạn 10 lần/tài khoản, 10 lần/IP trong 15 phút (bộ đếm riêng với đăng nhập), trả 429 khi vượt giới hạn. Đăng ký và đăng nhập dùng chung giới hạn tối đa hai phép xử lý mật khẩu đồng thời.

@@ -146,9 +146,11 @@ function ReviewWorkspace() {
       {headerSlot &&
         createPortal(
           <div className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-x-4 gap-y-1">
-            <h1 className="max-w-56 truncate text-xs font-semibold">
-              {meta.project_name || meta.name}
-              <span className="ml-2 font-normal text-muted max-2xl:hidden">
+            <h1 className="flex max-w-md min-w-0 items-baseline gap-2 text-xs font-semibold">
+              <span className="truncate" title={meta.project_name || meta.name}>
+                {meta.project_name || meta.name}
+              </span>
+              <span className="shrink-0 font-normal whitespace-nowrap text-muted max-2xl:hidden">
                 {meta.frame_count} frames · {meta.total_annotations} annotations
               </span>
             </h1>

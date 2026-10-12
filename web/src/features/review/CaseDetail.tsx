@@ -194,69 +194,126 @@ export function CaseDetail({
     <article
       className={`grid min-w-0 lg:min-h-0 lg:grid-rows-[auto_minmax(0,1fr)] ${shown.info ? 'lg:grid-cols-[minmax(0,1fr)_332px] xl:grid-cols-[minmax(0,1fr)_396px]' : 'lg:grid-cols-[minmax(0,1fr)]'}`}
     >
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-line bg-panel px-3 py-1.5 lg:col-span-full">
-        <Tip text="Ẩn hoặc hiện hàng đợi ( [ )">
-          <ToggleButton
-            isIconOnly
-            size="sm"
-            aria-label="Ẩn hoặc hiện hàng đợi"
-            isSelected={shown.queue}
-            onChange={() => panels.toggle('queue')}
-          >
-            <Icon name="panelLeft" />
-          </ToggleButton>
-        </Tip>
-        <div className="flex items-center gap-1">
-          <Tip text={`${hint('Case trước')} (←)`}>
-            <Button
+      {/* Two rows: where you are and the panel controls, then what the image shows. Kept
+          apart so the title is never squeezed by the view options. */}
+      <div className="flex min-w-0 flex-col gap-1.5 border-b border-line bg-panel px-3 py-1.5 lg:col-span-full">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 lg:flex-nowrap">
+          <Tip text="Ẩn hoặc hiện hàng đợi ( [ )">
+            <ToggleButton
               isIconOnly
               size="sm"
-              variant="tertiary"
-              aria-label={hint('Case trước')}
-              isDisabled={index <= 0}
-              onPress={() => onNavigate(-1)}
+              aria-label="Ẩn hoặc hiện hàng đợi"
+              isSelected={shown.queue}
+              onChange={() => panels.toggle('queue')}
             >
-              <Icon name="chevron" className="rotate-180" />
-            </Button>
+              <Icon name="panelLeft" />
+            </ToggleButton>
           </Tip>
-          <span className="min-w-12 text-center text-xs tabular-nums text-muted">
-            {index + 1} / {count}
-          </span>
-          <Tip text={`${hint('Case tiếp theo')} (→)`}>
-            <Button
-              isIconOnly
-              size="sm"
-              variant="tertiary"
-              aria-label={hint('Case tiếp theo')}
-              isDisabled={index >= count - 1}
-              onPress={() => onNavigate(1)}
-            >
-              <Icon name="chevron" />
-            </Button>
-          </Tip>
-        </div>
-        <div className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-3">
-          <h2 className="text-sm font-semibold">
-            {hint('Frame ')}
-            {observation.frame_id}
-          </h2>
-          {multi && (
-            <span className="flex items-center gap-1.5 text-[11px] text-muted">
-              <span className="rounded-full bg-slate-900 px-2 py-0.5 font-bold text-panel">
-                {siblings.findIndex((c) => c.id === item.id) + 1}/{siblings.length}
-              </span>
-              trong ảnh {imageIndex + 1}/{imageCount}
+          <div className="flex items-center gap-1">
+            <Tip text={`${hint('Case trước')} (←)`}>
+              <Button
+                isIconOnly
+                size="sm"
+                variant="tertiary"
+                aria-label={hint('Case trước')}
+                isDisabled={index <= 0}
+                onPress={() => onNavigate(-1)}
+              >
+                <Icon name="chevron" className="rotate-180" />
+              </Button>
+            </Tip>
+            <span className="min-w-12 text-center text-xs tabular-nums text-muted">
+              {index + 1} / {count}
             </span>
-          )}
-          <span className="truncate text-[11px] text-muted">
-            {objectText(item)} · {observation.media_name} · {observation.width} ×{' '}
-            {observation.height}
-            {typeof observation.fps === 'number' && Number.isFinite(observation.fps) && (
-              <span className="ml-1 font-mono text-accent">
-                · {(observation.frame_id / observation.fps).toFixed(3)}s
+            <Tip text={`${hint('Case tiếp theo')} (→)`}>
+              <Button
+                isIconOnly
+                size="sm"
+                variant="tertiary"
+                aria-label={hint('Case tiếp theo')}
+                isDisabled={index >= count - 1}
+                onPress={() => onNavigate(1)}
+              >
+                <Icon name="chevron" />
+              </Button>
+            </Tip>
+          </div>
+          <div className="flex min-w-0 flex-1 basis-40 flex-wrap items-baseline gap-x-3 lg:flex-nowrap">
+            <h2 className="shrink-0 text-sm font-semibold whitespace-nowrap">
+              {hint('Frame ')}
+              {observation.frame_id}
+            </h2>
+            {multi && (
+              <span className="flex shrink-0 items-center gap-1.5 text-[11px] whitespace-nowrap text-muted">
+                <span className="rounded-full bg-slate-900 px-2 py-0.5 font-bold text-panel">
+                  {siblings.findIndex((c) => c.id === item.id) + 1}/{siblings.length}
+                </span>
+                trong ảnh {imageIndex + 1}/{imageCount}
               </span>
             )}
-          </span>
+            <span
+              className="min-w-0 truncate text-[11px] text-muted"
+              title={`${objectText(item)} · ${observation.media_name} · ${observation.width} × ${observation.height}`}
+            >
+              {objectText(item)} · {observation.media_name} · {observation.width} ×{' '}
+              {observation.height}
+              {typeof observation.fps === 'number' && Number.isFinite(observation.fps) && (
+                <span className="ml-1 font-mono text-accent">
+                  · {(observation.frame_id / observation.fps).toFixed(3)}s
+                </span>
+              )}
+            </span>
+          </div>
+          <div className="flex flex-wrap items-center justify-end gap-2 lg:shrink-0 lg:flex-nowrap">
+            <div ref={setZoomSlot} />
+            <Tip text="Sao chép thông tin case để dán vào ghi chú hoặc tin nhắn">
+              <Button
+                isIconOnly
+                size="sm"
+                variant="tertiary"
+                aria-label="Sao chép thông tin"
+                onPress={copyReference}
+              >
+                <Icon name={copyMessage.startsWith('Đã') ? 'check' : 'copy'} />
+              </Button>
+            </Tip>
+            <span role="status" className="sr-only">
+              {copyMessage}
+            </span>
+            <Tip text={'Ẩn hoặc hiện ngữ cảnh ( \\ )'}>
+              <ToggleButton
+                isIconOnly
+                size="sm"
+                aria-label="Ẩn hoặc hiện ngữ cảnh"
+                isSelected={shown.context}
+                onChange={() => panels.toggle('context')}
+              >
+                <Icon name="panelBottom" />
+              </ToggleButton>
+            </Tip>
+            <Tip text="Ẩn hoặc hiện bảng thông tin ( ] )">
+              <ToggleButton
+                isIconOnly
+                size="sm"
+                aria-label="Ẩn hoặc hiện bảng thông tin"
+                isSelected={shown.info}
+                onChange={() => panels.toggle('info')}
+              >
+                <Icon name="panelRight" />
+              </ToggleButton>
+            </Tip>
+            <Tip text="Tập trung: ẩn hết các khung, chỉ còn ảnh (F)">
+              <ToggleButton
+                isIconOnly
+                size="sm"
+                aria-label="Tập trung"
+                isSelected={panels.focused}
+                onChange={panels.toggleFocus}
+              >
+                <Icon name="focus" />
+              </ToggleButton>
+            </Tip>
+          </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {/* Multiple-selection mode keeps these as pressed buttons; one stays selected. */}
@@ -299,7 +356,7 @@ export function CaseDetail({
           <div className="flex items-center gap-1.5">
             <span className="flex items-center gap-1 text-xs text-muted">
               <Icon name="compare" />
-              So sánh với
+              <span className="max-2xl:sr-only">So sánh với</span>
             </span>
             <ToggleButtonGroup
               size="sm"
@@ -318,54 +375,6 @@ export function CaseDetail({
               </Tip>
             </ToggleButtonGroup>
           </div>
-          <div ref={setZoomSlot} />
-          <Tip text="Sao chép thông tin case để dán vào ghi chú hoặc tin nhắn">
-            <Button
-              isIconOnly
-              size="sm"
-              variant="tertiary"
-              aria-label="Sao chép thông tin"
-              onPress={copyReference}
-            >
-              <Icon name={copyMessage.startsWith('Đã') ? 'check' : 'copy'} />
-            </Button>
-          </Tip>
-          <span role="status" className="sr-only">
-            {copyMessage}
-          </span>
-          <Tip text={'Ẩn hoặc hiện ngữ cảnh ( \\ )'}>
-            <ToggleButton
-              isIconOnly
-              size="sm"
-              aria-label="Ẩn hoặc hiện ngữ cảnh"
-              isSelected={shown.context}
-              onChange={() => panels.toggle('context')}
-            >
-              <Icon name="panelBottom" />
-            </ToggleButton>
-          </Tip>
-          <Tip text="Ẩn hoặc hiện bảng thông tin ( ] )">
-            <ToggleButton
-              isIconOnly
-              size="sm"
-              aria-label="Ẩn hoặc hiện bảng thông tin"
-              isSelected={shown.info}
-              onChange={() => panels.toggle('info')}
-            >
-              <Icon name="panelRight" />
-            </ToggleButton>
-          </Tip>
-          <Tip text="Tập trung: ẩn hết các khung, chỉ còn ảnh (F)">
-            <ToggleButton
-              isIconOnly
-              size="sm"
-              aria-label="Tập trung"
-              isSelected={panels.focused}
-              onChange={panels.toggleFocus}
-            >
-              <Icon name="focus" />
-            </ToggleButton>
-          </Tip>
         </div>
       </div>
 

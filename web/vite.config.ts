@@ -8,8 +8,6 @@ const jsx = (name: string) => fileURLToPath(new URL(`./src/lib/jsx/${name}.ts`, 
 
 export default defineConfig({
   plugins: [react({ jsxImportSource: 'smartreview-jsx' }), tailwindcss()],
-  // The runtime is app source: pre-bundling it would freeze the dictionaries until the cache is cleared.
-  optimizeDeps: { exclude: ['smartreview-jsx/jsx-runtime', 'smartreview-jsx/jsx-dev-runtime'] },
   resolve: {
     alias: {
       'smartreview-jsx/jsx-runtime': jsx('jsx-runtime'),

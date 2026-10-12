@@ -10,6 +10,7 @@ const token = () => randomBytes(32).toString('base64url');
 const validToken = (value: unknown): value is string =>
   typeof value === 'string' && /^[A-Za-z0-9_-]{43}$/.test(value);
 const userView = (u: User): User => ({ id: u.id, username: u.username, role: u.role });
+const ROLES: Role[] = ['leader', 'member'];
 const unauthorized = () => new ReviewError(401, 'Phiên đăng nhập không hợp lệ hoặc đã hết hạn.');
 
 export class AuthService {
@@ -37,8 +38,7 @@ export class AuthService {
     role: Role;
   }): Promise<User> {
     const name = usernameValue(username);
-    if (!['reviewer', 'annotator'].includes(role))
-      throw new Error('Role phải là reviewer hoặc annotator.');
+    if (!ROLES.includes(role)) throw new Error('Role phải là leader hoặc member.');
     const passwordHash = await hashPassword(password);
     const id = randomUUID();
     await this.pool.execute<Rows>(
@@ -52,7 +52,7 @@ export class AuthService {
       !input ||
       typeof input !== 'object' ||
       Array.isArray(input) ||
-      Object.keys(input).some((k) => !['username', 'password'].includes(k)) ||
+      Object.keys(input).some((k) => !['username', 'password', 'role'].includes(k)) ||
       typeof input.password !== 'string' ||
       input.password.length < 12 ||
       input.password.length > 128
@@ -61,6 +61,9 @@ export class AuthService {
         400,
         'Tên đăng nhập hợp lệ và mật khẩu từ 12 đến 128 ký tự là bắt buộc.',
       );
+    const role: Role = input.role ?? 'member';
+    if (!ROLES.includes(role))
+      throw new ReviewError(400, 'Loại tài khoản phải là Leader hoặc Thành viên.');
     let username;
     try {
       username = usernameValue(input.username);
@@ -72,7 +75,7 @@ export class AuthService {
       throw new ReviewError(429, 'Hệ thống đang bận. Vui lòng thử lại.');
     this.passwordChecks++;
     try {
-      return await this.createUser({ username, password: input.password, role: 'annotator' });
+      return await this.createUser({ username, password: input.password, role });
     } catch (e) {
       if ((e as { code?: string }).code === 'ER_DUP_ENTRY')
         throw new ReviewError(409, 'Tên đăng nhập đã tồn tại.');

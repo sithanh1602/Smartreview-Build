@@ -16,10 +16,7 @@ export const vi: Record<string, string> = {
   annotations: 'nhãn',
   Errors: 'Lỗi',
   Correct: 'Đúng',
-  Reviewer: 'Người kiểm tra',
-  Annotator: 'Người gán nhãn',
   'Model:': 'Mô hình:',
-  'ANNOTATOR WORKSPACE': 'KHÔNG GIAN GÁN NHÃN',
   'Import failed.': 'Nhập dữ liệu thất bại.',
   'Image metadata CSV (optional)': 'CSV thông tin ảnh (không bắt buộc)',
   'SmartReview dataset': 'Bộ dữ liệu SmartReview',
@@ -93,46 +90,77 @@ export const vi: Record<string, string> = {
   '← → chuyển case': '← → chuyển trường hợp',
   'Tệp nén dataset (.zip)': 'Tệp nén bộ dữ liệu (.zip)',
   'Một tệp .zip chứa tệp nhãn, ảnh và (nếu có) CSV thông tin ảnh, guideline. Tệp được mở ngay trên trình duyệt; máy chủ chỉ nhận từng tệp bên trong.':
-    'Một tệp .zip chứa tệp nhãn, ảnh và (nếu có) CSV thông tin ảnh, hướng dẫn gán nhãn. Tệp được mở ngay trên trình duyệt; máy chủ chỉ nhận từng tệp bên trong.',
-  'Guideline / Policy': 'Hướng dẫn / quy định',
+    'Một tệp .zip chứa tệp nhãn, ảnh và (nếu có) CSV thông tin ảnh, Guideline. Tệp được mở ngay trên trình duyệt; máy chủ chỉ nhận từng tệp bên trong.',
   'Chưa dùng. Đánh dấu mục Guideline/Policy bên dưới nếu muốn áp dụng.':
-    'Chưa dùng. Đánh dấu mục hướng dẫn / quy định bên dưới nếu muốn áp dụng.',
+    'Chưa dùng. Đánh dấu mục Guideline / Policy bên dưới nếu muốn áp dụng.',
   'Độ tin cậy (confidence / score)': 'Độ tin cậy (confidence / score)',
-  'Thêm Guideline / Policy mới': 'Thêm hướng dẫn / quy định gán nhãn mới',
+  'Thêm Guideline / Policy mới': 'Thêm Guideline / Policy mới',
   'Chỉ đánh dấu khi dataset này có quy định gán nhãn riêng. Guideline quyết định các kiểm tra policy được hiểu thế nào, nên mặc định để trống và dùng policy có sẵn.':
-    'Chỉ đánh dấu khi bộ dữ liệu này có quy định gán nhãn riêng. Hướng dẫn quyết định các kiểm tra theo quy định được hiểu thế nào, nên mặc định để trống và dùng bộ quy định có sẵn.',
-  'Tệp guideline / policy': 'Tệp hướng dẫn / quy định',
-  'Nội dung guideline / policy': 'Nội dung hướng dẫn / quy định',
+    'Chỉ đánh dấu khi bộ dữ liệu này có quy định gán nhãn riêng. Guideline quyết định các kiểm tra Policy được hiểu thế nào, nên mặc định để trống và dùng Policy có sẵn.',
+  'Tệp guideline / policy': 'Tệp Guideline / Policy',
+  'Nội dung guideline / policy': 'Nội dung Guideline / Policy',
   'Ví dụ: xe bị che trên 50% không gán nhãn; người đi xe máy gán là person…':
     'Ví dụ: xe bị che trên 50% không gán nhãn; người đi xe máy gán là person…',
   'Guideline được lưu kèm dự án. Chỉ lựa chọn "Theo guideline" ở quy tắc Nới hơn làm đổi cách chấm: check tương ứng được tắt cho các lớp của quy tắc đó. Quy tắc Mới và Chặt hơn mới được ghi lại, chưa chạy. Không chọn gì thì chấm theo policy có sẵn.':
-    'Hướng dẫn được lưu kèm dự án. Chỉ lựa chọn "Theo hướng dẫn" ở quy tắc Nới hơn làm đổi cách chấm: kiểm tra tương ứng được tắt cho các lớp của quy tắc đó. Quy tắc Mới và Chặt hơn mới được ghi lại, chưa chạy. Không chọn gì thì chấm theo bộ quy định có sẵn.',
+    'Guideline được lưu kèm dự án. Chỉ lựa chọn "Theo Guideline" ở quy tắc Nới hơn làm đổi cách chấm: kiểm tra tương ứng được tắt cho các lớp của quy tắc đó. Quy tắc Mới và Chặt hơn mới được ghi lại, chưa chạy. Không chọn gì thì chấm theo Policy có sẵn.',
   'Chọn tệp hoặc nhập nội dung guideline/policy, hoặc bỏ đánh dấu mục này.':
-    'Chọn tệp hoặc nhập nội dung hướng dẫn / quy định, hoặc bỏ đánh dấu mục này.',
-  'Guideline/policy tối đa 10 MB.': 'Hướng dẫn / quy định tối đa 10 MB.',
-  'Phân tích Guideline': 'Phân tích hướng dẫn',
+    'Chọn tệp hoặc nhập nội dung Guideline / Policy, hoặc bỏ đánh dấu mục này.',
+  'Guideline/policy tối đa 10 MB.': 'Guideline / Policy tối đa 10 MB.',
+  'Phân tích Guideline': 'Phân tích Guideline',
   'Gửi nội dung guideline tới mô hình ở backend (Gemini) để rút ra bản nháp quy tắc.':
-    'Gửi nội dung hướng dẫn tới mô hình ở máy chủ (Gemini) để rút ra bản nháp quy tắc.',
+    'Gửi nội dung Guideline tới mô hình ở máy chủ (Gemini) để rút ra bản nháp quy tắc.',
   'Chọn tệp hoặc dán nội dung guideline để phân tích.':
-    'Chọn tệp hoặc dán nội dung hướng dẫn để phân tích.',
-  'Chỗ guideline mâu thuẫn hoặc mơ hồ (': 'Chỗ hướng dẫn mâu thuẫn hoặc mơ hồ (',
-  'Bị loại khi đối chiếu với guideline (': 'Bị loại khi đối chiếu với hướng dẫn (',
+    'Chọn tệp hoặc dán nội dung Guideline để phân tích.',
+  'Chỗ guideline mâu thuẫn hoặc mơ hồ (': 'Chỗ Guideline mâu thuẫn hoặc mơ hồ (',
+  'Bị loại khi đối chiếu với guideline (': 'Bị loại khi đối chiếu với Guideline (',
   'Kiểm tra rules': 'Kiểm tra quy tắc',
-  'Câu trích từ guideline': 'Câu trích từ hướng dẫn',
-  'Câu trích không có trong guideline': 'Câu trích không có trong hướng dẫn',
+  'Câu trích từ guideline': 'Câu trích từ Guideline',
+  'Câu trích không có trong guideline': 'Câu trích không có trong Guideline',
   'Không nêu check bị thay': 'Không nêu kiểm tra bị thay',
-  'So sánh với policy': 'So sánh với quy định của công cụ',
-  'Quy tắc từ guideline': 'Quy tắc từ hướng dẫn',
-  'Policy đang áp dụng': 'Quy định đang áp dụng',
-  'Theo guideline': 'Theo hướng dẫn',
-  'Giữ policy': 'Giữ quy định cũ',
-  'Tất cả theo guideline': 'Tất cả theo hướng dẫn',
-  'Tất cả giữ policy': 'Tất cả giữ quy định cũ',
-  'Guideline chưa nêu:': 'Hướng dẫn chưa nêu:',
-  'Yêu cầu trong guideline': 'Yêu cầu trong hướng dẫn',
+  'So sánh với policy': 'So sánh với Policy',
+  'Quy tắc từ guideline': 'Quy tắc từ Guideline',
+  'Policy đang áp dụng': 'Policy đang áp dụng',
+  'Theo guideline': 'Theo Guideline',
+  'Giữ policy': 'Giữ Policy',
+  'Tất cả theo guideline': 'Tất cả theo Guideline',
+  'Tất cả giữ policy': 'Tất cả giữ Policy',
+  'Guideline chưa nêu:': 'Guideline chưa nêu:',
+  'Yêu cầu trong guideline': 'Yêu cầu trong Guideline',
   'Đặt quy tắc rút từ guideline cạnh quy tắc policy đang chạy trong công cụ, rồi chọn bên nào nên dùng.':
-    'Đặt quy tắc rút từ hướng dẫn cạnh quy định đang chạy trong công cụ, rồi chọn bên nào nên dùng.',
-  'quy tắc so được với policy ·': 'quy tắc so được với quy định ·',
-  'Phân tích guideline': 'Phân tích hướng dẫn gán nhãn',
-  Guideline: 'Hướng dẫn',
+    'Đặt quy tắc rút từ Guideline cạnh quy tắc Policy đang chạy trong công cụ, rồi chọn bên nào nên dùng.',
+  'quy tắc so được với policy ·': 'quy tắc so được với Policy ·',
+  'Phân tích guideline': 'Phân tích Guideline',
+  // Roles: swapping single terms would read badly here.
+  'Project chưa có dữ liệu. Leader cần import dataset trước khi bạn làm việc.':
+    'Dự án chưa có dữ liệu. Leader cần nhập bộ dữ liệu trước khi bạn làm việc.',
+  'Chỉ Leader của project được thực hiện thao tác này.':
+    'Chỉ Leader của dự án được thực hiện thao tác này.',
+  'Bạn đã là Reviewer của project này. Leader có thể đổi vai trò cho bạn.':
+    'Bạn đã là Reviewer của dự án này. Leader có thể đổi vai trò cho bạn.',
+  'Bạn đã là Annotator của project này. Leader có thể đổi vai trò cho bạn.':
+    'Bạn đã là Annotator của dự án này. Leader có thể đổi vai trò cho bạn.',
+  // API messages where swapping single terms would read badly.
+  'Project metadata quá lớn.': 'Thông tin dự án quá lớn.',
+  'Annotation extension không khớp format.': 'Phần mở rộng của tệp nhãn không khớp định dạng.',
+  'Quá nhiều upload parts.': 'Tải lên quá nhiều phần.',
+  'Review đã tồn tại. Tải lại quyết định rồi chỉnh sửa.':
+    'Đánh giá đã tồn tại. Tải lại quyết định rồi chỉnh sửa.',
+  'Review chưa tồn tại.': 'Đánh giá chưa tồn tại.',
+  'Review đã được chỉnh sửa ở nơi khác. Tải lại quyết định.':
+    'Đánh giá đã được chỉnh sửa ở nơi khác. Tải lại quyết định.',
+  'Project chưa READY. Xem trạng thái import.': 'Dự án chưa sẵn sàng. Xem trạng thái nhập dữ liệu.',
+  'Project đang import hoặc đã READY. Tạo project mới cho dataset khác.':
+    'Dự án đang nhập dữ liệu hoặc đã sẵn sàng. Tạo dự án mới cho bộ dữ liệu khác.',
+  'Project này chỉ có dữ liệu trên máy đã import. Chạy npm run storage:push trên máy đó để chia sẻ.':
+    'Dự án này chỉ có dữ liệu trên máy đã nhập. Chạy npm run storage:push trên máy đó để chia sẻ.',
+  'Annotation, metadata và guideline tối đa 10 MB mỗi file.':
+    'Tệp nhãn, metadata và guideline tối đa 10 MB mỗi tệp.',
+  'Tối đa 1000 ảnh, một annotation file, một metadata file và một guideline.':
+    'Tối đa 1000 ảnh, một tệp nhãn, một tệp metadata và một guideline.',
+  'Gửi mã cho người cần tham gia; họ tự nhập mã ở trang Projects. Mã dùng được nhiều lần và quyết định vai trò.':
+    'Gửi mã cho người cần tham gia; họ tự nhập mã ở trang Dự án. Mã dùng được nhiều lần và quyết định vai trò.',
+  'Tài khoản này đã là Reviewer của project. Đổi vai trò trong danh sách thành viên.':
+    'Tài khoản này đã là Reviewer của dự án. Đổi vai trò trong danh sách thành viên.',
+  'Tài khoản này đã là Annotator của project. Đổi vai trò trong danh sách thành viên.':
+    'Tài khoản này đã là Annotator của dự án. Đổi vai trò trong danh sách thành viên.',
 };

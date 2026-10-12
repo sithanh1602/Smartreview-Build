@@ -44,16 +44,14 @@ async function secret(prompt: string) {
 const pool = createPool();
 try {
   const username = usernameValue(values.username);
-  if (values.role && !['reviewer', 'annotator'].includes(values.role))
-    throw new Error('Role phải là reviewer hoặc annotator.');
+  if (values.role && !['leader', 'member'].includes(values.role))
+    throw new Error('Role phải là leader hoặc member.');
   if (values.enable && values.disable) throw new Error('Chỉ chọn --enable hoặc --disable.');
   if (
     !values.update &&
     (!values.role || values.disable || values.enable || values['reset-password'])
   )
-    throw new Error(
-      'Tạo mới: --username NAME --role reviewer|annotator. Sửa tài khoản: thêm --update.',
-    );
+    throw new Error('Tạo mới: --username NAME --role leader|member. Sửa tài khoản: thêm --update.');
   const [[existing]] = await pool.execute<Rows>('SELECT id FROM users WHERE username=?', [
     username,
   ]);

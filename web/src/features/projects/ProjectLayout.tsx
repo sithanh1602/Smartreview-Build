@@ -1,28 +1,34 @@
 import { Spinner } from '../../components/Spinner';
 import { hint } from '../../lib/englishHints';
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, Outlet } from 'react-router-dom';
 import { AccountMenu } from '../auth/AuthGate';
 import { Logo } from '../../components/Logo';
 import { ThemeToggle } from '../../components/ThemeToggle';
 import { LanguageToggle } from '../../components/LanguageToggle';
+// A page locks the layout while it waits for something that must not be interrupted by
+// another action. Signing out and the language and theme toggles stay usable.
+export type ProjectLayoutContext = { setLocked: (locked: boolean) => void };
 export function ProjectLayout() {
+  const [locked, setLocked] = useState(false);
   return (
     <div className="min-h-screen">
       <header className="bg-panel flex flex-wrap items-center gap-8 border-b border-line px-8 py-5">
-        <Link to="/projects" aria-label="SmartReview">
-          <Logo />
-        </Link>
-        <Link to="/projects" className="text-sm text-accent">
-          {hint('Projects')}
-        </Link>
+        <div className="page-lock flex flex-wrap items-center gap-8" inert={locked}>
+          <Link to="/projects" aria-label="SmartReview">
+            <Logo />
+          </Link>
+          <Link to="/projects" className="text-sm text-accent">
+            {hint('Projects')}
+          </Link>
+        </div>
         <span className="ml-auto text-xs text-muted">{hint('ANNOTATION QA')}</span>
-        <AccountMenu />
+        <AccountMenu locked={locked} />
         <LanguageToggle />
         <ThemeToggle />
       </header>
-      <main className="mx-auto max-w-[1400px] px-5 py-9 lg:px-8">
-        <Outlet />
+      <main className="page-lock mx-auto max-w-[1400px] px-5 py-9 lg:px-8" inert={locked}>
+        <Outlet context={{ setLocked } satisfies ProjectLayoutContext} />
       </main>
     </div>
   );

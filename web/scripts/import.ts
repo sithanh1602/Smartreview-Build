@@ -18,7 +18,7 @@ const { values } = parseArgs({
 });
 if (!values.format || !values.input || !values.out)
   throw new Error(
-    'Usage: npm run import -- --format cvat-images|coco-detection|smartreview-json --input FILE --out NEW_DIRECTORY [--images IMAGE_DIRECTORY] [--metadata IMAGES_CSV] [--id DATASET_ID] [--engine VERSION]',
+    'Usage: npm run import -- --format cvat-images|coco-detection|datumaro|smartreview-json --input FILE --out NEW_DIRECTORY [--images IMAGE_DIRECTORY] [--metadata IMAGES_CSV] [--id DATASET_ID] [--engine VERSION]',
   );
 // Without --engine the latest engine scores the import; an older one reproduces old scores.
 const engineVersion = values.engine || ENGINE_VERSION;

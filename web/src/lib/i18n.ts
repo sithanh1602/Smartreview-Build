@@ -3,6 +3,7 @@ import { en, enRules } from './i18n.en.ts';
 import { vi } from './i18n.vi.ts';
 import { replaceTerms } from './englishHints.ts';
 import { lang } from './lang.ts';
+import { setTranslator } from './jsx/translator.ts';
 
 export { lang, setLang } from './lang.ts';
 export type { Lang } from './lang.ts';
@@ -63,3 +64,5 @@ export function translateProps<P extends Props>(props: P): P {
   }
   return (next ?? props) as P;
 }
+// Every element's text passes through here; see ./jsx/translator for why it is handed over.
+setTranslator(translateProps as <P>(props: P) => P);

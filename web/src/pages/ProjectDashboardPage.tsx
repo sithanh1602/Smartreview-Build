@@ -6,6 +6,8 @@ import { DeleteProjectButton } from '../features/projects/DeleteProjectButton';
 import { useProject } from '../features/projects/useProject';
 import { ProjectStatus } from '../features/projects/ProjectLayout';
 import { ImportForm } from '../features/projects/ImportForm';
+import { ProjectPeople } from '../features/projects/ProjectPeople';
+import { StartReviewButton } from '../features/projects/StartReviewButton';
 import { request } from '../lib/api';
 import type { Dashboard } from '../types.ts';
 
@@ -46,6 +48,7 @@ export function ProjectDashboardPage() {
       </div>
     );
   if (!p) return null;
+  const leader = p.my_role === 'leader';
   return (
     <>
       <Link to="/projects" className="text-sm text-muted">
@@ -57,18 +60,27 @@ export function ProjectDashboardPage() {
           <p className="mt-3 text-sm text-muted">{p.description}</p>
         </div>
         <ProjectStatus status={p.status} />
-        <DeleteProjectButton
-          project={p}
-          onDeleted={() => navigate('/projects', { replace: true })}
-        />
+        {leader && (
+          <DeleteProjectButton
+            project={p}
+            onDeleted={() => navigate('/projects', { replace: true })}
+          />
+        )}
       </div>
+      <ProjectPeople project={p} />
       {p.error_message && (
         <p role="alert" className="panel mb-6 p-5 text-rose-700">
           {p.error_message}
         </p>
       )}
       {['CREATED', 'FAILED'].includes(p.status) ? (
-        <ImportForm key={p.id} project={p} onImported={retry} />
+        leader ? (
+          <ImportForm key={p.id} project={p} onImported={retry} />
+        ) : (
+          <p className="panel p-8 text-muted">
+            Project chưa có dữ liệu. Leader cần import dataset trước khi bạn làm việc.
+          </p>
+        )
       ) : p.status !== 'READY' ? (
         <p role="status" className="panel p-8">
           <Spinner />
@@ -136,12 +148,7 @@ export function ProjectDashboardPage() {
               </section>
             ))}
           </div>
-          <Link
-            className="sr-button mt-7 border-accent/40 text-accent"
-            to={`/projects/${projectId}/review`}
-          >
-            {hint('Start Review →')}
-          </Link>
+          <StartReviewButton projectId={p.id} />
           <Link className="sr-button ml-3 mt-7" to={`/projects/${projectId}/frames`}>
             Kiểm tra toàn bộ ảnh →
           </Link>

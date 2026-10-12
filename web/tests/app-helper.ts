@@ -1,4 +1,4 @@
-// Existing domain tests inject a reviewer identity; auth.test.ts tests real cookies and sessions.
+// Existing domain tests inject a leader identity, which manages every project without a creator; auth.test.ts tests real cookies and sessions.
 import { createApp as createRealApp } from '../server/app.ts';
 export function createApp(options: any) {
   return createRealApp({
@@ -6,7 +6,7 @@ export function createApp(options: any) {
       authenticate: async () => ({
         id: 'test-reviewer',
         username: 'test-reviewer',
-        role: 'reviewer',
+        role: 'leader',
       }),
     },
     ...options,

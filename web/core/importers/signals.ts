@@ -21,6 +21,9 @@ export type Loose = Record<string, any>;
 export interface ImportOptions {
   id?: string;
   name?: string;
+  // Width and height of an image the annotations name. Formats that do not state image sizes
+  // (YOLO, KITTI, MOT, some CVAT video exports) cannot be read without it.
+  sizes?: (image: string) => { width: number; height: number } | undefined;
 }
 
 const object = (value: unknown): value is Record<string, unknown> =>

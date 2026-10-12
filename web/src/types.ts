@@ -1,6 +1,7 @@
 // Shapes of what the API returns. They are the server's own types, so the UI and the
 // API cannot drift apart without a type error.
-import type { Case, User } from '../server/types.ts';
+import type { Case, MemberRole, ProjectRole, User } from '../server/types.ts';
+import type { InviteCodes, Person, ProjectPeople } from '../server/projects/members.ts';
 import type { DatasetMeta } from '../server/repository.ts';
 import type { Metrics, Review } from '../server/reviews/store.ts';
 import type { FrameReview } from '../server/frames/store.ts';
@@ -18,8 +19,13 @@ export type {
   DatasetMeta,
   FrameReview,
   Geometry,
+  InviteCodes,
+  MemberRole,
   Metrics,
   MissingRegion,
+  Person,
+  ProjectPeople,
+  ProjectRole,
   Review,
   User,
 };
@@ -115,6 +121,12 @@ export interface Project {
   error_message: string | null;
   metadata: DatasetMeta | null;
   created_at: string;
+  created_by: string | null;
+  creator_name: string | null;
+  reviewer_count: number;
+  annotator_count: number;
+  // The signed-in user's role in this project.
+  my_role: ProjectRole;
 }
 export interface DatasetData {
   meta: DatasetMeta;

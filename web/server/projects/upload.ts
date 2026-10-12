@@ -5,6 +5,7 @@ import { createWriteStream } from 'node:fs';
 import path from 'node:path';
 import { pipeline } from 'node:stream/promises';
 import { ReviewError } from '../../shared/review.ts';
+import { FORMAT_SPECS, isFormat } from '../../core/importers/index.ts';
 import type { Req } from '../types.ts';
 
 export const LIMITS = {
@@ -12,6 +13,9 @@ export const LIMITS = {
   file: 20 * 1024 * 1024,
   annotation: 10 * 1024 * 1024,
   files: 1004,
+  // Per-image formats (PASCAL VOC, YOLO, …) send one annotation file for each image, plus a
+  // class list or two.
+  annotationFiles: 1010,
 };
 const GUIDELINE_TYPES = ['.md', '.markdown', '.txt', '.docx', '.pdf', '.json'];
 export function safePath(name: unknown) {
@@ -57,6 +61,9 @@ export async function readJson(req: Req) {
 export async function receiveUpload(req: Req, directory: string, format: string) {
   if (Number(req.headers['content-length']) > LIMITS.total)
     throw new ReviewError(413, 'Upload tối đa 200 MB.');
+  if (!isFormat(format)) throw new ReviewError(400, 'Format chưa được hỗ trợ.');
+  const spec = FORMAT_SPECS[format];
+  const maxFiles = LIMITS.files + (spec.multiple ? LIMITS.annotationFiles : 0);
   await fs.mkdir(directory, { recursive: true, mode: 0o700 });
   let parser: Busboy.Busboy;
   try {
@@ -64,18 +71,20 @@ export async function receiveUpload(req: Req, directory: string, format: string)
       headers: req.headers,
       preservePath: true,
       defParamCharset: 'utf8',
-      limits: { fileSize: LIMITS.file, files: LIMITS.files, fields: 0, parts: LIMITS.files },
+      limits: { fileSize: LIMITS.file, files: maxFiles, fields: 0, parts: maxFiles },
     });
   } catch {
     throw new ReviewError(400, 'Expected multipart/form-data with annotation and media files.');
   }
   let failure: unknown,
     total = 0,
-    annotation: string | undefined,
+    annotationBytes = 0,
     metadata: string | undefined,
     guideline: { file: string; name: string } | undefined,
     rules: string | undefined;
-  const media = new Map<string, string>(),
+  // Annotation files by their name in the export; a single-file format has exactly one.
+  const annotations = new Map<string, string>(),
+    media = new Map<string, string>(),
     writes: Promise<void>[] = [];
   const fail = (e: unknown) => {
     failure ||= e;
@@ -94,10 +103,19 @@ export async function receiveUpload(req: Req, directory: string, format: string)
       if (!['annotation', 'media', 'metadata', 'guideline', 'guideline_rules'].includes(field))
         throw new ReviewError(400, 'Unknown upload field.');
       if (field === 'annotation') {
-        if (annotation) throw new ReviewError(400, 'Chỉ chọn một annotation file.');
-        if (ext !== (format === 'cvat-images' ? '.xml' : '.json'))
+        if (!spec.multiple && annotations.size)
+          throw new ReviewError(400, 'Chỉ chọn một annotation file.');
+        if (annotations.size >= LIMITS.annotationFiles)
+          throw new ReviewError(413, 'Quá nhiều tệp nhãn (tối đa 1010).');
+        if (!spec.extensions.includes(ext))
           throw new ReviewError(400, 'Annotation extension không khớp format.');
-        annotation = path.join(directory, 'annotations', 'source' + ext);
+        if (annotations.has(name)) throw new ReviewError(400, 'Trùng tên tệp nhãn: ' + name);
+        annotations.set(
+          name,
+          spec.multiple
+            ? path.join(directory, 'annotations', 'source', name)
+            : path.join(directory, 'annotations', 'source' + ext),
+        );
       } else if (field === 'metadata') {
         if (metadata) throw new ReviewError(400, 'Chỉ chọn một file metadata ảnh.');
         if (ext !== '.csv') throw new ReviewError(400, 'Metadata ảnh phải là file CSV.');
@@ -128,7 +146,7 @@ export async function receiveUpload(req: Req, directory: string, format: string)
       }
       const target = (
         field === 'annotation'
-          ? annotation
+          ? annotations.get(name)
           : field === 'metadata'
             ? metadata
             : field === 'guideline'
@@ -141,8 +159,11 @@ export async function receiveUpload(req: Req, directory: string, format: string)
       let bytes = 0;
       stream.on('data', (c: Buffer) => {
         bytes += c.length;
+        if (field === 'annotation') annotationBytes += c.length;
         if (field !== 'media' && bytes > LIMITS.annotation)
           fail(new ReviewError(413, 'Annotation, metadata và guideline tối đa 10 MB mỗi file.'));
+        if (annotationBytes > LIMITS.annotation)
+          fail(new ReviewError(413, 'Các tệp nhãn tối đa 10 MB tổng cộng.'));
       });
       writes.push(
         (async () => {
@@ -180,7 +201,7 @@ export async function receiveUpload(req: Req, directory: string, format: string)
     await Promise.all(writes);
   }
   if (failure) throw failure;
-  if (!annotation || !media.size)
+  if (!annotations.size || !media.size)
     throw new ReviewError(400, 'Cần annotation file và ít nhất một ảnh.');
   const dimensions = new Map<string, { width: number; height: number }>();
   for (const [name, file] of media) {
@@ -211,5 +232,5 @@ export async function receiveUpload(req: Req, directory: string, format: string)
       throw new ReviewError(422, 'Ảnh hỏng, ảnh động hoặc vượt 25 megapixels: ' + name);
     }
   }
-  return { annotation, media, dimensions, metadata, guideline, rules };
+  return { annotations, media, dimensions, metadata, guideline, rules };
 }

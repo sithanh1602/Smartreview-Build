@@ -2,12 +2,12 @@
 
 # SmartReview
 
-Nền tảng kiểm tra chất lượng annotation (Annotation QA): nhập dataset đã gán nhãn, chấm điểm rủi ro từng box, đưa các box đáng ngờ vào hàng đợi cho người review và lưu quyết định vào MySQL.
+Nền tảng kiểm tra chất lượng annotation (Annotation QA): nhập dataset đã gán nhãn, chấm điểm rủi ro từng box, đưa các box đáng ngờ vào hàng đợi cho người review và lưu quyết định vào MySQL. Mỗi project có một Leader và các Reviewer, Annotator tham gia bằng mã mời.
 
 Toàn bộ mã nguồn viết bằng **TypeScript**: giao diện React + Vite, API Node.js.
 
 ```text
-Dataset đã gán nhãn (CVAT XML / COCO / SmartReview JSON)
+Dataset đã gán nhãn (CVAT images/video, COCO, Datumaro, PASCAL VOC, YOLO, LabelMe, KITTI, MOT, SmartReview JSON)
     → Importer → Chuẩn hóa + validate → Schema 1.0.0
     → Risk Engine → Hàng đợi review → Quyết định của người review (MySQL) → Số liệu
 ```
@@ -19,11 +19,26 @@ Dataset đã gán nhãn (CVAT XML / COCO / SmartReview JSON)
 # điền thông tin MySQL vào web/.env
 cd web
 npm run db:migrate         # tạo bảng (cần kết nối MySQL)
-npm run user:create -- --username <tên> --role reviewer
+npm run user:create -- --username <tên> --role leader
 npm run dev                # http://127.0.0.1:5173
 ```
 
-Thử ngay không cần dữ liệu riêng: vào **Projects → + New Project**, chọn `web/fixtures/upload/annotations.xml` và `web/fixtures/upload/street.png`.
+Thử ngay không cần dữ liệu riêng: đăng nhập bằng tài khoản Leader, vào **Projects → + New Project**, chọn `web/fixtures/upload/annotations.xml` và `web/fixtures/upload/street.png`.
+
+## Vai trò
+
+Tài khoản có hai loại, chọn lúc đăng ký hoặc đặt bằng `npm run user:create`:
+
+| Loại tài khoản | Làm được gì                                                                                  |
+| -------------- | -------------------------------------------------------------------------------------------- |
+| Leader         | Tạo project, import dataset, chạy AI Check, xóa project, xem mã mời và quản lý thành viên    |
+| Thành viên     | Tham gia project bằng mã mời; xem dữ liệu và lưu quyết định review trong project đã tham gia |
+
+Mỗi project có hai mã mời, một cho **Reviewer** và một cho **Annotator**; mã quyết định vai trò của người nhập. Leader thêm người trực tiếp bằng tên đăng nhập ở khung "Thành viên project" trong trang project, hoặc lấy mã mời ở cùng khung đó. Thành viên đăng nhập, chọn vai trò làm việc rồi nhập mã ở trang Projects. Một người giữ một vai trò trong mỗi project.
+
+Reviewer và Annotator có cùng quyền xem và sửa trong project; Reviewer còn thêm được Annotator vào project bằng tên đăng nhập. Chi tiết quyền, bảng dữ liệu và API: [web/docs/project-roles.md](web/docs/project-roles.md).
+
+> Nâng cấp từ bản trước: chạy `npm run db:migrate` để áp dụng migration `006_project_roles.sql`. Tài khoản `reviewer` cũ thành Leader, `annotator` cũ thành Thành viên. Backend bản cũ không dùng được với database đã nâng cấp, nên cập nhật code và database cùng lúc.
 
 ## Cài đặt
 
@@ -50,20 +65,20 @@ Muốn chạy trọn gói bằng container (kèm MySQL riêng) thì xem [docker/
 
 ## Cấu trúc repo
 
-| Đường dẫn       | Nội dung                                                          |
-| --------------- | ----------------------------------------------------------------- |
-| `web/`          | Ứng dụng chính: giao diện, API, risk engine, test                 |
-| `web/src/`      | Giao diện React (`pages/`, `features/`, `components/`, `lib/`)    |
-| `web/server/`   | API Node: auth, projects, reviews, frame review, AI Check         |
-| `web/core/`     | Lõi không phụ thuộc web: schema, importers, risk engine           |
-| `web/shared/`   | Quy tắc validate dùng chung cho giao diện và server               |
-| `web/scripts/`  | CLI: import dataset, migrate, quản lý tài khoản                   |
-| `web/tests/`    | Test Node (`*.test.ts`) và test trình duyệt (`browser/*.spec.ts`) |
-| `web/fixtures/` | Dataset mẫu nhỏ để thử import                                     |
-| `web/docs/`     | Tài liệu chi tiết từng phần                                       |
-| `ai-service/`   | Script Python tùy chọn: detect, tracking, dựng dữ liệu demo       |
-| `docker/`       | Chạy bằng Docker Compose                                          |
-| `setup.sh`      | Cài các gói cần thiết                                             |
+| Đường dẫn       | Nội dung                                                                |
+| --------------- | ----------------------------------------------------------------------- |
+| `web/`          | Ứng dụng chính: giao diện, API, risk engine, test                       |
+| `web/src/`      | Giao diện React (`pages/`, `features/`, `components/`, `lib/`)          |
+| `web/server/`   | API Node: auth, projects và thành viên, reviews, frame review, AI Check |
+| `web/core/`     | Lõi không phụ thuộc web: schema, importers, risk engine                 |
+| `web/shared/`   | Quy tắc validate dùng chung cho giao diện và server                     |
+| `web/scripts/`  | CLI: import dataset, migrate, quản lý tài khoản                         |
+| `web/tests/`    | Test Node (`*.test.ts`) và test trình duyệt (`browser/*.spec.ts`)       |
+| `web/fixtures/` | Dataset mẫu nhỏ để thử import                                           |
+| `web/docs/`     | Tài liệu chi tiết từng phần                                             |
+| `ai-service/`   | Script Python tùy chọn: detect, tracking, dựng dữ liệu demo             |
+| `docker/`       | Chạy bằng Docker Compose                                                |
+| `setup.sh`      | Cài các gói cần thiết                                                   |
 
 Risk engine có ba thư mục, mỗi thư mục một đời:
 
@@ -88,22 +103,23 @@ Chạy trong `web/`.
 | `npm run test:ui`          | Test trình duyệt bằng Playwright                         |
 | `npm run format`           | Định dạng mã bằng Prettier                               |
 | `npm run db:migrate`       | Tạo hoặc cập nhật bảng MySQL                             |
-| `npm run user:create -- …` | Tạo tài khoản reviewer hoặc annotator                    |
+| `npm run user:create -- …` | Tạo tài khoản `leader` hoặc `member`                     |
 | `npm run import -- …`      | Import dataset bằng dòng lệnh                            |
 
 ## Tài liệu
 
-| Chủ đề                                 | File                                                             |
-| -------------------------------------- | ---------------------------------------------------------------- |
-| Hướng dẫn chạy chi tiết, kết nối MySQL | [web/README.md](web/README.md)                                   |
-| Kiến trúc, schema, danh sách check     | [web/docs/architecture.md](web/docs/architecture.md)             |
-| Projects, upload, giới hạn file        | [web/docs/projects-import.md](web/docs/projects-import.md)       |
-| Review và lưu quyết định               | [web/docs/human-review.md](web/docs/human-review.md)             |
-| Kiểm tra theo ảnh, đánh dấu vùng thiếu | [web/docs/frame-review.md](web/docs/frame-review.md)             |
-| Đăng nhập, phân quyền, tài khoản       | [web/docs/auth.md](web/docs/auth.md)                             |
-| AI Check                               | [web/docs/ai-check.md](web/docs/ai-check.md)                     |
-| Lịch sử thay đổi giao diện             | [web/docs/frontend-changelog.md](web/docs/frontend-changelog.md) |
-| Chạy bằng Docker                       | [docker/README.md](docker/README.md)                             |
+| Chủ đề                                          | File                                                             |
+| ----------------------------------------------- | ---------------------------------------------------------------- |
+| Hướng dẫn chạy chi tiết, kết nối MySQL          | [web/README.md](web/README.md)                                   |
+| Kiến trúc, schema, danh sách check              | [web/docs/architecture.md](web/docs/architecture.md)             |
+| Projects, upload, định dạng nhập, giới hạn file | [web/docs/projects-import.md](web/docs/projects-import.md)       |
+| Review và lưu quyết định                        | [web/docs/human-review.md](web/docs/human-review.md)             |
+| Kiểm tra theo ảnh, đánh dấu vùng thiếu          | [web/docs/frame-review.md](web/docs/frame-review.md)             |
+| Đăng nhập, phân quyền, tài khoản                | [web/docs/auth.md](web/docs/auth.md)                             |
+| Vai trò theo project, mã mời, thành viên        | [web/docs/project-roles.md](web/docs/project-roles.md)           |
+| AI Check                                        | [web/docs/ai-check.md](web/docs/ai-check.md)                     |
+| Lịch sử thay đổi giao diện                      | [web/docs/frontend-changelog.md](web/docs/frontend-changelog.md) |
+| Chạy bằng Docker                                | [docker/README.md](docker/README.md)                             |
 
 ## Quy ước TypeScript
 

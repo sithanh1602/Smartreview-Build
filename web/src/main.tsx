@@ -6,6 +6,8 @@ import './styles.css';
 import { AuthProvider } from './features/auth/AuthProvider';
 import { applyTheme } from './lib/theme';
 import { lang, onLang } from './lib/lang';
+// Imported for its effect: it gives the JSX runtime the translator before anything renders.
+import './lib/i18n';
 
 applyTheme();
 

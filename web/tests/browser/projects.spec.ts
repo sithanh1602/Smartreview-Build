@@ -81,7 +81,7 @@ test('create CVAT project, import, review, reload, second identical JSON project
     fullPage: true,
   });
   await page
-    .getByRole('link', {
+    .getByRole('button', {
       name: hint('Start Review'),
     })
     .click();
@@ -125,7 +125,7 @@ test('create CVAT project, import, review, reload, second identical JSON project
   expect(b).not.toBe(a);
   await expect(page.getByTestId('metric-Reviewed')).toHaveText('0');
   await page
-    .getByRole('link', {
+    .getByRole('button', {
       name: hint('Start Review'),
     })
     .click();
@@ -260,7 +260,7 @@ test('registered demo project retains frame 422 and project scoped navigation', 
   await expect(page.getByTestId('metric-Risk Cases')).toHaveText('9');
   const projectUrl = page.url();
   await page
-    .getByRole('link', {
+    .getByRole('button', {
       name: hint('Start Review'),
     })
     .click();

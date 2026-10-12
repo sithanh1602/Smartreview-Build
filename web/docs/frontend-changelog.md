@@ -2,6 +2,106 @@
 
 Ghi lại mỗi lần sửa xong một chức năng hoặc thay đổi lớn ở frontend. Mục mới nhất ở trên cùng.
 
+## 2026-10-12 · "Bắt đầu kiểm tra" chỉ lấy trước ảnh của các case rủi ro
+
+- Nút "Bắt đầu kiểm tra" không còn tải toàn bộ ảnh của dự án. Nó chỉ tải ảnh của các **case bị đánh dấu rủi ro** (đúng những gì trang Review mở), theo điểm từ cao xuống; với case thuộc một track thì gồm cả khung hình trước và sau (`StartReviewButton.tsx`).
+- Ảnh không có case rủi ro nào (ví dụ khi chuyển sang "Tất cả nhãn" hoặc mở "Kiểm tra toàn bộ ảnh") được tải lúc mở như trước khi có bước lấy trước.
+- Các phần khác giữ nguyên: nút hiện tiến độ, khóa các nút khác, tối đa 4 ảnh cùng lúc, giữ tối đa 512 MB trong tab.
+- Kiểm tra bằng Chromium với API giả lập: dự án 30 ảnh, 4 case rủi ro nằm trên 3 ảnh; chỉ 3 ảnh đó được tải, mỗi ảnh một lần, và danh sách frame của dự án không còn được gọi.
+
+## 2026-10-12 · Dự án mới: đổi được định dạng khi nguồn là tệp nén
+
+- **Lỗi**: chuyển "Nguồn dữ liệu" sang "Tệp nén (.zip)" thì menu "Định dạng nhãn" bị khóa (định dạng chỉ được tự nhận diện), nên định dạng chọn trước đó nằm im ở đó và không đổi được.
+- **Sửa** (`ImportForm.tsx`): menu luôn dùng được, chỉ khóa trong lúc đang đọc tệp nén và khi dự án đã tạo.
+  - Chưa chọn tệp nén: đổi định dạng tự do. Khi chọn tệp nén, định dạng vẫn được tự nhận diện từ tệp nhãn bên trong.
+  - Đã chọn tệp nén: đổi định dạng sẽ tìm bộ nhãn dạng đó ngay trong tệp nén. Có thì dùng bộ đó; không có thì báo "Tệp nén này không có tệp nhãn dạng …" và giữ nguyên lựa chọn đang dùng.
+- Kiểm tra bằng Chromium với một tệp nén chứa cả CVAT for images lẫn YOLO: tự nhận CVAT (1 nhãn); đổi sang YOLO thì dùng bộ YOLO (2 nhãn); đổi sang KITTI thì báo lỗi và vẫn giữ YOLO; đổi lại CVAT thì về 1 nhãn.
+
+## 2026-10-12 · Dự án mới: nhận thêm các định dạng CVAT xuất ra (Tệp rời và .zip)
+
+- **Menu "Định dạng nhãn" có 10 định dạng**: thêm CVAT for video 1.1, Datumaro 1.0, PASCAL VOC 1.1, YOLO 1.1 / Ultralytics YOLO, LabelMe 3.0, KITTI, MOT 1.1 bên cạnh CVAT for images, COCO và SmartReview JSON. Bảng chi tiết: [projects-import.md](projects-import.md#định-dạng-nhập).
+- **Tệp nén (.zip)**: thả nguyên tệp CVAT xuất ra; định dạng được nhận diện theo nội dung. Định dạng mỗi ảnh một tệp nhãn hiện thành một bộ, ví dụ "PASCAL VOC 1.1 · 120 tệp". Ảnh được ghép cả khi tệp nhãn không ghi đuôi ảnh (YOLO, KITTI, MOT, CVAT for video).
+- **Tệp rời**: với định dạng nhiều tệp, ô "Tệp nhãn" cho chọn nhiều tệp và hiện "Đã chọn N tệp nhãn". Chọn tệp khác định dạng đang chọn thì hiện gợi ý "Đổi định dạng" như trước; đổi định dạng không làm mất tệp đã chọn.
+- Nút "!" cạnh "Định dạng nhãn" mô tả tệp cần có của định dạng đang chọn.
+- Phần đọc tệp phía trình duyệt dùng chung bộ đọc với server qua `core/importers/catalog.ts` (không kéo bộ kiểm tra schema vào trình duyệt).
+- Kiểm tra bằng Chromium với API giả lập: 7 tệp .zip mẫu (mỗi định dạng mới một tệp) đều được nhận đúng định dạng và ghép đủ ảnh; upload YOLO gửi đủ `obj.names`, `train.txt`, các tệp `.txt` và ảnh; ở Tệp rời, chọn hai XML PASCAL VOC khi menu đang là YOLO thì hiện gợi ý đổi, đổi xong gửi đúng hai tệp nhãn và hai ảnh.
+
+## 2026-10-12 · Guideline / Policy giữ nguyên chữ ở chế độ VI; sửa gợi ý của mục Guideline
+
+- **Chế độ VI không còn dịch "Guideline" và "Policy"** thành "hướng dẫn", "quy định" (`src/lib/i18n.vi.ts`). Áp dụng cho form tạo dự án, nút "Phân tích Guideline", pop-up "Kiểm tra rules" (ví dụ "Theo Guideline", "Giữ Policy", "So sánh với Policy", "Policy đang áp dụng") và tệp phân tích tải về. Cụm "quy định gán nhãn riêng" (nói về quy định của bộ dữ liệu, không phải Policy của công cụ) giữ nguyên.
+- **Gợi ý "!" của mục "Thêm Guideline / Policy mới"** trước gắn vào cả khối, nên khi đã đánh dấu:
+  - ở màn hẹp hơn 1280px, khung gợi ý hiện tận cuối khối, dưới ô dán nội dung và nút phân tích, cách xa nút "!";
+  - để chuột trong khối 5 giây (kể cả lúc đang gõ nội dung) là gợi ý tự bật.
+    Giờ gợi ý chỉ gắn với dòng tiêu đề: hiện ngay dưới tiêu đề (màn hẹp) hoặc bên phải, thẳng hàng với gợi ý của các ô khác (màn rộng), và việc để chuột 5 giây chỉ tính trên dòng tiêu đề.
+- Kiểm tra bằng Chromium ở 1100px và 1366px, đã đánh dấu mục Guideline: bấm "!" thì gợi ý hiện đúng chỗ; để chuột trên ô dán nội dung 5,6 giây thì gợi ý không bật.
+
+## 2026-10-12 · Dự án mới: gom chú thích vào nút "!", hiện bên phải
+
+- Các dòng chữ nhỏ dưới từng ô của form tạo dự án (`ImportForm.tsx`) được gỡ khỏi form; form ngắn đi khoảng 150px. Mỗi mục có chú thích giờ có nút tròn **"!"** cạnh nhãn: Nguồn dữ liệu, Định dạng nhãn, CSV thông tin ảnh, Ảnh dữ liệu, Thêm Guideline / Policy, và khung "Trường nhận diện được".
+- Chú thích hiện trong một khung **bên phải ô đó**, phía ngoài form (màn từ 1280px; hẹp hơn thì hiện ngay dưới ô), khi:
+  - bấm "!" (ghim lại; bấm lần nữa hoặc Esc để tắt),
+  - rê chuột hoặc focus bàn phím vào "!",
+  - **để chuột trên ô từ 5 giây**; đưa chuột ra thì tắt.
+- Nội dung chú thích giữ nguyên. Phần Guideline gom ba ý vào một chỗ: khi nào nên đánh dấu, loại tệp nhận được, và lựa chọn nào làm đổi cách chấm (trước là khung vàng).
+- Vẫn hiện sẵn, không giấu: số ảnh đã chọn, mục "Dataset có thư mục ảnh con?", cảnh báo sai định dạng, dòng "Để trống thì dùng … trong tệp nén".
+- Thành phần dùng lại được: `src/components/FieldHelp.tsx` (`FieldHelp` bọc ô, `HelpButton` là nút "!").
+- Kiểm tra bằng Chromium với API giả lập: lúc đầu không chú thích nào hiện; bấm "!" thì khung hiện cách mép ô 48px về bên phải và nằm trong trang; bấm lại thì tắt; để chuột trên ô CSV 3 giây chưa hiện, 5,6 giây thì hiện, rời chuột thì tắt; bấm "!" không mở hộp chọn tệp. Xem ở 1366px (VI) và 1024px (EN).
+
+## 2026-10-12 · Trang Review: thanh công cụ hai hàng, chữ không còn bị dồn và cắt cụt
+
+- **Thanh công cụ chia hai hàng rõ ràng** (`CaseDetail.tsx`). Trước đây mọi thứ nằm chung một hàng tự xuống dòng, nên ở màn 1366px nó rớt thành ba hàng và phần tiêu đề bị ép còn rất hẹp.
+  - Hàng 1: ẩn/hiện hàng đợi, case trước/sau, tiêu đề khung hình, rồi nhóm nút biểu tượng ở bên phải (thu phóng, sao chép, ẩn/hiện ngữ cảnh, ẩn/hiện bảng thông tin, tập trung).
+  - Hàng 2: những gì hiện trên ảnh (Tất cả nhãn / Chỉ nhãn rủi ro / Trừ nhãn rủi ro, Khung bao, Phóng to vật thể, Xem cả ảnh, So sánh với).
+  - Bớt một hàng nên vùng ảnh và bảng "Vì sao bị cảnh báo" cao thêm khoảng 40px ở màn laptop.
+- **Tiêu đề không còn xuống dòng lộn xộn**: "Khung hình N" và "x/y trong ảnh" luôn hiện đủ; dòng mô tả (đối tượng · tên tệp · kích thước) cắt bằng "…" khi thiếu chỗ và hiện đầy đủ khi rê chuột.
+- Chữ "So sánh với" chỉ hiện từ màn rộng 1536px; hẹp hơn thì còn biểu tượng, hai nút "Ảnh gốc / Ảnh có nhãn" giữ nguyên.
+- **Đầu trang**: tên dataset và dòng "N khung hình · M nhãn" tách thành hai phần, nên dòng số liệu không còn bị cắt thành "1 khung hìn…" (`ReviewPage.tsx`).
+- **Hàng đợi**: tên ảnh dài hiện tối đa hai dòng thay vì cắt ở cuối, vì phần cuối tên tệp mới là phần phân biệt các ảnh (`CaseQueue.tsx`).
+- Màn điện thoại (390px): trang không còn bị kéo ngang (trước đó tràn 34px).
+- Kiểm tra bằng Chromium trên dữ liệu dựng lại cục bộ (1 ảnh 1280×720, 8 khung, 7 case, id dạng `image-37-box-6`) ở 390, 1024, 1366, 1536 và 1920px, VI và EN. Chưa xem trên project thật vì cần đăng nhập.
+
+## 2026-10-12 · "Bắt đầu kiểm tra" lấy trước toàn bộ ảnh của dự án, khóa các nút khác
+
+- Ở trang dự án, bấm **Bắt đầu kiểm tra** thì nút đổi thành **"Đang lấy ảnh… 12/30"** (EN: "Fetching images…") và chỉ chuyển sang trang Review khi đã tải xong dataset và **mọi ảnh của dự án đó** (`src/features/projects/StartReviewButton.tsx`). Danh sách ảnh lấy từ `/projects/:id/frames`; ảnh của dự án khác không bị đụng tới.
+- Thứ tự tải: ảnh của các case theo điểm từ cao xuống (đúng thứ tự Review mở), rồi tới các ảnh còn lại. Tải 4 ảnh cùng lúc để không dồn yêu cầu lên Dropbox.
+- Ảnh nằm trong bộ nhớ đệm ảnh của tab (`src/lib/imageCache.ts`). Bộ nhớ đệm đổi từ "giữ 24 ảnh" sang **giữ tối đa 512 MB**; dự án lớn hơn mức đó thì phần ảnh cuối không được lấy trước và sẽ tải khi mở. Trang "Kiểm tra toàn bộ ảnh" dùng chung bộ nhớ đệm này. Tải lại trang hoặc mở tab mới thì phải lấy lại.
+- Trong lúc chờ, mọi nút và liên kết khác trên trang bị khóa và mờ đi: logo, "Dự án", "Đổi vai trò", xóa dự án, form thành viên, "Kiểm tra toàn bộ ảnh"… Vẫn dùng được **Đăng xuất, đổi ngôn ngữ, đổi giao diện sáng/tối**. `ProjectLayout` giữ trạng thái khóa và đặt `inert` lên các vùng đó; kiểu mờ ở `.page-lock[inert]` trong `styles.css`.
+- Lỗi tải dataset hiện ngay dưới nút và mở khóa trang. Ảnh nào lỗi thì bỏ qua, Review tự báo ở khung ảnh đó. Rời trang (đăng xuất, nút Back) thì hủy chờ.
+- Kiểm tra bằng Chromium với API giả lập (30 ảnh, mỗi ảnh trả chậm 0,25 giây, một ảnh lỗi 502): nút hiện tiến độ; chỉ còn ba nút trên dùng được; tối đa 4 yêu cầu ảnh cùng lúc; đủ 30 ảnh được gọi, mỗi ảnh một lần; vào đúng case điểm cao nhất; mở case khác không phát sinh yêu cầu ảnh nào.
+
+## 2026-10-12 · Thêm thành viên trực tiếp; bản dịch không còn bị "đóng băng" khi dev
+
+- **Khung "Thành viên project"** (`ProjectPeople`): Leader thêm người bằng form ở đầu khung: gõ tên đăng nhập (có gợi ý các tài khoản thành viên chưa ở trong project), chọn Reviewer hoặc Annotator, bấm "Thêm vào project". Đây là cách mặc định.
+- **Reviewer thêm được Annotator**: Reviewer thấy cùng form đó nhưng không có ô chọn vai trò; người được thêm luôn là Annotator. Reviewer không đổi vai trò, không xóa thành viên và không thấy mã mời.
+- **Mã mời thành cách phụ**: nằm trong mục gập "Cách khác: mời bằng mã" ở cuối khung. Mã chỉ được tải (và tạo lần đầu) khi mở mục này.
+- **Sửa lỗi bản dịch khi chạy `npm run dev`**: plugin React buộc Vite đóng gói sẵn JSX runtime của app, kéo theo cả `i18n.en.ts`, `i18n.vi.ts` và ngôn ngữ đang chọn vào `node_modules/.vite`. Từ đó mọi thay đổi bản dịch không hiện ra cho tới khi xóa cache (đó là lý do "Reviewer" vẫn hiện "Người kiểm tra" sau khi đã bỏ bản dịch). Giờ runtime không import gì từ app: `src/lib/i18n.ts` trao hàm dịch qua `src/lib/jsx/translator.ts` khi tải. Dòng `optimizeDeps.exclude` trong `vite.config.ts` không có tác dụng nên đã bỏ.
+- Cần **khởi động lại `npm run dev` một lần** sau khi kéo thay đổi này.
+- Kiểm tra bằng Chromium với API giả lập trên một dev server cache mới: thêm thành viên gửi đúng `{ username, role }`; VI và EN hiện đúng; đổi ngôn ngữ không tải lại trang; sửa một mục trong `i18n.en.ts` thì trang đang mở cập nhật ngay.
+
+## 2026-10-12 · Chế độ EN: khôi phục và bổ sung bản dịch
+
+- **Sửa lỗi**: lần chỉnh bản dịch cho phần vai trò đã xóa nhầm 166 mục có sẵn trong `src/lib/i18n.en.ts` (từ form tạo dự án, phân tích guideline, trang tổng quan…), nên chế độ EN hiện tiếng Việt ở các màn đó. Đã khôi phục nguyên văn từ commit `ea414d5`.
+- **Bổ sung** bản EN cho các chuỗi trước giờ chưa có: thông báo lỗi từ API (đăng nhập, project, upload, review, frame review, AI Check, guideline), mô tả 44 check trong `shared/policy-rules.ts`, lỗi đọc tệp ZIP, vài dòng trong pop-up "Kiểm tra rules".
+- Hộp thoại `window.confirm`/`window.alert` (xóa project, bỏ thay đổi ở kiểm tra ảnh) giờ đi qua `ui()` nên cũng đổi theo ngôn ngữ.
+- Ở chế độ VI, vài thông báo lỗi được viết lại trong `i18n.vi.ts` vì thay từng thuật ngữ đọc không xuôi (ví dụ "Đánh giá đã tồn tại…").
+- Kiểm tra: quét toàn bộ chuỗi tiếng Việt trong `src`, `server`, `shared` và dịch thử sang EN; còn lại chỉ là chuỗi không hiện trên giao diện (thông báo CLI, log, prompt gửi mô hình) và nhãn "Chuyển sang tiếng Việt" của nút đổi ngôn ngữ (cố ý để tiếng Việt).
+
+## 2026-10-11 · Vai trò Leader / Reviewer / Annotator, mã mời, thành viên project
+
+Đi cùng thay đổi backend trong [project-roles.md](project-roles.md).
+
+- **Đăng ký** (`RegisterPage`): thêm mục "Loại tài khoản" (`RadioGroup` của HeroUI): Thành viên (mặc định) hoặc Leader. Nút tròn và nhãn nằm chung trong `Radio.Content` (hàng bấm được, rộng hết khung, cao 36px), mô tả nằm bên dưới; cấu trúc ban đầu đặt sai nên chữ lệch khỏi nút và chỉ bấm trúng được nút tròn.
+- **Sau đăng nhập**: leader vào thẳng `/projects`. Member được hỏi vai trò làm việc ở trang mới `/role` (`RolePage`): Reviewer hoặc Annotator, kèm số project đang có ở mỗi vai trò. Lựa chọn giữ theo tab (`sessionStorage`), quên khi đăng xuất. Thanh tài khoản có nút "Đổi vai trò".
+- **Danh sách project** (`ProjectsPage`):
+  - Member thấy ô "Mã mời từ leader" (`JoinProjectForm`) và chỉ các project đã tham gia với vai trò đang chọn. Nhập mã của vai trò kia thì giao diện tự chuyển sang vai trò đó.
+  - Mỗi thẻ hiện leader, số reviewer, số annotator và vai trò của người xem.
+  - Nút "+ New Project" và "Xóa project" chỉ hiện với leader.
+- **Trang project** (`ProjectDashboardPage`): khung "Thành viên project" (`ProjectPeople`) gồm người tạo, danh sách reviewer, danh sách annotator. Leader thấy thêm mã mời của từng vai trò (Sao chép, Tạo mã mới) và nút chuyển vai trò, xóa thành viên. Member không thấy form import và nút xóa.
+- **AI Check**: nút bắt đầu chỉ hiện với leader; member vẫn xem kết quả.
+- **Ngôn ngữ**: Leader, Reviewer, Annotator giữ nguyên ở cả VI và EN (bỏ bản dịch "Người kiểm tra", "Người gán nhãn" trong `i18n.vi.ts`) và luôn viết hoa. Mọi chuỗi mới có bản EN trong `i18n.en.ts`, kể cả thông báo lỗi từ API và hộp xác nhận; ở VI, "project" hiện là "dự án" như phần còn lại của app.
+- **Điều hướng** (`router.tsx`, `AuthGate`): `/projects/new`, `/overview`, `/review` chỉ dành cho leader. Trang chờ `/annotation` đã bỏ, chuyển về `/projects`.
+- Kiểm tra: `npm run typecheck`, `npm run build`. Chưa chạy được test cần DB (`auth`, `projects`, `test:ui`) vì migration 006 chưa áp dụng.
+
 ## 2026-10-11 · Màn review: chú thích cho nút biểu tượng, nút "So sánh ảnh"
 
 - **Nút chỉ có biểu tượng giờ có chú thích** khi rê chuột hoặc focus bằng bàn phím (`src/components/Tip.tsx`, dùng `Tooltip` của HeroUI): ẩn/hiện hàng đợi, case trước/sau, thu nhỏ/phóng to/đặt lại zoom, sao chép thông tin, ẩn/hiện ngữ cảnh, ẩn/hiện bảng thông tin, tập trung. Chú thích kèm phím tắt nếu có.
