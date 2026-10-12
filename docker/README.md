@@ -5,7 +5,7 @@ Chạy lệnh từ thư mục gốc `/home/thanh/data/smartreview`. Cần Docker
 ## Chạy trên máy local
 
 ```bash
-node docker/setup.mjs
+node docker/setup.ts
 docker compose --env-file .env.docker up -d --build
 docker compose --env-file .env.docker ps
 ```
@@ -57,7 +57,7 @@ docker save -o smartreview-image.tar smartreview:local
 
 Không thêm `-v` vào lệnh `down` nếu muốn giữ dữ liệu. Đổi mật khẩu trong `.env.docker` không tự đổi mật khẩu của MySQL đã có volume; phải cập nhật tài khoản MySQL đồng bộ.
 
-Máy nhận chạy `docker load -i smartreview-image.tar`, mang theo `compose.yaml` và `docker/setup.mjs`, sinh `.env.docker` riêng, rồi chạy `docker compose --env-file .env.docker up -d --no-build`. MySQL image cần có sẵn hoặc có mạng để pull. Dữ liệu cũ cần backup/restore riêng.
+Máy nhận chạy `docker load -i smartreview-image.tar`, mang theo `compose.yaml` và `docker/setup.ts`, sinh `.env.docker` riêng, rồi chạy `docker compose --env-file .env.docker up -d --no-build`. MySQL image cần có sẵn hoặc có mạng để pull. Dữ liệu cũ cần backup/restore riêng.
 
 ## HTTPS production
 

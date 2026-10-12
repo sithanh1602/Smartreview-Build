@@ -8,6 +8,9 @@
   --color-line: #cbd5e1;
   --color-muted: #526278;
   --color-accent: #087f73;
+  /* Vùng quanh ảnh và dải ngữ cảnh ở trang Review. */
+  --color-canvas: #e6ebf1;
+  --color-film: #f8fafc;
 }
 
 @layer base {
@@ -16,6 +19,38 @@
     /* HeroUI lấy màu nhấn từ --accent; đồng bộ với màu thương hiệu SmartReview. */
     --accent: #087f73;
     --accent-foreground: #ffffff;
+  }
+  /* Giao diện tối: cùng bảng xám với trang đăng nhập. Đổi biến màu nên mọi utility tự theo. */
+  :root[data-theme='dark'] {
+    color-scheme: dark;
+    --color-ink: #1e1f22;
+    --background: #1e1f22;
+    --surface: #313338;
+    --field-background: #1e1f22;
+    --border: #3f4147;
+    --color-panel: #313338;
+    --color-line: #3f4147;
+    --color-muted: #a3a8b3;
+    --color-accent: #3fc4b4;
+    --color-canvas: #17181b;
+    /* Nút HeroUI đang bật: chữ sáng trên nền xanh nhạt để phân biệt được với nút tắt. */
+    --accent-soft: color-mix(in oklab, #3fc4b4 20%, transparent);
+    --accent-soft-hover: color-mix(in oklab, #3fc4b4 28%, transparent);
+    --accent-soft-foreground: #5fd6c7;
+    --color-film: #232428;
+    --color-slate-50: #2b2d31;
+    --color-slate-100: #383a40;
+    --color-slate-200: #3f4147;
+    --color-slate-300: #4e5058;
+    --color-slate-400: #6d6f78;
+    --color-slate-500: #949ba4;
+    --color-slate-600: #b5bac1;
+    --color-slate-700: #dbdee1;
+    --color-slate-800: #e6e8eb;
+    --color-slate-900: #f2f3f5;
+    --color-rose-700: #fda4af;
+    --color-amber-800: #fcd34d;
+    --color-sky-700: #7dd3fc;
   }
   body {
     @apply m-0 bg-ink text-slate-900 antialiased;
@@ -63,7 +98,7 @@
     @apply mr-3 cursor-pointer border-0 border-r border-line bg-slate-100 px-3 py-2 font-medium text-slate-800;
   }
   table {
-    @apply bg-white;
+    @apply bg-panel;
   }
   thead {
     @apply bg-slate-100;
@@ -75,15 +110,15 @@
 
 @layer components {
   .panel {
-    @apply rounded-none border border-line bg-panel;
+    @apply overflow-hidden rounded-xl border border-line bg-panel;
   }
   .sr-button {
-    @apply inline-flex min-h-10 items-center justify-center gap-2 rounded-none border border-line bg-white px-4 py-2 text-sm font-semibold transition hover:border-accent hover:bg-accent/5;
+    @apply inline-flex min-h-10 items-center justify-center gap-2 rounded-full border border-line bg-panel px-4 py-2 text-sm font-semibold transition hover:border-accent hover:bg-accent/5;
   }
   .eyebrow {
     @apply text-[11px] font-semibold tracking-[0.14em] text-muted uppercase;
   }
   .field {
-    @apply min-h-11 w-full rounded-none border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 transition hover:border-slate-400 focus:border-accent;
+    @apply min-h-11 w-full rounded-lg border border-line bg-panel px-3 py-2 text-sm text-slate-900 transition hover:border-slate-400 focus:border-accent;
   }
 }

@@ -30,8 +30,8 @@ Không cần migration MySQL hay dịch vụ Python riêng.
 ## Kiến trúc
 
 `server/ai/predict.py` là adapter model tùy chọn, nhận manifest ảnh do server tạo.
-`core/risk/ai-compare.mjs` đối chiếu dự đoán với schema chuẩn, độc lập Ultralytics.
-`server/ai/service.mjs` quản lý job, một lượt trên toàn server, tối đa 1000 ảnh/20 phút.
+`core/risk/ai-compare.ts` đối chiếu dự đoán với schema chuẩn, độc lập Ultralytics.
+`server/ai/service.ts` quản lý job, một lượt trên toàn server, tối đa 1000 ảnh/20 phút.
 GET/POST `/api/projects/:id/ai-check` đọc trạng thái/bắt đầu, POST kiểm tra same-origin.
 `storage/projects/:id/ai/latest.json` lưu kết quả và fingerprint dataset, cấu hình, phiên bản model và SHA256 weights.
 Annotation, output demo cũ và quyết định review hiện có không bị ghi đè.
