@@ -4,9 +4,9 @@
 
 Mở `/projects` → **+ New Project** → tên/mô tả/format → chọn annotation và ảnh → **Create & Import** → dashboard → **Start Review** → Save Review.
 
-Các importer được hỗ trợ: COCO Detection JSON (bbox), **CVAT for images 1.1 XML** (box/polygon/polyline) và **SmartReview JSON schema 1.0.0**. Không chạy YOLO/ByteTrack khi upload. Confidence, track và model metadata vẫn optional. JSON cần đúng schema chuẩn, không phải một mảng bbox tùy ý.
+Các định dạng được hỗ trợ nằm ở mục [Định dạng nhập](#định-dạng-nhập): các định dạng CVAT xuất ra có box, polygon hoặc polyline, và **SmartReview JSON schema 1.0.0**. Không chạy YOLO/ByteTrack khi upload. Confidence, track và model metadata vẫn optional. JSON cần đúng schema chuẩn, không phải một mảng bbox tùy ý.
 
-Phase này upload ảnh PNG/JPEG/WebP/GIF tĩnh. Không nhận video gốc, SVG hoặc CVAT video tracks. ZIP được mở trên trình duyệt rồi gửi từng tệp bên trong; máy chủ không giải nén. JSON có media type video được nhận nếu upload đủ các frame ảnh được tham chiếu. Demo video cũ vẫn dùng các ảnh đã trích như trước. Schema/engine và importer CLI cũ giữ nguyên; chỉ boundary upload web thêm validation media.
+Phase này upload ảnh PNG/JPEG/WebP/GIF tĩnh. Không nhận video gốc hoặc SVG; CVAT for video và MOT được nhận dưới dạng các ảnh khung hình. ZIP được mở trên trình duyệt rồi gửi từng tệp bên trong; máy chủ không giải nén. JSON có media type video được nhận nếu upload đủ các frame ảnh được tham chiếu. Demo video cũ vẫn dùng các ảnh đã trích như trước. Schema/engine và importer CLI cũ giữ nguyên; chỉ boundary upload web thêm validation media.
 
 ## Database và compatibility
 
@@ -99,7 +99,7 @@ Không upload cả XML và JSON cùng lúc. Với dữ liệu của bạn, expor
 
 `npm run build && npm test`: core/schema/importer, demo regression, reviews và Projects API với MySQL test riêng. `npm run test:ui`: browser create/import/review/reload, hai project độc lập, retry, legacy UI và mobile. Browser teardown dùng manifest UUID để dọn đúng rows/storage của lượt test, không dùng DB ứng dụng.
 
-Chưa làm auth/team/permission, project edit/reimport UI, video extraction khi upload, ZIP, MOT/YOLO importer mới, cloud storage, worker queue, CVAT API, auto-correction, thuật toán risk mới, 3D hay deployment. Dataset lớn hơn giới hạn cần phase xử lý nền/pagination. Các cảnh báo dependency Vite/React Router hiện có được ghi trong bàn giao, không tự nâng toàn bộ frontend trong phase này.
+Chưa làm auth/team/permission, project edit/reimport UI, video extraction khi upload, cloud storage, worker queue, CVAT API, auto-correction, thuật toán risk mới, 3D hay deployment. Dataset lớn hơn giới hạn cần phase xử lý nền/pagination. Các cảnh báo dependency Vite/React Router hiện có được ghi trong bàn giao, không tự nâng toàn bộ frontend trong phase này.
 
 ## Xóa project
 
@@ -110,6 +110,31 @@ Demo mặc định được bảo vệ; chờ import và AI Check hoàn tất tr
 Database dùng transaction. File chuyển tạm vào `storage/.trash`, được khôi phục
 nếu transaction thất bại, rồi dọn sau commit. Nếu dọn thất bại, giao diện thông
 báo file còn chờ dọn trong `.trash`.
+
+## Định dạng nhập
+
+Dùng được ở cả hai nguồn dữ liệu: **Tệp rời** (chọn tệp nhãn và ảnh) và **Tệp nén (.zip)** (thả nguyên tệp CVAT xuất ra; định dạng được nhận diện theo nội dung tệp, không theo tên).
+
+| Định dạng (mã)                        | Tệp nhãn                                                      | Đọc được                         | Tên ảnh                                    |
+| ------------------------------------- | ------------------------------------------------------------- | -------------------------------- | ------------------------------------------ |
+| CVAT for images 1.1 (`cvat-images`)   | một `annotations.xml`                                         | box, polygon, polyline           | theo `name` của `<image>`                  |
+| CVAT for video 1.1 (`cvat-video`)     | một `annotations.xml` có `<track>`                            | box, polygon, polyline, track    | `frame_000000`, `frame_000001`… theo frame |
+| COCO 1.0 (`coco-detection`)           | một JSON                                                      | bbox                             | theo `file_name`                           |
+| Datumaro 1.0 (`datumaro`)             | một JSON (`annotations/default.json`)                         | bbox, polygon, polyline          | theo `image.path`, hoặc `id` của item      |
+| PASCAL VOC 1.1 (`pascal-voc`)         | mỗi ảnh một XML (`Annotations/*.xml`)                         | bndbox, cờ truncated/occluded    | theo `<filename>`                          |
+| YOLO 1.1 / Ultralytics YOLO (`yolo`)  | mỗi ảnh một `.txt`, kèm `obj.names`/`classes.txt`/`data.yaml` | box, polygon, confidence (cột 6) | cùng tên với tệp `.txt`                    |
+| LabelMe 3.0 (`labelme`)               | mỗi ảnh một XML                                               | polygon, bounding_box            | theo `<filename>`                          |
+| KITTI (`kitti`)                       | mỗi ảnh một `.txt` (`label_2/*.txt`)                          | box, score (cột 16), bỏ DontCare | cùng tên với tệp `.txt`                    |
+| MOT 1.1 (`mot`)                       | `gt.txt`, kèm `labels.txt` nếu có                             | box, track                       | số khung hình: `000001`, `000002`…         |
+| SmartReview JSON (`smartreview-json`) | một JSON theo schema 1.0.0                                    | mọi geometry của schema          | theo `frames[].image`                      |
+
+- **Định dạng nhiều tệp** (PASCAL VOC, YOLO, LabelMe, KITTI, MOT): ở Tệp rời, ô "Tệp nhãn" cho chọn nhiều tệp cùng lúc. Tối đa 1010 tệp nhãn, tổng 10 MB.
+- **Định dạng không ghi kích thước ảnh** (YOLO, KITTI, MOT, và CVAT for video thiếu `original_size`): kích thước lấy từ chính ảnh upload, nên phải có đủ ảnh.
+- **Ghép ảnh**: theo đường dẫn chính xác, rồi tên tệp duy nhất; với định dạng không ghi đuôi ảnh thì so tên không tính đuôi (`a.txt` ghép với `a.jpg`).
+- **CVAT for video và MOT** tạo một media kiểu video với track, nên các kiểm tra theo thời gian chạy được. Shape `outside="1"` và dòng MOT có cột thứ bảy bằng 0 bị bỏ qua.
+- **Chưa nhận**: mask (Segmentation mask, Cityscapes, CamVid, MOTS), keypoint/skeleton (COCO Keypoints), cuboid, các định dạng phân loại hoặc nhận dạng khuôn mặt/văn bản (ImageNet, WiderFace, VGGFace2, ICDAR, Market-1501, LFW), Open Images. CLI `npm run import` chỉ đọc định dạng một tệp có ghi tên ảnh (`cvat-images`, `coco-detection`, `datumaro`, `smartreview-json`).
+
+Code: mỗi định dạng một bộ đọc trong `core/importers/`; `catalog.ts` là phần chạy được cả trên trình duyệt (danh sách định dạng, nhận diện, ghép ảnh), `formats.ts` thêm bước kiểm tra schema cho server. Test: `tests/formats.test.ts`, `tests/upload-formats.test.ts` (không cần MySQL).
 
 ## COCO Detection
 

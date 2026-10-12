@@ -1,5 +1,6 @@
 import { randomInt } from 'node:crypto';
 import { ReviewError } from '../../shared/review.ts';
+import { usernameValue } from '../auth/password.ts';
 import type { Untrusted } from '../../shared/review.ts';
 import type { Db, MemberRole, ProjectRole, Rows, User } from '../types.ts';
 
@@ -123,6 +124,45 @@ export class ProjectMembers {
         `Bạn đã là ${member.role === 'reviewer' ? 'Reviewer' : 'Annotator'} của project này. Leader có thể đổi vai trò cho bạn.`,
       );
     return { project_id: invite.project_id, name: invite.name, role: invite.role as MemberRole };
+  }
+  // Member accounts the leader can still add, for the picker next to the username field.
+  async candidates(projectId: string): Promise<string[]> {
+    const [rows] = await this.pool.execute<Rows>(
+      "SELECT u.username FROM users u WHERE u.role='member' AND u.enabled=1 AND NOT EXISTS (SELECT 1 FROM project_members m WHERE m.project_id=? AND m.user_id=u.id) ORDER BY u.username LIMIT 200",
+      [projectId],
+    );
+    return rows.map((r) => r.username);
+  }
+  // The leader adds an existing member account by username, without an invite code.
+  async add(projectId: string, input: Untrusted) {
+    const role = memberRole(input?.role);
+    let username: string;
+    try {
+      username = usernameValue(input?.username);
+    } catch {
+      throw new ReviewError(400, 'Tên đăng nhập không hợp lệ.');
+    }
+    const [[user]] = await this.pool.execute<Rows>(
+      'SELECT id,role,enabled FROM users WHERE username=?',
+      [username],
+    );
+    if (!user?.enabled) throw new ReviewError(404, 'Không tìm thấy tài khoản này.');
+    if (user.role !== 'member')
+      throw new ReviewError(409, 'Tài khoản Leader không thể làm thành viên project.');
+    await this.pool.execute<Rows>(
+      'INSERT IGNORE INTO project_members(project_id,user_id,role) VALUES (?,?,?)',
+      [projectId, user.id, role],
+    );
+    const [[member]] = await this.pool.execute<Rows>(
+      'SELECT role FROM project_members WHERE project_id=? AND user_id=?',
+      [projectId, user.id],
+    );
+    if (member.role !== role)
+      throw new ReviewError(
+        409,
+        `Tài khoản này đã là ${member.role === 'reviewer' ? 'Reviewer' : 'Annotator'} của project. Đổi vai trò trong danh sách thành viên.`,
+      );
+    return this.people(projectId);
   }
   async member(projectId: string, userId: string) {
     const [[member]] = await this.pool.execute<Rows>(

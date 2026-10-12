@@ -145,7 +145,9 @@ export function CaseQueue({
                 className="flex w-full items-center justify-between gap-2 text-left"
                 onClick={() => navigate(to(g.cases[0]))}
               >
-                <span className="truncate text-sm font-semibold">{g.name}</span>
+                <span className="line-clamp-2 text-sm font-semibold break-all" title={g.name}>
+                  {g.name}
+                </span>
                 <span className="shrink-0 rounded-full bg-slate-900 px-2 py-0.5 text-[11px] font-bold text-panel">
                   {g.cases.length}
                 </span>

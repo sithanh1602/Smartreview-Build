@@ -2,7 +2,7 @@ import { AiService } from '../ai/service.ts';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { importAnnotations, importers } from '../../core/importers/index.ts';
+import { imageResolver, importDataset, isFormat, namesImages } from '../../core/importers/index.ts';
 import { applyEnvRisk, parseImageTable } from '../../core/importers/signals.ts';
 import { normalizeDataset } from '../../core/schema/normalize.ts';
 import { LEGACY_ENGINE_VERSION, LATEST_ENGINE_VERSION, checksFor } from '../../core/risk/engine.ts';
@@ -186,7 +186,7 @@ export class ProjectService {
       description.length > 2000
     )
       throw new ReviewError(400, 'Tên project 1–160 ký tự; mô tả tối đa 2000 ký tự.');
-    if (!Object.hasOwn(importers, format)) throw new ReviewError(400, 'Format chưa được hỗ trợ.');
+    if (!isFormat(format)) throw new ReviewError(400, 'Format chưa được hỗ trợ.');
     const id = randomUUID();
     await this.pool.execute<Rows>(
       'INSERT INTO projects(id,name,description,format,created_by) VALUES (?,?,?,?,?)',
@@ -401,10 +401,21 @@ export class ProjectService {
     try {
       const uploaded = await receiveUpload(req, directory, row.format);
       await this.status(id, 'VALIDATING');
-      const text = await fs.readFile(uploaded.annotation, 'utf8');
+      const sources = await Promise.all(
+        [...uploaded.annotations].map(async ([name, file]) => ({
+          name,
+          text: await fs.readFile(file, 'utf8'),
+        })),
+      );
+      // One way of matching a frame to an uploaded image, used for sizes and for linking.
+      const findImage = imageResolver(uploaded.media.keys());
       let data: Dataset;
       try {
-        data = importAnnotations(row.format, text, { id, name: row.name });
+        data = importDataset(row.format, sources, {
+          id,
+          name: row.name,
+          sizes: (image) => uploaded.dimensions.get(findImage(image) ?? ''),
+        });
         if (uploaded.metadata)
           applyEnvRisk(data, parseImageTable(await fs.readFile(uploaded.metadata, 'utf8')));
       } catch (e) {
@@ -417,16 +428,9 @@ export class ProjectService {
       const mediaById = new Map(data.media.map((m) => [m.id, m]));
       for (const f of data.frames) {
         if (!f.image) throw new ReviewError(422, `Frame ${f.id} thiếu image reference.`);
-        const ref = safePath(
-          ['cvat-images', 'coco-detection'].includes(row.format)
-            ? f.image.slice('images/'.length)
-            : f.image,
-        );
+        const ref = safePath(namesImages(row.format) ? f.image.slice('images/'.length) : f.image);
         // Exact relative path first; a unique basename allows selecting a flat set of files.
-        const matches = [...uploaded.media.keys()].filter(
-          (k) => path.posix.basename(k) === path.posix.basename(ref),
-        );
-        const key = uploaded.media.has(ref) ? ref : matches.length === 1 ? matches[0] : null;
+        const key = findImage(ref);
         if (!key) throw new ReviewError(422, `Thiếu ảnh hoặc tên ảnh không duy nhất: ${ref}`);
         const actual = uploaded.dimensions.get(key)!,
           declared = mediaById.get(f.media_id)!;

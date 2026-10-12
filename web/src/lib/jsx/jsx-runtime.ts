@@ -1,6 +1,7 @@
-// The app's JSX runtime: React's own, with text translated on the way in (see ../i18n).
+// The app's JSX runtime: React's own, with text translated on the way in (see ../i18n and
+// ./translator).
 import * as runtime from 'react/jsx-runtime';
-import { translateProps } from '../i18n.ts';
+import { translateProps } from './translator.ts';
 
 type Create = (type: unknown, props: Record<string, unknown>, key?: unknown) => unknown;
 const react = runtime as unknown as { jsx: Create; jsxs: Create; Fragment: unknown };

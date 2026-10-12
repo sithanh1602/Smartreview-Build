@@ -7,7 +7,7 @@ Nền tảng kiểm tra chất lượng annotation (Annotation QA): nhập datas
 Toàn bộ mã nguồn viết bằng **TypeScript**: giao diện React + Vite, API Node.js.
 
 ```text
-Dataset đã gán nhãn (CVAT XML / COCO / SmartReview JSON)
+Dataset đã gán nhãn (CVAT images/video, COCO, Datumaro, PASCAL VOC, YOLO, LabelMe, KITTI, MOT, SmartReview JSON)
     → Importer → Chuẩn hóa + validate → Schema 1.0.0
     → Risk Engine → Hàng đợi review → Quyết định của người review (MySQL) → Số liệu
 ```
@@ -34,9 +34,9 @@ Tài khoản có hai loại, chọn lúc đăng ký hoặc đặt bằng `npm ru
 | Leader         | Tạo project, import dataset, chạy AI Check, xóa project, xem mã mời và quản lý thành viên    |
 | Thành viên     | Tham gia project bằng mã mời; xem dữ liệu và lưu quyết định review trong project đã tham gia |
 
-Mỗi project có hai mã mời, một cho **Reviewer** và một cho **Annotator**; mã quyết định vai trò của người nhập. Leader lấy mã ở khung "Thành viên project" trong trang project. Thành viên đăng nhập, chọn vai trò làm việc rồi nhập mã ở trang Projects. Một người giữ một vai trò trong mỗi project.
+Mỗi project có hai mã mời, một cho **Reviewer** và một cho **Annotator**; mã quyết định vai trò của người nhập. Leader thêm người trực tiếp bằng tên đăng nhập ở khung "Thành viên project" trong trang project, hoặc lấy mã mời ở cùng khung đó. Thành viên đăng nhập, chọn vai trò làm việc rồi nhập mã ở trang Projects. Một người giữ một vai trò trong mỗi project.
 
-Reviewer và Annotator hiện có cùng quyền trong project. Chi tiết quyền, bảng dữ liệu và API: [web/docs/project-roles.md](web/docs/project-roles.md).
+Reviewer và Annotator có cùng quyền xem và sửa trong project; Reviewer còn thêm được Annotator vào project bằng tên đăng nhập. Chi tiết quyền, bảng dữ liệu và API: [web/docs/project-roles.md](web/docs/project-roles.md).
 
 > Nâng cấp từ bản trước: chạy `npm run db:migrate` để áp dụng migration `006_project_roles.sql`. Tài khoản `reviewer` cũ thành Leader, `annotator` cũ thành Thành viên. Backend bản cũ không dùng được với database đã nâng cấp, nên cập nhật code và database cùng lúc.
 
@@ -108,18 +108,18 @@ Chạy trong `web/`.
 
 ## Tài liệu
 
-| Chủ đề                                   | File                                                             |
-| ---------------------------------------- | ---------------------------------------------------------------- |
-| Hướng dẫn chạy chi tiết, kết nối MySQL   | [web/README.md](web/README.md)                                   |
-| Kiến trúc, schema, danh sách check       | [web/docs/architecture.md](web/docs/architecture.md)             |
-| Projects, upload, giới hạn file          | [web/docs/projects-import.md](web/docs/projects-import.md)       |
-| Review và lưu quyết định                 | [web/docs/human-review.md](web/docs/human-review.md)             |
-| Kiểm tra theo ảnh, đánh dấu vùng thiếu   | [web/docs/frame-review.md](web/docs/frame-review.md)             |
-| Đăng nhập, phân quyền, tài khoản         | [web/docs/auth.md](web/docs/auth.md)                             |
-| Vai trò theo project, mã mời, thành viên | [web/docs/project-roles.md](web/docs/project-roles.md)           |
-| AI Check                                 | [web/docs/ai-check.md](web/docs/ai-check.md)                     |
-| Lịch sử thay đổi giao diện               | [web/docs/frontend-changelog.md](web/docs/frontend-changelog.md) |
-| Chạy bằng Docker                         | [docker/README.md](docker/README.md)                             |
+| Chủ đề                                          | File                                                             |
+| ----------------------------------------------- | ---------------------------------------------------------------- |
+| Hướng dẫn chạy chi tiết, kết nối MySQL          | [web/README.md](web/README.md)                                   |
+| Kiến trúc, schema, danh sách check              | [web/docs/architecture.md](web/docs/architecture.md)             |
+| Projects, upload, định dạng nhập, giới hạn file | [web/docs/projects-import.md](web/docs/projects-import.md)       |
+| Review và lưu quyết định                        | [web/docs/human-review.md](web/docs/human-review.md)             |
+| Kiểm tra theo ảnh, đánh dấu vùng thiếu          | [web/docs/frame-review.md](web/docs/frame-review.md)             |
+| Đăng nhập, phân quyền, tài khoản                | [web/docs/auth.md](web/docs/auth.md)                             |
+| Vai trò theo project, mã mời, thành viên        | [web/docs/project-roles.md](web/docs/project-roles.md)           |
+| AI Check                                        | [web/docs/ai-check.md](web/docs/ai-check.md)                     |
+| Lịch sử thay đổi giao diện                      | [web/docs/frontend-changelog.md](web/docs/frontend-changelog.md) |
+| Chạy bằng Docker                                | [docker/README.md](docker/README.md)                             |
 
 ## Quy ước TypeScript
 

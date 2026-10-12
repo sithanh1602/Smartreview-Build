@@ -798,6 +798,61 @@ export const en: Record<string, string> = {
     'A truck box with confidence below 70% and no second opinion from the model is flagged: the class name lacks support.',
   'Khung xe tải không cao hơn 1,3 lần các khung ô tô đứng cùng tầm xa thì bị gắn cờ.':
     'A truck box no more than 1.3 times taller than car boxes at the same distance is flagged.',
+  // Adding members directly
+  'Thêm thành viên theo tên đăng nhập': 'Add a member by username',
+  'Vai trò': 'Role',
+  'Thêm vào project': 'Add to project',
+  'Đã thêm:': 'Added:',
+  'Cách khác: mời bằng mã': 'Alternative: invite with a code',
+  'Gửi mã cho người cần tham gia; họ tự nhập mã ở trang Projects. Mã dùng được nhiều lần và quyết định vai trò.':
+    'Send the code to the people who should join; they enter it on the Projects page. A code can be used many times and decides the role.',
+  'Đang tải mã mời…': 'Loading invite codes…',
+  'Không tìm thấy tài khoản này.': 'That account was not found.',
+  'Tài khoản Leader không thể làm thành viên project.':
+    'A Leader account cannot be a project member.',
+  'Thêm Annotator theo tên đăng nhập': 'Add an Annotator by username',
+  'Đang lấy ảnh…': 'Fetching images…',
+  'Xem giải thích': 'Show explanation',
+  ảnh: 'image(s)',
+  'Tối đa 1000 ảnh / 200 MB tổng; 20 MB mỗi ảnh; annotation 10 MB.':
+    'At most 1000 images / 200 MB in total; 20 MB per image; annotations 10 MB.',
+  // Import formats
+  'Dataset đã có annotation, không cần chạy model. Nhận các định dạng CVAT xuất ra có box, polygon hoặc polyline; ảnh PNG, JPEG, WebP, GIF. Chưa nhận mask, keypoint, cuboid và tệp video.':
+    'The dataset is already annotated; no model run is needed. Accepts the formats CVAT exports with boxes, polygons or polylines; PNG, JPEG, WebP and GIF images. Masks, keypoints, cuboids and video files are not accepted yet.',
+  'Một tệp annotations.xml; box, polygon và polyline.':
+    'One annotations.xml file; boxes, polygons and polylines.',
+  'Một tệp annotations.xml chứa các track; ảnh đặt tên frame_000000, frame_000001… theo số khung hình.':
+    'One annotations.xml file of tracks; images are named frame_000000, frame_000001… by frame number.',
+  'Một tệp JSON chứa images, categories, annotations và bbox [x, y, width, height]. Chỉ kiểm tra bbox; segmentation/keypoints được giữ trong metadata. Không nhận COCO prediction hoặc panoptic.':
+    'One JSON file with images, categories, annotations and bbox [x, y, width, height]. Only boxes are checked; segmentation/keypoints are kept in metadata. COCO predictions and panoptic files are not accepted.',
+  'Một tệp JSON (thường là annotations/default.json) chứa categories và items.':
+    'One JSON file (usually annotations/default.json) with categories and items.',
+  'Mỗi ảnh một tệp XML trong thư mục Annotations; chọn tất cả các tệp đó.':
+    'One XML file per image in the Annotations folder; choose all of them.',
+  'Mỗi ảnh một tệp .txt cùng tên, kèm obj.names, classes.txt hoặc data.yaml để lấy tên lớp. Toạ độ là tỉ lệ nên cần đủ ảnh để đổi ra pixel.':
+    'One .txt file per image with the same name, plus obj.names, classes.txt or data.yaml for the class names. Coordinates are fractions, so every image is needed to turn them into pixels.',
+  'Mỗi ảnh một tệp XML; polygon và bounding_box.':
+    'One XML file per image; polygons and bounding boxes.',
+  'Mỗi ảnh một tệp .txt trong label_2, cùng tên với ảnh.':
+    'One .txt file per image in label_2, named like the image.',
+  'gt.txt (và labels.txt nếu có); ảnh đặt tên theo số khung hình, ví dụ 000001.jpg.':
+    'gt.txt (and labels.txt if present); images are named by frame number, such as 000001.jpg.',
+  'Một tệp JSON theo Schema 1.0.0 của SmartReview.':
+    "One JSON file following SmartReview's Schema 1.0.0.",
+  'tệp nhãn': 'annotation file(s)',
+  'Các tệp nhãn tối đa 10 MB tổng cộng.': 'Annotation files can be at most 10 MB in total.',
+  'Không nhận ra định dạng của tệp nhãn đã chọn.':
+    'The format of the chosen annotation files was not recognised.',
+  'Tệp nén không có tệp nhãn thuộc định dạng được hỗ trợ.':
+    'The archive has no annotation files in a supported format.',
+  'Quá nhiều tệp nhãn (tối đa 1010).': 'Too many annotation files (1010 at most).',
+  'Định dạng này cần đúng một tệp nhãn.': 'This format needs exactly one annotation file.',
+  'PASCAL VOC 1.1 · XML mỗi ảnh': 'PASCAL VOC 1.1 · one XML per image',
+  'YOLO 1.1 / Ultralytics YOLO · TXT mỗi ảnh': 'YOLO 1.1 / Ultralytics YOLO · one TXT per image',
+  'LabelMe 3.0 · XML mỗi ảnh': 'LabelMe 3.0 · one XML per image',
+  'KITTI · TXT mỗi ảnh': 'KITTI · one TXT per image',
+  'Khi chọn tệp nén, định dạng được tự nhận diện từ tệp nhãn bên trong. Đổi ở đây nếu tệp nén có nhiều bộ nhãn và bạn muốn dùng bộ khác.':
+    'When you choose an archive, the format is detected from the annotation files inside it. Change it here if the archive holds several annotation sets and you want another one.',
 };
 
 // Strings built with values in them. Tried only when there is no exact entry above.
@@ -905,5 +960,15 @@ export const enRules: [RegExp, string][] = [
   [
     /^Khung có độ tin cậy dưới (\d+%) trong frame có điều kiện xấu \(env_risk từ (\d+%)\) thì bị gắn cờ\.$/,
     'A box with confidence below $1 in a frame with poor conditions (env_risk of $2 or more) is flagged.',
+  ],
+  [
+    /^Tài khoản này đã là (Reviewer|Annotator) của project\. Đổi vai trò trong danh sách thành viên\.$/,
+    'That account is already a $1 in this project. Change the role in the member list.',
+  ],
+  [/^Trùng tên tệp nhãn: (.+)$/, 'Duplicate annotation file name: $1'],
+  [/^(.+) · (\d+) tệp$/, '$1 · $2 files'],
+  [
+    /^Tệp nén này không có tệp nhãn dạng (.+)\.$/,
+    'This archive has no annotation files in the $1 format.',
   ],
 ];

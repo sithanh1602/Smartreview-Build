@@ -7,6 +7,7 @@ import { useProject } from '../features/projects/useProject';
 import { ProjectStatus } from '../features/projects/ProjectLayout';
 import { ImportForm } from '../features/projects/ImportForm';
 import { ProjectPeople } from '../features/projects/ProjectPeople';
+import { StartReviewButton } from '../features/projects/StartReviewButton';
 import { request } from '../lib/api';
 import type { Dashboard } from '../types.ts';
 
@@ -147,12 +148,7 @@ export function ProjectDashboardPage() {
               </section>
             ))}
           </div>
-          <Link
-            className="sr-button mt-7 border-accent/40 text-accent"
-            to={`/projects/${projectId}/review`}
-          >
-            {hint('Start Review →')}
-          </Link>
+          <StartReviewButton projectId={p.id} />
           <Link className="sr-button ml-3 mt-7" to={`/projects/${projectId}/frames`}>
             Kiểm tra toàn bộ ảnh →
           </Link>

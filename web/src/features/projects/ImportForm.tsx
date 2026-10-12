@@ -1,4 +1,5 @@
 import { hint } from '../../lib/englishHints';
+import { FieldHelp, HelpButton } from '../../components/FieldHelp';
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { request } from '../../lib/api';
@@ -10,15 +11,31 @@ import { GuidelineAnalysis } from './GuidelineAnalysis';
 import type { Choices } from './GuidelineAnalysis';
 import type { GuidelineExtraction } from '../../../server/guideline/model-call.ts';
 import { GUIDELINE_TYPES, guidelineText as readText } from './guidelineText';
-import { IMAGE_TYPES, LIMITS, inspectAnnotation, readPack } from './dataset';
-import type { Format, Inspection, Pack, Signal } from './dataset';
+import { FORMAT_INFO } from '../../../core/importers/catalog.ts';
+import { IMAGE_TYPES, LIMITS, inspectSources, readPack } from './dataset';
+import type { Candidate, Format, Inspection, Pack, Signal } from './dataset';
 import type { Project } from '../../types.ts';
 
 type Source = 'files' | 'zip';
-const FORMATS: Record<Format, string> = {
-  'cvat-images': 'CVAT for images 1.1 · XML',
-  'coco-detection': 'COCO Detection · JSON (bbox)',
-  'smartreview-json': 'SmartReview Schema 1.0.0 · JSON',
+const FORMAT_IDS = Object.keys(FORMAT_INFO) as Format[];
+const FORMATS = Object.fromEntries(FORMAT_IDS.map((id) => [id, FORMAT_INFO[id].label])) as Record<
+  Format,
+  string
+>;
+// What each format's export looks like, shown as help next to the format menu.
+const FORMAT_NOTES: Record<Format, string> = {
+  'cvat-images': 'Một tệp annotations.xml; box, polygon và polyline.',
+  'cvat-video':
+    'Một tệp annotations.xml chứa các track; ảnh đặt tên frame_000000, frame_000001… theo số khung hình.',
+  'coco-detection':
+    'Một tệp JSON chứa images, categories, annotations và bbox [x, y, width, height]. Chỉ kiểm tra bbox; segmentation/keypoints được giữ trong metadata. Không nhận COCO prediction hoặc panoptic.',
+  datumaro: 'Một tệp JSON (thường là annotations/default.json) chứa categories và items.',
+  'pascal-voc': 'Mỗi ảnh một tệp XML trong thư mục Annotations; chọn tất cả các tệp đó.',
+  yolo: 'Mỗi ảnh một tệp .txt cùng tên, kèm obj.names, classes.txt hoặc data.yaml để lấy tên lớp. Toạ độ là tỉ lệ nên cần đủ ảnh để đổi ra pixel.',
+  labelme: 'Mỗi ảnh một tệp XML; polygon và bounding_box.',
+  kitti: 'Mỗi ảnh một tệp .txt trong label_2, cùng tên với ảnh.',
+  mot: 'gt.txt (và labels.txt nếu có); ảnh đặt tên theo số khung hình, ví dụ 000001.jpg.',
+  'smartreview-json': 'Một tệp JSON theo Schema 1.0.0 của SmartReview.',
 };
 const SIGNALS: [Signal, string][] = [
   ['confidence', 'Độ tin cậy (confidence / score)'],
@@ -31,45 +48,54 @@ const megabytes = (bytes: number) => (bytes / 1024 / 1024).toFixed(1) + ' MB';
 // Shows where the optional signals were found, so a wrong or missing field is seen before upload.
 function SignalReport({ inspection, table }: { inspection: Inspection; table: boolean }) {
   return (
-    <div className="rounded-lg border border-line bg-slate-50 p-4 text-sm" data-testid="signals">
-      <p className="eyebrow mb-1">Trường nhận diện được</p>
-      <p className="mb-3 text-xs text-muted">
-        Tìm ở mọi tầng của từng nhãn (tối đa 4 tầng); trường gần nhãn nhất được dùng.
-      </p>
-      <dl className="grid gap-x-4 gap-y-2 sm:grid-cols-[auto_1fr]">
-        {SIGNALS.map(([kind, label]) => {
-          const found = inspection.signals[kind];
-          if (kind === 'env_risk' && !found && !table) return null;
-          return (
-            <React.Fragment key={kind}>
-              <dt className="text-muted">{label}</dt>
-              <dd className="min-w-0 break-words">
-                {found ? (
-                  <>
-                    <code className="rounded bg-accent/10 px-1.5 py-0.5 text-xs text-accent">
-                      {found.path}
-                    </code>
-                    <span className="ml-2 text-xs text-muted">
-                      {found.count}/{found.of}
-                    </span>
-                  </>
-                ) : kind === 'env_risk' ? (
-                  <span className="text-muted">Lấy từ CSV thông tin ảnh</span>
-                ) : (
-                  <span className="text-muted">Không tìm thấy</span>
-                )}
-              </dd>
-            </React.Fragment>
-          );
-        })}
-      </dl>
-      {!inspection.signals.confidence && (
-        <p className="mt-3 text-xs text-muted">
-          Không có độ tin cậy thì các kiểm tra dựa trên điểm số sẽ không chạy; các kiểm tra hình học
-          và nhãn vẫn chạy.
+    <FieldHelp
+      className="rounded-lg border border-line bg-slate-50 p-4 text-sm"
+      help={
+        <>
+          <p>Tìm ở mọi tầng của từng nhãn (tối đa 4 tầng); trường gần nhãn nhất được dùng.</p>
+          {!inspection.signals.confidence && (
+            <p>
+              Không có độ tin cậy thì các kiểm tra dựa trên điểm số sẽ không chạy; các kiểm tra hình
+              học và nhãn vẫn chạy.
+            </p>
+          )}
+        </>
+      }
+    >
+      <div data-testid="signals">
+        <p className="eyebrow mb-3">
+          Trường nhận diện được
+          <HelpButton />
         </p>
-      )}
-    </div>
+        <dl className="grid gap-x-4 gap-y-2 sm:grid-cols-[auto_1fr]">
+          {SIGNALS.map(([kind, label]) => {
+            const found = inspection.signals[kind];
+            if (kind === 'env_risk' && !found && !table) return null;
+            return (
+              <React.Fragment key={kind}>
+                <dt className="text-muted">{label}</dt>
+                <dd className="min-w-0 break-words">
+                  {found ? (
+                    <>
+                      <code className="rounded bg-accent/10 px-1.5 py-0.5 text-xs text-accent">
+                        {found.path}
+                      </code>
+                      <span className="ml-2 text-xs text-muted">
+                        {found.count}/{found.of}
+                      </span>
+                    </>
+                  ) : kind === 'env_risk' ? (
+                    <span className="text-muted">Lấy từ CSV thông tin ảnh</span>
+                  ) : (
+                    <span className="text-muted">Không tìm thấy</span>
+                  )}
+                </dd>
+              </React.Fragment>
+            );
+          })}
+        </dl>
+      </div>
+    </FieldHelp>
   );
 }
 
@@ -94,7 +120,7 @@ export function ImportForm({
     [guidelineFile, setGuidelineFile] = useState<File | null>(null),
     [guidelineText, setGuidelineText] = useState('');
   const reviewed = useRef<{ result: GuidelineExtraction; choices: Choices } | null>(null);
-  const [annotation, setAnnotation] = useState<File | null>(null),
+  const [annotations, setAnnotations] = useState<File[]>([]),
     [metadata, setMetadata] = useState<File | null>(null),
     [media, setMedia] = useState<File[]>([]),
     [busy, setBusy] = useState(false),
@@ -120,14 +146,32 @@ export function ImportForm({
     return () => window.removeEventListener('beforeunload', warn);
   }, [busy]);
   const latest = useRef(0);
-  async function chooseAnnotation(file: File | null) {
-    setAnnotation(file);
-    setInspection(null);
+  // What the picked annotation files hold, by format. A per-image format is many files and a
+  // folder may hold more than one set, so the set matching the chosen format is the one
+  // uploaded; with no such set the first one is shown so the mismatch can be pointed out.
+  const [picked, setPicked] = useState<{ files: File[]; candidates: Candidate[] } | null>(null);
+  async function chooseAnnotation(files: File[]) {
+    setPicked(null);
+    setError('');
     const turn = ++latest.current;
-    if (!file || file.size > LIMITS.annotation) return;
-    const found = inspectAnnotation(file.name, await file.text());
-    if (mounted.current && turn === latest.current) setInspection(found);
+    if (!files.length) return;
+    if (files.reduce((n, f) => n + f.size, 0) > LIMITS.annotation)
+      return setError('Các tệp nhãn tối đa 10 MB tổng cộng.');
+    const sources = await Promise.all(
+      files.map(async (f) => ({ name: f.webkitRelativePath || f.name, text: await f.text() })),
+    );
+    if (!mounted.current || turn !== latest.current) return;
+    const { candidates, problem } = inspectSources(sources);
+    if (!candidates.length)
+      return setError(problem ?? 'Không nhận ra định dạng của tệp nhãn đã chọn.');
+    setPicked({ files, candidates });
   }
+  useEffect(() => {
+    const found = picked?.candidates.find((c) => c.format === format) ?? picked?.candidates[0];
+    const kept = new Set(found?.files.map((f) => f.name));
+    setInspection(found?.inspection ?? null);
+    setAnnotations(picked?.files.filter((f) => kept.has(f.webkitRelativePath || f.name)) ?? []);
+  }, [picked, format]);
   async function chooseArchive(file: File | null, choice?: string) {
     setArchive(file);
     setError('');
@@ -143,6 +187,26 @@ export function ImportForm({
       if (!mounted.current || turn !== latest.current) return;
       setPack(null);
       setError((e as Error).message);
+    } finally {
+      if (mounted.current && turn === latest.current) setReading(false);
+    }
+  }
+  // With an archive the format is first read from the archive itself. Choosing another one
+  // then looks for an annotation set of that format in the same archive, and the choice only
+  // takes effect when the archive has one.
+  async function changeFormat(next: Format) {
+    if (!zipped || !archive) return setFormat(next);
+    setError('');
+    const turn = ++latest.current;
+    setReading(true);
+    try {
+      const found = await readPack(archive, next);
+      if (!mounted.current || turn !== latest.current) return;
+      setPack(found);
+      setFormat(next);
+    } catch {
+      if (mounted.current && turn === latest.current)
+        setError(`Tệp nén này không có tệp nhãn dạng ${FORMATS[next]}.`);
     } finally {
       if (mounted.current && turn === latest.current) setReading(false);
     }
@@ -168,7 +232,7 @@ export function ImportForm({
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
-    if (zipped ? !pack : !annotation || !media.length) {
+    if (zipped ? !pack : !annotations.length || !media.length) {
       setError(
         zipped
           ? 'Chọn tệp nén chứa tệp nhãn và ảnh.'
@@ -181,14 +245,15 @@ export function ImportForm({
       return;
     }
     const sizes = zipped ? pack!.images.map((i) => i.entry.size) : media.map((f) => f.size),
-      chosen = zipped ? pack!.annotation : annotation!,
+      chosen = zipped ? pack!.annotations : annotations,
+      chosenBytes = chosen.reduce((n, f) => n + f.size, 0),
       table = zipped ? pack!.metadata : metadata;
     if (
-      chosen.size > LIMITS.annotation ||
+      chosenBytes > LIMITS.annotation ||
       (table?.size ?? 0) > LIMITS.annotation ||
       sizes.length > LIMITS.images ||
       sizes.some((n) => n > LIMITS.image) ||
-      chosen.size + sizes.reduce((n, size) => n + size, 0) > LIMITS.total
+      chosenBytes + sizes.reduce((n, size) => n + size, 0) > LIMITS.total
     ) {
       setError('Vượt giới hạn: annotation 10 MB; mỗi ảnh 20 MB; tổng 200 MB; tối đa 1000 ảnh.');
       return;
@@ -225,7 +290,7 @@ export function ImportForm({
       }
       const form = new FormData();
       await request('/auth/me');
-      form.append('annotation', chosen);
+      for (const f of chosen) form.append('annotation', f, f.webkitRelativePath || f.name);
       if (table) form.append('metadata', table);
       if (ownGuideline) {
         const inPack = zipped && !guidelineFile && !pasted ? pack!.guideline : null;
@@ -309,7 +374,11 @@ export function ImportForm({
     }
   }
   return (
-    <form onSubmit={submit} aria-busy={busy} className="panel max-w-3xl p-6 lg:p-8">
+    <form
+      onSubmit={submit}
+      aria-busy={busy}
+      className="panel max-w-3xl overflow-visible p-6 lg:p-8"
+    >
       <fieldset disabled={busy} className="space-y-6">
         {!project && (
           <>
@@ -338,8 +407,19 @@ export function ImportForm({
             </label>
           </>
         )}
-        <div>
-          <p className="mb-2 text-sm">Nguồn dữ liệu</p>
+        <FieldHelp
+          help={
+            <p>
+              {zipped
+                ? 'Một tệp .zip chứa tệp nhãn, ảnh và (nếu có) CSV thông tin ảnh, guideline. Tệp được mở ngay trên trình duyệt; máy chủ chỉ nhận từng tệp bên trong.'
+                : 'Chọn riêng tệp nhãn, ảnh và (nếu có) CSV thông tin ảnh.'}
+            </p>
+          }
+        >
+          <p className="mb-2 text-sm">
+            Nguồn dữ liệu
+            <HelpButton />
+          </p>
           {/* Multiple-selection mode keeps these as pressed buttons; one stays selected. */}
           <ToggleButtonGroup
             selectionMode="multiple"
@@ -354,43 +434,43 @@ export function ImportForm({
             <ToggleButton id="files">Tệp rời</ToggleButton>
             <ToggleButton id="zip">Tệp nén (.zip)</ToggleButton>
           </ToggleButtonGroup>
-          <p className="mt-2 text-xs text-muted">
-            {zipped
-              ? 'Một tệp .zip chứa tệp nhãn, ảnh và (nếu có) CSV thông tin ảnh, guideline. Tệp được mở ngay trên trình duyệt; máy chủ chỉ nhận từng tệp bên trong.'
-              : 'Chọn riêng tệp nhãn, ảnh và (nếu có) CSV thông tin ảnh.'}
-          </p>
-        </div>
-        <label className="block text-sm">
-          {hint('Annotation Format')}
-          <select
-            aria-label={hint('Annotation Format')}
-            className="field mt-2"
-            disabled={!!idRef.current || zipped}
-            value={format}
-            onChange={(e) => setFormat(e.target.value as Format)}
-          >
-            <option value="cvat-images">{FORMATS['cvat-images']}</option>
-            <option value="coco-detection">{FORMATS['coco-detection']}</option>
-            <option value="smartreview-json">{hint(FORMATS['smartreview-json'])}</option>
-          </select>
-          {zipped && (
-            <span className="mt-1 block text-xs text-muted">
-              Tự nhận diện từ tệp nhãn trong tệp nén.
-            </span>
-          )}
-        </label>
-        {format === 'coco-detection' && (
-          <p className="text-sm text-muted">
-            Chọn COCO JSON chứa images, categories, annotations và bbox [x, y, width, height], cùng
-            tất cả ảnh được khai báo. Chỉ kiểm tra bbox; segmentation/keypoints được giữ trong
-            metadata, không dùng để kiểm tra. Không nhận COCO prediction hoặc panoptic.
-          </p>
-        )}
-        <p className="text-sm leading-6 text-muted">
-          {hint(
-            'Dataset đã có annotation, không cần chạy model. Hỗ trợ ảnh PNG, JPEG, WebP, GIF; box, polygon và polyline từ CVAT images. Video/SVG và CVAT tracks chưa được hỗ trợ qua upload.',
-          )}
-        </p>
+        </FieldHelp>
+        <FieldHelp
+          help={
+            <>
+              <p>
+                {hint(
+                  'Dataset đã có annotation, không cần chạy model. Nhận các định dạng CVAT xuất ra có box, polygon hoặc polyline; ảnh PNG, JPEG, WebP, GIF. Chưa nhận mask, keypoint, cuboid và tệp video.',
+                )}
+              </p>
+              <p>{FORMAT_NOTES[format]}</p>
+              {zipped && (
+                <p>
+                  Khi chọn tệp nén, định dạng được tự nhận diện từ tệp nhãn bên trong. Đổi ở đây nếu
+                  tệp nén có nhiều bộ nhãn và bạn muốn dùng bộ khác.
+                </p>
+              )}
+            </>
+          }
+        >
+          <label className="block text-sm">
+            {hint('Annotation Format')}
+            <HelpButton />
+            <select
+              aria-label={hint('Annotation Format')}
+              className="field mt-2"
+              disabled={!!idRef.current || reading}
+              value={format}
+              onChange={(e) => changeFormat(e.target.value as Format)}
+            >
+              {FORMAT_IDS.map((id) => (
+                <option key={id} value={id}>
+                  {hint(FORMATS[id])}
+                </option>
+              ))}
+            </select>
+          </label>
+        </FieldHelp>
         {zipped ? (
           <>
             <label className="block text-sm">
@@ -422,17 +502,17 @@ export function ImportForm({
                       <select
                         aria-label="Tệp nhãn trong tệp nén"
                         className="field"
-                        value={
-                          pack.alternatives.find((n) => n === pack.chosen) ?? pack.alternatives[0]
-                        }
+                        value={pack.chosen.key}
                         onChange={(e) => chooseArchive(archive, e.target.value)}
                       >
-                        {pack.alternatives.map((n) => (
-                          <option key={n}>{n}</option>
+                        {pack.alternatives.map((c) => (
+                          <option key={c.key} value={c.key}>
+                            {c.label}
+                          </option>
                         ))}
                       </select>
                     ) : (
-                      pack.chosen
+                      pack.chosen.label
                     )}
                     <span className="mt-1 block text-xs text-muted">
                       {FORMATS[pack.inspection.format]} · {pack.inspection.annotations} nhãn
@@ -483,9 +563,15 @@ export function ImportForm({
                 aria-label={hint('Annotation File')}
                 className="field mt-2"
                 type="file"
-                accept={format === 'cvat-images' ? '.xml' : '.json'}
-                onChange={(e) => chooseAnnotation(e.target.files?.[0] ?? null)}
+                multiple={FORMAT_INFO[format].multiple}
+                accept={FORMAT_INFO[format].extensions.join(',')}
+                onChange={(e) => chooseAnnotation([...(e.target.files ?? [])])}
               />
+              {FORMAT_INFO[format].multiple && (
+                <span className="mt-1 block text-xs text-muted" data-testid="annotation-count">
+                  Đã chọn {annotations.length} tệp nhãn
+                </span>
+              )}
             </label>
             {inspection && inspection.format !== format && !idRef.current && (
               <p className="text-sm text-amber-700">
@@ -499,30 +585,39 @@ export function ImportForm({
                 </button>
               </p>
             )}
-            <label className="block text-sm">
-              {hint('Image metadata CSV (optional)')}
-              <input
-                aria-label={hint('Image metadata CSV (optional)')}
-                className="field mt-2"
-                type="file"
-                accept=".csv"
-                onChange={(e) => setMetadata(e.target.files?.[0] || null)}
-              />
-              <span className="mt-1 block text-xs text-muted">
-                File như images.csv: mỗi ảnh một dòng, có cột file_name và env_risk (0–1).
-              </span>
-            </label>
-            <label className="block text-sm">
-              {hint('Media images')}
-              <input
-                aria-label={hint('Media images')}
-                className="field mt-2"
-                type="file"
-                multiple
-                accept={IMAGE_TYPES.join(',')}
-                onChange={(e) => setMedia([...(e.target.files ?? [])])}
-              />
-            </label>
+            <FieldHelp
+              help={
+                <p>File như images.csv: mỗi ảnh một dòng, có cột file_name và env_risk (0–1).</p>
+              }
+            >
+              <label className="block text-sm">
+                {hint('Image metadata CSV (optional)')}
+                <HelpButton />
+                <input
+                  aria-label={hint('Image metadata CSV (optional)')}
+                  className="field mt-2"
+                  type="file"
+                  accept=".csv"
+                  onChange={(e) => setMetadata(e.target.files?.[0] || null)}
+                />
+              </label>
+            </FieldHelp>
+            <FieldHelp
+              help={<p>Tối đa 1000 ảnh / 200 MB tổng; 20 MB mỗi ảnh; annotation 10 MB.</p>}
+            >
+              <label className="block text-sm">
+                {hint('Media images')}
+                <HelpButton />
+                <input
+                  aria-label={hint('Media images')}
+                  className="field mt-2"
+                  type="file"
+                  multiple
+                  accept={IMAGE_TYPES.join(',')}
+                  onChange={(e) => setMedia([...(e.target.files ?? [])])}
+                />
+              </label>
+            </FieldHelp>
             <details className="text-sm text-muted">
               <summary className="cursor-pointer">{hint('Dataset có thư mục ảnh con?')}</summary>
               <p className="my-3">
@@ -538,9 +633,8 @@ export function ImportForm({
                 onChange={(e) => setMedia([...(e.target.files ?? [])])}
               />
             </details>
-            <p className="text-xs text-muted">
-              Đã chọn {media.length}
-              {hint(' ảnh · tối đa 1000 ảnh / 200 MB tổng; 20 MB mỗi ảnh; annotation 10 MB.')}
+            <p className="text-xs text-muted" data-testid="media-count">
+              Đã chọn {media.length} ảnh
             </p>
           </>
         )}
@@ -548,21 +642,38 @@ export function ImportForm({
           <SignalReport inspection={shown} table={!!(zipped ? pack?.metadata : metadata)} />
         )}
         <div className="rounded-lg border border-line p-4">
-          <label className="flex cursor-pointer items-start gap-3 text-sm">
-            <input
-              type="checkbox"
-              className="mt-0.5 size-4 accent-teal-600"
-              checked={ownGuideline}
-              onChange={(e) => setOwnGuideline(e.target.checked)}
-            />
-            <span>
-              <span className="font-semibold">Thêm Guideline / Policy mới</span>
-              <span className="mt-1 block text-xs text-muted">
-                Chỉ đánh dấu khi dataset này có quy định gán nhãn riêng. Guideline quyết định các
-                kiểm tra policy được hiểu thế nào, nên mặc định để trống và dùng policy có sẵn.
-              </span>
-            </span>
-          </label>
+          {/* The help belongs to the heading only: wrapped around the whole block it opened
+              below everything and came up while the guideline text was being typed. */}
+          <FieldHelp
+            className="-mr-4 pr-4"
+            help={
+              <>
+                <p>
+                  Chỉ đánh dấu khi dataset này có quy định gán nhãn riêng. Guideline quyết định các
+                  kiểm tra policy được hiểu thế nào, nên mặc định để trống và dùng policy có sẵn.
+                </p>
+                <p>Markdown, TXT, DOCX, PDF hoặc JSON · tối đa 10 MB.</p>
+                <p>
+                  Guideline được lưu kèm dự án. Chỉ lựa chọn "Theo guideline" ở quy tắc Nới hơn làm
+                  đổi cách chấm: check tương ứng được tắt cho các lớp của quy tắc đó. Quy tắc Mới và
+                  Chặt hơn mới được ghi lại, chưa chạy. Không chọn gì thì chấm theo policy có sẵn.
+                </p>
+              </>
+            }
+          >
+            <div className="flex items-center text-sm">
+              <label className="flex cursor-pointer items-center gap-3">
+                <input
+                  type="checkbox"
+                  className="size-4 accent-teal-600"
+                  checked={ownGuideline}
+                  onChange={(e) => setOwnGuideline(e.target.checked)}
+                />
+                <span className="font-semibold">Thêm Guideline / Policy mới</span>
+              </label>
+              <HelpButton />
+            </div>
+          </FieldHelp>
           {ownGuideline && (
             <div className="mt-4 space-y-4 border-t border-line pt-4">
               <label className="block text-sm">
@@ -574,12 +685,11 @@ export function ImportForm({
                   accept={GUIDELINE_TYPES.join(',')}
                   onChange={(e) => setGuidelineFile(e.target.files?.[0] ?? null)}
                 />
-                <span className="mt-1 block text-xs text-muted">
-                  Markdown, TXT, DOCX, PDF hoặc JSON · tối đa 10 MB.
-                  {zipped && pack?.guideline && !guidelineFile && !guidelineText.trim()
-                    ? ` Để trống thì dùng ${pack.guideline.name} trong tệp nén.`
-                    : ''}
-                </span>
+                {zipped && pack?.guideline && !guidelineFile && !guidelineText.trim() && (
+                  <span className="mt-1 block text-xs text-muted">
+                    {`Để trống thì dùng ${pack.guideline.name} trong tệp nén.`}
+                  </span>
+                )}
               </label>
               <label className="block text-sm">
                 Hoặc dán nội dung
@@ -611,14 +721,6 @@ export function ImportForm({
                     : undefined
                 }
               />
-              <p className="flex gap-2 rounded-lg bg-amber-500/10 p-3 text-xs leading-5 text-amber-800">
-                <Icon name="alert" className="mt-0.5 size-4 shrink-0" />
-                <span>
-                  Guideline được lưu kèm dự án. Chỉ lựa chọn "Theo guideline" ở quy tắc Nới hơn làm
-                  đổi cách chấm: check tương ứng được tắt cho các lớp của quy tắc đó. Quy tắc Mới và
-                  Chặt hơn mới được ghi lại, chưa chạy. Không chọn gì thì chấm theo policy có sẵn.
-                </span>
-              </p>
             </div>
           )}
         </div>

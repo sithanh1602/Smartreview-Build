@@ -115,6 +115,11 @@
   .sr-button {
     @apply inline-flex min-h-10 items-center justify-center gap-2 rounded-full border border-line bg-panel px-4 py-2 text-sm font-semibold transition hover:border-accent hover:bg-accent/5;
   }
+  /* A locked region (see ProjectLayout): its controls look unavailable, except the one that
+     is busy and shows why. */
+  .page-lock[inert] :is(a, button, input, select, summary):not([data-busy]) {
+    @apply opacity-50;
+  }
   .eyebrow {
     @apply text-[11px] font-semibold tracking-[0.14em] text-muted uppercase;
   }

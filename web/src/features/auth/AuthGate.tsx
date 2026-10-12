@@ -29,7 +29,8 @@ export function AuthGate({ leader = false }: { leader?: boolean }) {
     return <Navigate to="/role" replace />;
   return <Outlet />;
 }
-export function AccountMenu() {
+// `locked`: the page is waiting on something; only signing out stays available.
+export function AccountMenu({ locked = false }: { locked?: boolean }) {
   const { user, logout, workRole } = useAuth();
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState('');
@@ -39,9 +40,11 @@ export function AccountMenu() {
         {user?.username} · {roleLabel[user?.role === 'leader' ? 'leader' : workRole || 'reviewer']}
       </span>
       {user?.role === 'member' && (
-        <Link className="sr-button min-h-8 py-1 text-xs" to="/role">
-          Đổi vai trò
-        </Link>
+        <span className="page-lock" inert={locked}>
+          <Link className="sr-button min-h-8 py-1 text-xs" to="/role">
+            Đổi vai trò
+          </Link>
+        </span>
       )}
       <button
         className="sr-button min-h-8 py-1 text-xs"

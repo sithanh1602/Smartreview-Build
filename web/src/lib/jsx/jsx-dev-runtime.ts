@@ -1,6 +1,6 @@
 // Development twin of ./jsx-runtime.ts.
 import * as runtime from 'react/jsx-dev-runtime';
-import { translateProps } from '../i18n.ts';
+import { translateProps } from './translator.ts';
 
 type CreateDev = (type: unknown, props: Record<string, unknown>, ...rest: unknown[]) => unknown;
 const react = runtime as unknown as { jsxDEV: CreateDev; Fragment: unknown };

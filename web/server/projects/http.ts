@@ -69,8 +69,20 @@ export async function handleProjects(
     return true;
   }
   if (route === '/members') {
+    if (req.method === 'GET') json(res, 200, await projects.members.people(id));
+    else if (req.method === 'POST') {
+      sameOrigin(req);
+      const input = await readJson(req);
+      // A reviewer may bring in annotators; any other addition is the leader's.
+      if (!(role === 'reviewer' && input?.role === 'annotator')) leaderOnly();
+      json(res, 201, await projects.members.add(id, input));
+    } else throw new ReviewError(405, 'Use GET or POST.');
+    return true;
+  }
+  if (route === '/members/candidates') {
     if (req.method !== 'GET') throw new ReviewError(405, 'Use GET.');
-    json(res, 200, await projects.members.people(id));
+    if (role !== 'reviewer') leaderOnly();
+    json(res, 200, await projects.members.candidates(id));
     return true;
   }
   const member = route.match(/^\/members\/([a-f0-9-]{36})$/);

@@ -1,4 +1,7 @@
 import { locateSignals, parseImageTable, signalOf } from '../../../core/importers/signals.ts';
+// The catalog is the part of the importers that runs in a browser; ../index.ts does not.
+import { FORMAT_INFO, PARSERS, detectFormats } from '../../../core/importers/catalog.ts';
+import type { FormatId, SourceFile } from '../../../core/importers/catalog.ts';
 import { readZip } from '../../lib/zip.ts';
 import type { ZipEntry } from '../../lib/zip.ts';
 
@@ -12,7 +15,8 @@ export const LIMITS = {
   images: 1000,
 };
 export const IMAGE_TYPES = ['.jpg', '.jpeg', '.png', '.webp', '.gif'];
-export type Format = 'cvat-images' | 'coco-detection' | 'smartreview-json';
+export const ANNOTATION_TYPES = ['.xml', '.json', '.txt', '.names', '.yaml', '.yml'];
+export type Format = FormatId;
 export type Signal = 'confidence' | 'top2_label' | 'top2_score' | 'env_risk';
 export interface Inspection {
   format: Format;
@@ -131,15 +135,81 @@ export function inspectAnnotation(name: string, text: string): Inspection | null
   };
 }
 
+// A summary for the formats without a hand-written one above: the importer itself reads the
+// files, with a stand-in for the image sizes it would take from the uploaded images.
+function summarize(format: Format, files: SourceFile[]): Inspection {
+  const data = PARSERS[format]!(files, { sizes: () => ({ width: 1, height: 1 }) });
+  const sample = data.annotations.slice(0, SAMPLE);
+  const found = tally(
+    sample.map((a) => a.attributes ?? null),
+    'attributes.',
+  );
+  for (const a of sample) if (typeof a.confidence === 'number') found.confidence.add('confidence');
+  return {
+    format,
+    images: data.frames.map((f) => (f.image ?? '').replace(/^images\//, '')).filter(Boolean),
+    annotations: data.annotations.length,
+    sampled: sample.length,
+    signals: {
+      confidence: found.confidence.result(sample.length),
+      top2_label: found.top2_label.result(sample.length),
+      top2_score: found.top2_score.result(sample.length),
+    },
+  };
+}
+
+// One annotation set found among some files: a single file, or all the files of a per-image
+// format.
+export interface Candidate {
+  key: string;
+  label: string;
+  format: Format;
+  files: SourceFile[];
+  inspection: Inspection;
+}
+const OWN_SUMMARY: Format[] = ['cvat-images', 'coco-detection', 'smartreview-json'];
+// `only` keeps the sets of one format. `problem` says why a set that looked right could not
+// be read, for when nothing else is found.
+export function inspectSources(files: SourceFile[], only?: Format) {
+  const candidates: Candidate[] = [];
+  let problem: string | undefined;
+  for (const { format, files: members } of detectFormats(files)) {
+    if (only && format !== only) continue;
+    let inspection: Inspection | null = null;
+    try {
+      inspection = OWN_SUMMARY.includes(format)
+        ? inspectAnnotation(members[0].name, members[0].text)
+        : summarize(format, members);
+    } catch (e) {
+      problem ??= (e as Error).message;
+    }
+    if (!inspection) continue;
+    candidates.push({
+      key: `${format}:${members[0].name}`,
+      label:
+        members.length === 1
+          ? members[0].name
+          : `${FORMAT_INFO[format].label.split(' · ')[0]} · ${members.length} tệp`,
+      format,
+      files: members,
+      inspection,
+    });
+  }
+  return { candidates, problem };
+}
+
 // Pairs each referenced image with an archive entry by the longest shared path ending, so an
 // archive laid out as data/images/a.jpg still matches a reference to images/a.jpg or a.jpg.
 function pairImages(references: string[], entries: ZipEntry[]) {
   const byBase = new Map<string, ZipEntry[]>();
   const parts = (path: string) => path.split('/').filter(Boolean);
-  for (const entry of entries) {
-    const base = parts(entry.name).pop()!;
-    byBase.set(base, [...(byBase.get(base) ?? []), entry]);
-  }
+  // YOLO, KITTI, MOT and CVAT for video name an image without its extension.
+  const bare = (path: string) =>
+    IMAGE_TYPES.includes(extension(path)) ? path.slice(0, -extension(path).length) : path;
+  const named = (reference: string) => IMAGE_TYPES.includes(extension(reference));
+  for (const entry of entries)
+    for (const base of new Set([parts(entry.name).pop()!, bare(parts(entry.name).pop()!)]))
+      byBase.set(base, [...(byBase.get(base) ?? []), entry]);
   const shared = (a: string[], b: string[]) => {
     let n = 0;
     while (n < a.length && n < b.length && a[a.length - 1 - n] === b[b.length - 1 - n]) n++;
@@ -152,25 +222,32 @@ function pairImages(references: string[], entries: ZipEntry[]) {
     const wanted = parts(name),
       scored = (byBase.get(wanted.at(-1) ?? '') ?? [])
         .filter((e) => !used.has(e))
-        .map((entry) => ({ entry, score: shared(wanted, parts(entry.name)) }))
+        .map((entry) => ({
+          entry,
+          score: shared(wanted, parts(named(name) ? entry.name : bare(entry.name))),
+        }))
         .sort((a, b) => b.score - a.score);
     if (!scored.length || (scored.length > 1 && scored[0].score === scored[1].score))
       missing.push(name);
     else {
       used.add(scored[0].entry);
-      paired.push({ name, entry: scored[0].entry });
+      // The upload carries the extension the server needs to recognise the image.
+      paired.push({
+        name: named(name) ? name : name + extension(scored[0].entry.name),
+        entry: scored[0].entry,
+      });
     }
   }
   return { paired, missing, unused: entries.length - used.size };
 }
 
 export interface Pack {
-  annotation: File;
-  // Path of the annotation file inside the archive.
-  chosen: string;
+  // The files of the chosen annotation set, named as the server should receive them.
+  annotations: File[];
+  // The chosen set and every set the archive holds, to pick another one.
+  chosen: Candidate;
   inspection: Inspection;
-  // Other annotation files in the archive that could have been used instead.
-  alternatives: string[];
+  alternatives: Candidate[];
   metadata: File | null;
   guideline: ZipEntry | null;
   images: { name: string; entry: ZipEntry }[];
@@ -190,23 +267,26 @@ export async function readPack(file: File, format?: Format, choice?: string): Pr
   const all = await readZip(file),
     entries = all.filter((e) => !hidden(e.name)).sort((a, b) => depth(a.name) - depth(b.name));
   const text = async (entry: ZipEntry) => (await entry.blob()).text();
-  const candidates: { entry: ZipEntry; content: string; inspection: Inspection }[] = [];
+  // Every text file that could belong to an annotation set, within a budget.
+  let budget = 4 * LIMITS.annotation;
+  const sources: SourceFile[] = [];
   for (const entry of entries) {
-    if (!['.xml', '.json'].includes(extension(entry.name)) || entry.size > LIMITS.annotation)
+    if (!ANNOTATION_TYPES.includes(extension(entry.name)) || entry.size > LIMITS.annotation)
       continue;
-    const content = await text(entry),
-      inspection = inspectAnnotation(entry.name, content);
-    if (inspection && (!format || inspection.format === format))
-      candidates.push({ entry, content, inspection });
+    if ((budget -= entry.size) < 0) break;
+    sources.push({ name: entry.name, text: await text(entry) });
   }
+  const { candidates, problem } = inspectSources(sources, format);
   if (!candidates.length)
     throw new Error(
-      format
-        ? 'Tệp nén không có tệp nhãn đúng định dạng của dự án.'
-        : 'Tệp nén không có tệp nhãn CVAT XML, COCO JSON hoặc SmartReview JSON.',
+      problem ??
+        (format
+          ? 'Tệp nén không có tệp nhãn đúng định dạng của dự án.'
+          : 'Tệp nén không có tệp nhãn thuộc định dạng được hỗ trợ.'),
     );
-  const chosen = candidates.find((c) => c.entry.name === choice) ?? candidates[0];
+  const chosen = candidates.find((c) => c.key === choice) ?? candidates[0];
   const { inspection } = chosen;
+  const inSet = new Set(chosen.files.map((f) => f.name));
   let metadata: File | null = null;
   for (const entry of entries) {
     if (extension(entry.name) !== '.csv' || entry.size > LIMITS.annotation) continue;
@@ -224,19 +304,22 @@ export async function readPack(file: File, format?: Format, choice?: string): Pr
   const guideline =
     entries.find(
       (e) =>
-        e !== chosen.entry &&
+        !inSet.has(e.name) &&
         ['.md', '.markdown', '.txt', '.docx', '.pdf'].includes(extension(e.name)) &&
         GUIDELINE.test(e.name.split('/').pop()!) &&
         e.size <= LIMITS.annotation,
     ) ?? null;
   return {
-    annotation: new File(
-      [chosen.content],
-      inspection.format === 'cvat-images' ? 'annotations.xml' : 'annotations.json',
+    annotations: chosen.files.map(
+      (f) =>
+        new File(
+          [f.text],
+          FORMAT_INFO[chosen.format].multiple ? f.name : 'annotations' + extension(f.name),
+        ),
     ),
-    chosen: chosen.entry.name,
+    chosen,
     inspection,
-    alternatives: candidates.map((c) => c.entry.name),
+    alternatives: candidates,
     metadata,
     guideline,
     images: paired,
