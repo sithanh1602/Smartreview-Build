@@ -16,11 +16,16 @@ export function ReviewDecisionForm({
   item,
   onNext,
   compact = false,
+  locked = false,
+  finish,
 }: {
   item: Case;
   onNext?: () => void;
   // The dock over the image: decisions and save on one row, the note kept but not shown.
   compact?: boolean;
+  // The review was sent to annotators: the saved decision is shown and nothing can be changed.
+  locked?: boolean;
+  finish?: React.ReactNode;
 }) {
   const { data, saveDecision, refreshReviews, projectId } = useLoadedDataset();
   const [existing, setExisting] = useState<Review | null>(data.reviews[item.id] || null);
@@ -63,9 +68,11 @@ export function ReviewDecisionForm({
     }
   }
   async function saveAndNext() {
-    if (saving || !form.current?.reportValidity()) return;
+    if (locked || saving || !form.current?.reportValidity()) return;
     if ((await save()) && onNext) onNext();
   }
+  const lock = useRef(locked);
+  lock.current = locked;
   const shortcut = useRef(saveAndNext);
   shortcut.current = saveAndNext;
   useEffect(() => {
@@ -81,7 +88,8 @@ export function ReviewDecisionForm({
         (target instanceof HTMLInputElement && target.type !== 'radio') ||
         target.isContentEditable;
       const key = decisionKeys[Number(e.key) - 1];
-      if (key && !typing && !e.altKey && !e.ctrlKey && !e.metaKey) setDecision(key);
+      if (key && !typing && !e.altKey && !e.ctrlKey && !e.metaKey && !lock.current)
+        setDecision(key);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -115,7 +123,13 @@ export function ReviewDecisionForm({
           : 'shrink-0 border-t border-line p-3 lg:max-h-[62%] lg:overflow-y-auto'
       }
       aria-label={hint('Review decision')}
+      title={locked ? 'Review đã hoàn thành và đã gửi cho Annotator.' : undefined}
     >
+      {locked && (
+        <p className="mb-2 text-[11px] font-semibold text-amber-800">
+          Đã khoá: review đã hoàn thành và đã gửi cho Annotator.
+        </p>
+      )}
       <div
         className={`mb-2 flex-wrap items-baseline justify-between gap-x-2 ${compact ? 'hidden' : 'flex'}`}
       >
@@ -132,6 +146,8 @@ export function ReviewDecisionForm({
       </div>
       <form
         ref={form}
+        inert={locked}
+        className={locked ? 'opacity-60' : undefined}
         onSubmit={(event) => {
           event.preventDefault();
           save();
@@ -242,6 +258,7 @@ export function ReviewDecisionForm({
           </div>
         </fieldset>
       </form>
+      {finish && <div className="mt-2">{finish}</div>}
       {error && (
         <p role="alert" className="mt-2 text-xs leading-5 text-rose-700">
           {error}

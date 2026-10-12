@@ -1,0 +1,310 @@
+{
+  "barrier_policy": {
+    "schema_version": "1.0.0",
+    "label": "barrier",
+    "group": "bonus",
+    "model_drafts": false,
+    "sources": [
+      {
+        "id": "label_policy",
+        "ref": "Build/Policy/label_policy/barrier.md, 00_chung.md"
+      },
+      {
+        "id": "engine",
+        "ref": "SmartReview web/core/risk, engine 4.0.0, policy 2.0.0"
+      }
+    ],
+    "definition": {
+      "summary": "Vật chắn cố định hoặc tạm thời đặt để ngăn phương tiện đi ra khỏi làn hoặc đi vào vùng cấm.",
+      "includes": [
+        "hộ lan thép",
+        "dải phân cách bê tông",
+        "rào chắn công trình",
+        "hàng rào sát mép đường",
+        "thanh chắn tàu, thanh chắn bãi xe",
+        "hàng cọc hoặc nón nối nhau bằng dây hoặc thanh chắn"
+      ],
+      "excludes": [
+        "lề đường và bó vỉa",
+        "tường nhà",
+        "bụi cây, hàng cây",
+        "hàng xe đỗ",
+        "cọc tiêu, nón giao thông đứng lẻ",
+        "hàng rào cách xa mép đường"
+      ],
+      "appearance": "Dải dài, thấp, chạy dọc theo mép đường hoặc giữa hai chiều xe, kéo về phía điểm tụ của ảnh. Trong ảnh thường rộng hơn cao.",
+      "box": "Mỗi đoạn liền nhau nhìn thấy được một box. Đoạn bị một xe che đứt ở giữa thì tách thành hai box.",
+      "special": "Nhãn này không có nhãn nháp và không có confidence. Mô hình không vẽ gì không có nghĩa là không có rào."
+    },
+    "defaults": [
+      {
+        "case": "Cọc tiêu, nón giao thông đứng lẻ",
+        "decision": "không gán"
+      },
+      {
+        "case": "Hàng cọc hoặc nón nối nhau bằng dây hoặc thanh chắn",
+        "decision": "một box barrier"
+      },
+      {
+        "case": "Hàng rào cách mép đường xa (quanh nhà, quanh sân)",
+        "decision": "không gán"
+      },
+      {
+        "case": "Thanh chắn tàu, thanh chắn bãi xe",
+        "decision": "có gán"
+      },
+      {
+        "case": "Dải phân cách chỉ là bồn cây thấp",
+        "decision": "không gán"
+      }
+    ],
+    "confusable_with": [
+      {
+        "label": "pole",
+        "when": "cọc đứng"
+      },
+      {
+        "label": null,
+        "when": "lề đường cao, tường thấp"
+      }
+    ],
+    "attributes": [
+      {
+        "name": "occluded",
+        "required": false,
+        "values": [true, false],
+        "when_absent": "skip",
+        "note": "Chưa có số đo cho nhãn này."
+      },
+      {
+        "name": "truncated",
+        "required": false,
+        "values": [true, false],
+        "when_absent": "skip",
+        "note": "Chưa có số đo cho nhãn này."
+      },
+      {
+        "name": "occlusion_pct",
+        "required": false,
+        "values": "0–100",
+        "when_absent": "skip",
+        "note": "Một số bộ dữ liệu ghi phần trăm bị che thay cho giá trị đúng/sai. Khi có, đây là nguồn tốt nhất cho visibility."
+      }
+    ],
+    "levels": [
+      {
+        "id": "ignore",
+        "meaning": "Box không được đánh giá: không đúng, không sai, không vào danh sách nào."
+      },
+      {
+        "id": "warning",
+        "meaning": "Cảnh báo: có trong danh sách xem thêm, người duyệt có thể xem hoặc bỏ qua. Không chặn ảnh khỏi tự chấp nhận và không tính vào hàng đợi chính."
+      },
+      {
+        "id": "queue",
+        "meaning": "Vào hàng đợi review khi tổng điểm từ 30."
+      },
+      {
+        "id": "high",
+        "meaning": "Mức cao khi tổng điểm từ 70."
+      }
+    ],
+    "rules": [
+      {
+        "id": "barrier.min_side",
+        "status": "active",
+        "check": null,
+        "engine_note": "Không phải một check: engine xếp box vào trạng thái ignored (lý do bỏ qua below_minimum). label_policy gọi là size.below_minimum.",
+        "template": "min_size",
+        "params": {
+          "side": "long",
+          "px": 32,
+          "action": "ignore"
+        },
+        "text": "Box barrier có cạnh dài dưới 32 px không được đánh giá: không đúng, không sai.",
+        "principle": "N8",
+        "source": "label_policy",
+        "examples": ["BARRIER-7"]
+      },
+      {
+        "id": "barrier.box_not_positive",
+        "status": "active",
+        "check": "geometry.bbox_validity",
+        "template": "valid_box",
+        "params": {
+          "require": "positive_size"
+        },
+        "applies_to": "any",
+        "score": 70,
+        "error_type": "BBOX",
+        "text": "Box có chiều rộng hoặc chiều cao không dương.",
+        "principle": null,
+        "source": "engine"
+      },
+      {
+        "id": "barrier.box_outside_image",
+        "status": "active",
+        "check": "geometry.bbox_validity",
+        "template": "valid_box",
+        "params": {
+          "require": "inside_image",
+          "tolerance_px": 0.1
+        },
+        "applies_to": "any",
+        "score": 40,
+        "error_type": "BBOX",
+        "text": "Box vượt ra ngoài giới hạn ảnh.",
+        "principle": null,
+        "source": "engine"
+      },
+      {
+        "id": "barrier.duplicate_hand_drawn",
+        "status": "active",
+        "check": "geometry.manual_overlap",
+        "template": "forbidden_overlap",
+        "params": {
+          "with": "same",
+          "iou": 0.5,
+          "flag": "later"
+        },
+        "applies_to": "human",
+        "score": 30,
+        "error_type": "EXTRA_OBJECT",
+        "text": "Hai box barrier vẽ tay chồng nhau quá nửa: box vẽ sau bị gắn cờ.",
+        "principle": "N3",
+        "source": "label_policy",
+        "examples": ["BARRIER-5"]
+      },
+      {
+        "id": "barrier.upright",
+        "status": "active",
+        "check": "geometry.barrier_aspect",
+        "template": "aspect_ratio",
+        "params": {
+          "max": 1.5
+        },
+        "applies_to": "any",
+        "score": 20,
+        "error_type": "CLASS",
+        "text": "Box rào chắn cao hẳn hơn rộng (tỉ lệ cao/rộng trên 1,5): thường là cọc, cột hoặc nón bị gán nhầm tên.",
+        "exceptions": ["Rào chắn nhìn thẳng từ đầu có thể cao hơn rộng."],
+        "principle": "N2",
+        "examples": ["BARRIER-4"],
+        "note": "Điểm dưới ngưỡng vào hàng đợi (30).",
+        "source": "label_policy"
+      },
+      {
+        "id": "barrier.spans_vehicle",
+        "status": "active",
+        "check": "context.barrier_spans_vehicle",
+        "template": "builtin",
+        "params": {
+          "check": "context.barrier_spans_vehicle",
+          "vehicles": ["car", "truck", "bus", "motorcycle", "bicycle"],
+          "vehicle_strictly_between_ends": true,
+          "min_vertical_overlap_over_barrier_height": 0.8
+        },
+        "applies_to": "any",
+        "score": 30,
+        "error_type": "BBOX",
+        "text": "Một box xe nằm cắt ngang phần giữa của box rào chắn: rào bị xe che đứt phải tách thành hai box.",
+        "exceptions": ["Xe đứng trước rào mà không che hết chiều cao rào."],
+        "principle": "N3",
+        "examples": ["BARRIER-2", "BARRIER-3"],
+        "note": "BARRIER-3 không bị gắn cờ: xe chỉ che dưới 80% chiều cao rào.",
+        "source": "label_policy"
+      },
+      {
+        "id": "barrier.one_box_per_segment",
+        "status": "manual",
+        "template": "manual",
+        "text": "Mỗi đoạn rào liền nhau nhìn thấy được một box; đoạn bị xe che đứt ở giữa thì tách thành hai box.",
+        "examples": ["BARRIER-1", "BARRIER-2"],
+        "note": "Phần bắt được bằng số: barrier.spans_vehicle.",
+        "source": "label_policy"
+      },
+      {
+        "id": "barrier.curb_not_labelled",
+        "status": "manual",
+        "template": "manual",
+        "text": "Không gán lề đường và bó vỉa.",
+        "examples": ["BARRIER-6"],
+        "note": "BARRIER-6 là trường hợp lọt lưới: bó vỉa dài và thấp như rào nên không tín hiệu số nào bật.",
+        "source": "label_policy"
+      },
+      {
+        "id": "barrier.wall_plants_parked_cars_not_labelled",
+        "status": "manual",
+        "template": "manual",
+        "text": "Không gán tường nhà, bụi cây, hàng cây, hàng xe đỗ.",
+        "source": "label_policy"
+      },
+      {
+        "id": "barrier.lone_post_or_cone_not_labelled",
+        "status": "manual",
+        "template": "manual",
+        "text": "Không gán cọc tiêu, nón giao thông đứng lẻ. Hàng cọc hoặc nón nối nhau bằng dây hoặc thanh chắn: một box barrier.",
+        "examples": ["BARRIER-4"],
+        "source": "label_policy"
+      },
+      {
+        "id": "barrier.far_fence_not_labelled",
+        "status": "manual",
+        "template": "manual",
+        "text": "Không gán hàng rào cách xa mép đường (quanh nhà, quanh sân) và dải phân cách chỉ là bồn cây thấp.",
+        "source": "label_policy"
+      },
+      {
+        "id": "barrier.boom_gate_is_labelled",
+        "status": "manual",
+        "template": "manual",
+        "text": "Thanh chắn tàu, thanh chắn bãi xe vẫn gán.",
+        "source": "label_policy"
+      },
+      {
+        "id": "barrier.occlusion_attributes_valid",
+        "status": "active",
+        "check": "attribute.required",
+        "template": "required_attribute",
+        "params": {
+          "names": ["occluded", "truncated"],
+          "values": [true, false],
+          "only_when_dataset_has_them": true
+        },
+        "applies_to": "any",
+        "score": 30,
+        "error_type": "ATTRIBUTE",
+        "text": "Bộ dữ liệu có attribute occluded hoặc truncated thì mọi box barrier phải mang giá trị đúng/sai cho attribute đó.",
+        "source": "yêu cầu của chủ dự án, 2026-10-10",
+        "note": "Bộ dữ liệu không có attribute này thì luật không chạy. Điểm 30 là đánh giá, chưa có số đo."
+      },
+      {
+        "id": "barrier.truncated_matches_edge",
+        "status": "active",
+        "check": "attribute.truncated_edge",
+        "template": "attribute_matches_edge",
+        "text": "Box chạm mép ảnh thì truncated phải là true; box không chạm mép thì truncated phải là false.",
+        "source": "số đo",
+        "note": "Chỉ chạy trên box mang attribute truncated dạng đúng/sai. Điểm 10 là đánh giá, chưa có số đo: một mình nó không đưa box vào hàng đợi.",
+        "params": {
+          "attribute": "truncated",
+          "edge_px": 2
+        },
+        "applies_to": "any",
+        "score": 10,
+        "error_type": "ATTRIBUTE"
+      }
+    ],
+    "scoring": {
+      "weak_family": "Các luật có family = weak (low_confidence, edge_sliver, weak_in_poor_image) cùng mô tả một box yếu: chỉ tính một lần, lấy điểm cao nhất. Các luật khác cộng dồn, tối đa 100.",
+      "queue_from": 30,
+      "severe_from_side_px": 32
+    },
+    "frame_rules": [],
+    "open_questions": [
+      "Chưa có số đo nào cho nhãn này: bộ ảnh đã đo không có nhãn đúng và mô hình không sinh box nháp. Mọi ngưỡng lấy từ engine và label_policy, nơi chúng được ghi là giá trị minh hoạ.",
+      "Nhãn này không có confidence, nên các luật về độ tin cậy và ảnh xấu không chạy. Chất lượng chỉ kiểm được bằng luật hình học và bằng cách cho hai người vẽ độc lập rồi so.",
+      "Mô hình không vẽ gì không có nghĩa là không có vật; file này không có luật nào bắt vật bị sót."
+    ]
+  }
+}

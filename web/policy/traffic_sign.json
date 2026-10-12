@@ -326,14 +326,14 @@
         "check": "context.sign_in_vehicle",
         "template": "forbidden_inside",
         "params": {
-          "container": ["car", "truck", "bus", "motorcycle"],
+          "container": ["car", "truck", "bus", "two_wheeler"],
           "containment": 0.9,
           "not_duplicate_iou": 0.8
         },
         "applies_to": "model",
         "score": 30,
         "error_type": "EXTRA_OBJECT",
-        "text": "Box biển báo do mô hình sinh ra nằm trọn trong box của một car, truck, bus hoặc motorcycle: thường là đèn hậu đỏ, logo hoặc hình in trên xe.",
+        "text": "Box biển báo do mô hình sinh ra nằm trọn trong box của một car, truck, bus hoặc two_wheeler: thường là đèn hậu đỏ, logo hoặc hình in trên xe.",
         "exceptions": ["Biển thật ở xa phía sau một xe lớn lọt vào box xe đó."],
         "principle": "N4",
         "examples": ["SIGN-2", "SIGN-3"],

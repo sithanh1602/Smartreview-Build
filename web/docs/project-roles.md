@@ -20,6 +20,8 @@ Thay đổi ngày 2026-10-11. Thay cho mô hình cũ (`reviewer` toàn quyền, 
 | Xem project, ảnh, annotation, danh sách thành viên  | Có     | Có                                                  |
 | Lưu quyết định review, frame review                 | Có     | Có                                                  |
 
+Khi review đã được **Hoàn thành** và gửi cho Annotator thì không ai lưu được quyết định nữa cho tới khi Leader mở lại; xem `docs/review-handoff.md`.
+
 Reviewer và annotator hiện có cùng quyền xem và sửa trong project; khác biệt duy nhất là Reviewer thêm được Annotator. Vai trò được lưu và hiển thị, sẵn để tách quyền khi có công cụ annotation riêng.
 
 ## Database (migration 006, chưa chạy trên DB thật)

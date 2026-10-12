@@ -4,6 +4,7 @@ import { parseArgs } from 'node:util';
 import { importAnnotations } from '../core/importers/index.ts';
 import { analyzeDataset, ENGINE_VERSION, ENGINE_VERSIONS } from '../core/risk/engine.ts';
 import { applyEnvRisk, parseImageTable } from '../core/importers/signals.ts';
+import { mergeLabels } from '../core/risk/policy.ts';
 
 const { values } = parseArgs({
   options: {
@@ -27,6 +28,8 @@ if (!ENGINE_VERSIONS.includes(engineVersion))
 const data = importAnnotations(values.format, await fs.readFile(values.input, 'utf8'), {
   ...(values.id ? { id: values.id } : {}),
 });
+// Only the latest policy merged labels; an older engine keeps the names it was written for.
+if (engineVersion === ENGINE_VERSION) mergeLabels(data);
 if (values.metadata)
   applyEnvRisk(data, parseImageTable(await fs.readFile(values.metadata, 'utf8')));
 const destination = path.resolve(values.out);

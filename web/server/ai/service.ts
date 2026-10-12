@@ -29,7 +29,12 @@ export class AiService {
   results: Map<string, { at: number; state: AiJob | null }>;
   python: string;
   model: string;
-  constructor(projects: ProjectService, options: { python?: string; model?: string } = {}) {
+  // The model was trained on the projects' own classes, so its silence at an annotation counts.
+  fineTuned: boolean;
+  constructor(
+    projects: ProjectService,
+    options: { python?: string; model?: string; fineTuned?: boolean } = {},
+  ) {
     this.projects = projects;
     this.jobs = new Map();
     this.active = false;
@@ -42,6 +47,8 @@ export class AiService {
       options.model ||
       process.env.SMARTREVIEW_AI_MODEL ||
       path.join(projectRoot, 'ai-service/yolo11n.pt');
+    this.fineTuned =
+      options.fineTuned ?? /^(1|true|yes)$/i.test(process.env.SMARTREVIEW_AI_FINETUNED || '');
   }
   directory(id: string) {
     return path.join(this.projects.storageRoot, 'projects', id, 'ai');
@@ -233,6 +240,7 @@ export class AiService {
         },
         result.predictions,
         result.labels,
+        { extra: this.fineTuned },
       );
       const observations = new Map(dataset.allCases.map((a) => [a.id, a]));
       const frameById = new Map(dataset.normalized.frames.map((f) => [f.id, f]));
@@ -250,8 +258,8 @@ export class AiService {
           media_name: m?.name,
           width: m?.width,
           height: m?.height,
-          class_name: finding.prediction.label,
-          geometry: finding.prediction.geometry,
+          class_name: finding.prediction!.label,
+          geometry: finding.prediction!.geometry,
           image_url: dataset.assets.has(finding.frame_id)
             ? `/api/projects/${id}/assets/${encodeURIComponent(finding.frame_id)}?dataset=${dataset.meta.dataset_id}`
             : null,
@@ -260,7 +268,7 @@ export class AiService {
       Object.assign(state, {
         status: 'READY',
         finished_at: new Date().toISOString(),
-        model: result.model,
+        model: { ...result.model, fine_tuned: this.fineTuned },
         ...comparison,
         findings: comparison.findings.map((f) => ({
           ...f,

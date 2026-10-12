@@ -5,9 +5,13 @@ import { Link, Navigate, useBlocker, useNavigate, useParams } from 'react-router
 import { request } from '../lib/api';
 import { ui } from '../lib/i18n';
 import { WholeFrameViewer } from '../features/frames/WholeFrameViewer';
+import { useAiCheck } from '../features/ai/useAiCheck';
+import { LabelCheckButton } from '../features/ai/LabelCheckButton';
+import { useProject } from '../features/projects/useProject';
+import { HandoffNotice } from '../features/handoff/CompleteReviewButton';
 import type {
   AiFindingView,
-  AiReport,
+  AiSuggestion,
   BBox,
   FrameDetail,
   FrameList,
@@ -21,6 +25,7 @@ export function FrameReviewPage() {
   return <Workspace key={projectId} projectId={projectId} />;
 }
 type Id = { projectId: string | undefined };
+const NO_FINDINGS: AiFindingView[] = [];
 
 function Workspace({ projectId }: Id) {
   const { frameId } = useParams(),
@@ -30,6 +35,11 @@ function Workspace({ projectId }: Id) {
     [attempt, setAttempt] = useState(0),
     [filter, setFilter] = useState('all'),
     [query, setQuery] = useState('');
+  const ai = useAiCheck(projectId),
+    project = useProject(projectId).data,
+    leader = project?.my_role === 'leader',
+    sent = project?.handoff?.status === 'SENT' ? project.handoff : null;
+  const [aiShown, setAiShown] = useState(true);
   const base = `/projects/${projectId}`;
   useEffect(() => {
     const c = new AbortController();
@@ -57,9 +67,15 @@ function Workspace({ projectId }: Id) {
         )}
       </div>
     );
+  // The latest AI result, by image. A result for an older dataset revision is not shown.
+  const aiByFrame = new Map<string, AiFindingView[]>();
+  if (aiShown && ai.report?.status === 'READY')
+    for (const f of ai.report.findings)
+      aiByFrame.set(f.frame_id, [...(aiByFrame.get(f.frame_id) || []), f]);
   const filtered = data.frames.filter(
     (f) =>
       (filter === 'all' ||
+        (filter === 'ai' && aiByFrame.has(f.id)) ||
         (filter === 'unreviewed' && f.review?.status !== 'REVIEWED') ||
         (filter === 'reviewed' && f.review?.status === 'REVIEWED') ||
         (filter === 'empty' && f.annotation_count === 0) ||
@@ -131,6 +147,7 @@ function Workspace({ projectId }: Id) {
           {error}
         </p>
       )}
+      {sent && <HandoffNotice handoff={sent} className="mb-5" />}
       <div className="grid items-start gap-5 lg:grid-cols-[250px_minmax(0,1fr)]">
         <aside className="panel p-4">
           <label className="block text-sm">
@@ -153,8 +170,25 @@ function Workspace({ projectId }: Id) {
               <option value="reviewed">Đã kiểm tra</option>
               <option value="empty">Chưa có annotation</option>
               <option value="missing">Có vùng thiếu đã lưu</option>
+              {aiByFrame.size > 0 && <option value="ai">Có gợi ý AI</option>}
             </select>
           </label>
+          <LabelCheckButton
+            ai={ai}
+            leader={leader}
+            shown={aiShown}
+            onShown={(shown) => {
+              setAiShown(shown);
+              if (!shown && filter === 'ai') setFilter('all');
+            }}
+            count={aiByFrame.get(frameId ?? '')?.length ?? 0}
+            className="sr-button mt-3 w-full"
+          />
+          {ai.error && (
+            <p role="alert" className="mt-2 text-xs text-rose-700">
+              {ai.error}
+            </p>
+          )}
           <p className="my-3 text-xs text-muted">{filtered.length} ảnh phù hợp</p>
           <div className="max-h-[60vh] overflow-auto">
             {filtered.map((f) => (
@@ -176,6 +210,7 @@ function Workspace({ projectId }: Id) {
                       ? 'Đang kiểm tra'
                       : 'Chưa kiểm tra'}
                   {!f.image_url ? ' · Chưa có ảnh' : ''}
+                  {aiByFrame.has(f.id) ? ` · AI ${aiByFrame.get(f.id)!.length}` : ''}
                 </span>
               </Link>
             ))}
@@ -186,6 +221,8 @@ function Workspace({ projectId }: Id) {
             key={current.id}
             projectId={projectId}
             frameId={current.id}
+            findings={aiByFrame.get(current.id) || NO_FINDINGS}
+            locked={Boolean(sent)}
             onSaved={saved}
             previous={position > 0 ? () => go(filtered[position - 1].id) : null}
             next={
@@ -206,11 +243,17 @@ function Workspace({ projectId }: Id) {
 function FrameEditor({
   projectId,
   frameId,
+  findings,
+  locked,
   onSaved,
   previous,
   next,
 }: Id & {
+  // The review was sent to annotators: the saved result is shown and cannot be changed.
+  locked: boolean;
   frameId: string;
+  // The AI's suggestions for this image; empty while they are hidden or not yet computed.
+  findings: AiFindingView[];
   onSaved: (id: string, review: FrameReview) => void;
   previous: (() => void) | null;
   next: (() => void) | null;
@@ -228,7 +271,6 @@ function FrameEditor({
     [ready, setReady] = useState(false),
     [selected, setSelected] = useState<string | null>(null),
     [attempt, setAttempt] = useState(0),
-    [suggestions, setSuggestions] = useState<AiFindingView[]>([]),
     [handled, setHandled] = useState(() => new Set<string>());
   const dirtyRef = useRef(false);
   dirtyRef.current = dirty;
@@ -261,21 +303,6 @@ function FrameEditor({
       });
     return () => c.abort();
   }, [endpoint, attempt]);
-  useEffect(() => {
-    // Optional: reuse the latest AI Check result. Any failure just means no suggestions.
-    const c = new AbortController();
-    request<AiReport>(`/projects/${projectId}/ai-check`, { signal: c.signal })
-      .then((r) => {
-        if (c.signal.aborted || r?.status !== 'READY') return;
-        setSuggestions(
-          (r.findings || []).filter(
-            (f) => f.check_id === 'ai.missing_annotation' && f.frame_id === frameId,
-          ),
-        );
-      })
-      .catch(() => {});
-    return () => c.abort();
-  }, [projectId, frameId]);
   const changed = () => {
     setDirty(true);
     setMessage('');
@@ -289,7 +316,7 @@ function FrameEditor({
     setDrawing(false);
     changed();
   }
-  function accept(suggestion: AiFindingView) {
+  function accept(suggestion: AiSuggestion) {
     if (!data) return;
     const g = suggestion.prediction.geometry,
       { width, height } = data.frame;
@@ -356,7 +383,11 @@ function FrameEditor({
       </section>
     );
   const selectedAnnotation = data.annotations.find((a) => a.id === selected);
-  const pending = suggestions.filter((s) => !handled.has(s.id));
+  const pending = findings.filter(
+    (s): s is AiSuggestion => !s.annotation_id && Boolean(s.prediction) && !handled.has(s.id),
+  );
+  // Suggestions about labels the image already has: wrong class, loose box, or possibly extra.
+  const doubts = findings.filter((f) => f.annotation_id);
   return (
     <section className="panel min-w-0 p-5">
       {blocker.state === 'blocked' && (
@@ -403,7 +434,7 @@ function FrameEditor({
         frame={data.frame}
         annotations={data.annotations}
         regions={regions}
-        drawing={drawing && !saving}
+        drawing={drawing && !saving && !locked}
         onAdd={add}
         selected={selected}
         onSelect={setSelected}
@@ -427,7 +458,7 @@ function FrameEditor({
                 <span className="flex gap-2">
                   <button
                     className="sr-button"
-                    disabled={saving || !ready || regions.length >= 50}
+                    disabled={saving || locked || !ready || regions.length >= 50}
                     onClick={() => accept(s)}
                   >
                     Thêm thành vùng thiếu
@@ -446,6 +477,28 @@ function FrameEditor({
           <p className="mt-3 text-xs text-muted">
             Chỉ là gợi ý của model. Hãy đối chiếu ảnh rồi bấm Lưu đánh giá ảnh.
           </p>
+        </div>
+      )}
+      {doubts.length > 0 && (
+        <div
+          className="mt-4 rounded-xl border border-blue-300 p-4"
+          aria-label="Gợi ý của AI về nhãn hiện có"
+        >
+          <strong className="text-sm">AI gợi ý xem lại {doubts.length} nhãn hiện có</strong>
+          <ul className="mt-3 space-y-2">
+            {doubts.map((f) => (
+              <li key={f.id} className="flex flex-wrap items-center justify-between gap-3 text-sm">
+                <span>{f.reason}</span>
+                <button
+                  className="sr-button"
+                  aria-pressed={selected === f.annotation_id}
+                  onClick={() => setSelected(f.annotation_id)}
+                >
+                  Chọn nhãn này
+                </button>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
       {!data.annotations.length && (
@@ -481,7 +534,7 @@ function FrameEditor({
           Đánh giá nhãn / khung đã có →
         </Link>
       )}
-      <fieldset disabled={saving} className="mt-6 border-t border-line pt-5">
+      <fieldset disabled={saving || locked} className="mt-6 border-t border-line pt-5">
         <h3 className="font-semibold">Missing Object (Thiếu đối tượng)</h3>
         <p className="mt-2 text-sm text-muted">
           Kéo chuột bao quanh đối tượng chưa có box, hoặc thêm vùng rồi nhập tọa độ. Đây là ghi chú

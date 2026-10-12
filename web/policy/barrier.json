@@ -200,7 +200,7 @@
         "template": "builtin",
         "params": {
           "check": "context.barrier_spans_vehicle",
-          "vehicles": ["car", "truck", "bus", "motorcycle", "bicycle"],
+          "vehicles": ["car", "truck", "bus", "two_wheeler"],
           "vehicle_strictly_between_ends": true,
           "min_vertical_overlap_over_barrier_height": 0.8
         },

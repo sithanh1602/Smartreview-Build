@@ -92,6 +92,19 @@ export async function request<T = any>(path: string, options: RequestInit = {}):
   }
   return data;
 }
+// A binary file from the API (a frame's point cloud). Not kept in `answers`: the browser's
+// own cache holds these.
+export async function requestBytes(path: string, signal?: AbortSignal): Promise<ArrayBuffer> {
+  const get = () => fetch(`/api${path}`, { credentials: 'same-origin', signal });
+  let response = await get();
+  if (response.status === 401) {
+    await refreshSession();
+    response = await get();
+    if (response.status === 401) expired();
+  }
+  if (!response.ok) await parseResponse(response);
+  return response.arrayBuffer();
+}
 export async function getDataset(
   signal: AbortSignal,
   scope = 'suspicious',

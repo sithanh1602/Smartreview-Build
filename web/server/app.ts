@@ -1,4 +1,5 @@
 import { handleProjects } from './projects/http.ts';
+import { handleProjects3D } from './projects3d/http.ts';
 import { handleGuideline } from './guideline/http.ts';
 import { handleReview } from './reviews/http.ts';
 import { ReviewError, matchesReview } from '../shared/review.ts';
@@ -8,6 +9,7 @@ import path from 'node:path';
 import { cookie, checkOrigin, handleAuth } from './auth/http.ts';
 import type { AuthService } from './auth/service.ts';
 import type { ProjectService } from './projects/service.ts';
+import type { Project3DService } from './projects3d/service.ts';
 import type { ReviewStore } from './reviews/store.ts';
 import type { Json, LoadedDataset, Req, Res } from './types.ts';
 
@@ -16,6 +18,7 @@ export interface AppOptions {
   reviews?: ReviewStore | null;
   distRoot: string;
   projects?: ProjectService | null;
+  projects3d?: Project3DService | null;
   auth?: AuthService | null;
   secureCookies?: boolean;
   // Set for requests a project route passed on: the caller's project role is already checked.
@@ -41,6 +44,7 @@ export function createHandler({
   reviews,
   distRoot,
   projects,
+  projects3d,
   auth,
   secureCookies = false,
   projectScoped = false,
@@ -66,12 +70,14 @@ export function createHandler({
         // default dataset, guideline analysis) is the leader's.
         if (
           !projectScoped &&
-          !/^\/api\/projects(\/|$)/.test(url.pathname) &&
+          !/^\/api\/projects(3d)?(\/|$)/.test(url.pathname) &&
           req.user.role !== 'leader'
         )
           throw new ReviewError(403, 'Chức năng này chỉ dành cho Leader.');
       }
       if (!projectScoped && (await handleGuideline(req, res, url.pathname, { json }))) return;
+      if (!projectScoped && (await handleProjects3D(req, res, url, { projects: projects3d, json })))
+        return;
       if (
         await handleProjects(req, res, url, {
           projects,

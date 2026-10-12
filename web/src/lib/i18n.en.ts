@@ -265,6 +265,133 @@ export const en: Record<string, string> = {
   'Bất đồng nhãn': 'Label disagreement',
   'Bất đồng khung bao': 'Box disagreement',
   'Có thể thiếu nhãn': 'Possibly missing label',
+  'Có thể thừa nhãn': 'Possibly extra label',
+  'Đã sửa': 'Fixed',
+  'Đã xoá nhãn': 'Label removed',
+  'Đã thêm nhãn': 'Label added',
+  'Chưa đổi': 'Unchanged',
+  'Chưa thêm nhãn': 'Label not added',
+  'Tệp nén này không có tệp nhãn.': 'This archive has no annotation file.',
+  'File nhãn tối đa 10 MB.': 'Annotation files may be at most 10 MB.',
+  'Kiểm tra lại': 'Check again',
+  'Lỗi cần sửa': 'Labels to fix',
+  'Toàn bộ ảnh và nhãn, dạng CVAT for images 1.1, để nhập vào CVAT':
+    'All images and labels, as CVAT for images 1.1, to import into CVAT',
+  'Tải dataset cho CVAT (.zip)': 'Download dataset for CVAT (.zip)',
+  'Tải danh sách lỗi (.json)': 'Download the list (.json)',
+  'đã gửi lại bản đã sửa lúc': 'returned the fixed version at',
+  'mục đã được sửa,': 'items fixed,',
+  'mục chưa đổi.': 'items unchanged.',
+  'Gửi lại bản đã sửa': 'Return the fixed version',
+  'Tải dataset cho CVAT (.zip) ở trên, nhập vào CVAT và sửa nhãn.':
+    'Download the dataset for CVAT (.zip) above, import it into CVAT and fix the labels.',
+  'Trong CVAT, xuất nhãn (Export task dataset, không cần kèm ảnh).':
+    'In CVAT, export the labels (Export task dataset, images not needed).',
+  'Chọn file vừa xuất ở đây (.zip, .xml hoặc .json). SmartReview tự nhận định dạng và chuyển về dạng của mình.':
+    'Choose the exported file here (.zip, .xml or .json). SmartReview detects the format and converts it to its own.',
+  'File đã sửa': 'Fixed file',
+  'Gửi lại cho Reviewer': 'Return to the Reviewer',
+  '· Khung liền: lúc gửi · Khung xanh nét đứt: hiện tại (':
+    '· Solid box: when sent · Dashed blue box: now (',
+  'Mở nhãn hiện tại trong Review →': 'Open the current label in Review →',
+  'Annotator đã gửi lại bản đã sửa': 'The Annotator returned the fixed version',
+  'gửi lại lúc': 'returned at',
+  '. Project đang chạy trên bản đã sửa; Reviewer kiểm tra lại rồi bấm Hoàn thành lần nữa nếu còn lỗi.':
+    '. The project now runs on the fixed version; Reviewers check again and press Complete once more if errors remain.',
+  '. Quyết định review đang bị khoá cho tới khi Annotator gửi lại bản đã sửa.':
+    '. Review decisions are locked until the Annotator returns the fixed version.',
+  'Kiểm tra lại các lỗi đã gửi →': 'Check the sent errors again →',
+  'Project không ở trạng thái chờ Annotator gửi lại.':
+    'This project is not waiting for the Annotator to return a file.',
+  'Chỉ Annotator được gửi mới gửi lại bản đã sửa.':
+    'Only an Annotator it was sent to can return the fixed version.',
+  'Không nhận ra định dạng file. Xuất từ CVAT dạng "CVAT for images 1.1" rồi gửi lại.':
+    'The file format was not recognised. Export from CVAT as "CVAT for images 1.1" and send again.',
+  'File không có thay đổi nào so với bản đã gửi.':
+    'The file has no change compared with what was sent.',
+  'Chọn file nhãn đã sửa để gửi.': 'Choose the fixed annotation file to send.',
+  'Chỉ xuất được dataset ảnh rời sang CVAT for images.':
+    'Only datasets of separate images can be exported to CVAT for images.',
+  'Hoàn thành': 'Complete',
+  'Hoàn thành review': 'Complete review',
+  'Gửi file kết quả review cho Annotator để sửa nhãn. Sau khi gửi, các quyết định review bị khoá; chỉ Leader mở lại được.':
+    'Send the review result file to the Annotators so they can fix the labels. After sending, review decisions are locked; only the Leader can reopen them.',
+  'lỗi đã xác nhận trong các case rủi ro': 'confirmed errors among the risk cases',
+  Còn: 'There are still',
+  'case rủi ro chưa kiểm tra. Chúng sẽ không có trong file.':
+    'unreviewed risk cases. They will not be in the file.',
+  'Gửi cho Annotator': 'Send to Annotators',
+  'Đang tải danh sách Annotator…': 'Loading Annotators…',
+  'Project chưa có Annotator. Thêm Annotator ở trang dự án rồi quay lại.':
+    'This project has no Annotator yet. Add one on the project page, then come back.',
+  'Ghi chú cho Annotator (không bắt buộc)': 'Note for the Annotators (optional)',
+  Hủy: 'Cancel',
+  'Đang gửi…': 'Sending…',
+  'Gửi và khoá review': 'Send and lock review',
+  'Review đã hoàn thành:': 'Review completed:',
+  'đã gửi cho': 'sent it to',
+  lúc: 'at',
+  '. Quyết định đang bị khoá.': '. Decisions are locked.',
+  'Review đã hoàn thành': 'Review completed',
+  'đã gửi kết quả cho': 'sent the result to',
+  '. Quyết định review đang bị khoá.': '. Review decisions are locked.',
+  'Dataset đã thay đổi sau khi gửi; file là của bản dataset trước.':
+    'The dataset changed after sending; the file belongs to the previous dataset.',
+  'Dataset đã thay đổi sau khi gửi; danh sách này là của bản dataset trước.':
+    'The dataset changed after sending; this list belongs to the previous dataset.',
+  'Xem lỗi cần sửa →': 'See what to fix →',
+  'Xem file đã gửi →': 'See the sent file →',
+  'Mở lại review': 'Reopen review',
+  'Mở lại review? File đã gửi cho Annotator sẽ bị thu hồi và Reviewer sửa lại được.':
+    'Reopen the review? The file sent to the Annotators is withdrawn and Reviewers can edit again.',
+  'Đã khoá: review đã hoàn thành và đã gửi cho Annotator.':
+    'Locked: the review was completed and sent to the Annotators.',
+  'Review đã hoàn thành và đã gửi cho Annotator.':
+    'The review was completed and sent to the Annotators.',
+  'Review đã hoàn thành và đã gửi cho Annotator. Leader mở lại review thì mới sửa được.':
+    'The review was completed and sent to the Annotators. It can be edited only after the Leader reopens it.',
+  'Đang tải kết quả review…': 'Loading the review result…',
+  'Lỗi cần sửa ·': 'Labels to fix ·',
+  'gửi lúc': 'sent at',
+  cho: 'to',
+  'Tải file (.json)': 'Download file (.json)',
+  'Kết nối CVAT chưa được làm. Tạm thời mở CVAT và sửa theo danh sách này.':
+    'The CVAT connection is not built yet. For now open CVAT and fix the labels from this list.',
+  'Mở trong CVAT (sắp có)': 'Open in CVAT (coming soon)',
+  'nhãn sai ·': 'wrong labels ·',
+  'đối tượng thiếu nhãn': 'objects without a label',
+  Lọc: 'Filter',
+  'Nhãn sai': 'Wrong label',
+  'Thiếu nhãn': 'Missing label',
+  'Không có lỗi nào trong mục này.': 'Nothing to fix in this group.',
+  'Danh sách lỗi cần sửa': 'Labels to fix',
+  'Loại lỗi': 'Error type',
+  'Nhãn hiện tại': 'Current label',
+  'Sửa thành': 'Change to',
+  'Thiếu nhãn: cần vẽ thêm khung tại vùng được đánh dấu':
+    'Missing label: draw a box at the marked region',
+  'Đối tượng': 'Object',
+  'Vị trí (px)': 'Position (px)',
+  'Ghi chú của Reviewer': "Reviewer's note",
+  'Project chưa được gửi cho Annotator.': 'This project has not been sent to the Annotators.',
+  'Kết quả review của project này không gửi cho bạn.':
+    'The review result of this project was not sent to you.',
+  'Chỉ Leader hoặc Reviewer được hoàn thành review.':
+    'Only the Leader or a Reviewer can complete the review.',
+  'Chọn ít nhất một Annotator để gửi.': 'Choose at least one Annotator.',
+  'Chỉ gửi được cho Annotator của project này.':
+    "It can only be sent to this project's Annotators.",
+  'Project này đã được gửi cho Annotator.': 'This project was already sent to the Annotators.',
+  'Database chưa có bảng project_handoffs. Chạy npm run db:migrate.':
+    'The database has no project_handoffs table. Run npm run db:migrate.',
+  'Có gợi ý AI': 'Has AI suggestions',
+  'Chọn nhãn này': 'Select this label',
+  'Gợi ý của AI về nhãn hiện có': 'AI suggestions about existing labels',
+  'Hiện hoặc ẩn gợi ý của AI về nhãn': 'Show or hide the AI label suggestions',
+  'Chạy AI để kiểm tra nhãn của cả project': 'Run the AI to check the labels of the whole project',
+  'Leader chưa chạy AI cho project này.': 'The Leader has not run the AI for this project yet.',
+  'Risk bên dưới là điểm kiểm tra bằng quy tắc riêng.':
+    'The Risk below is a separate rule-based score.',
   'Không có gợi ý phù hợp. Điều này không xác nhận toàn bộ annotation đều đúng.':
     'No matching suggestions. This does not confirm that every annotation is correct.',
   'Danh sách gợi ý AI': 'AI suggestion list',
@@ -853,6 +980,252 @@ export const en: Record<string, string> = {
   'KITTI · TXT mỗi ảnh': 'KITTI · one TXT per image',
   'Khi chọn tệp nén, định dạng được tự nhận diện từ tệp nhãn bên trong. Đổi ở đây nếu tệp nén có nhiều bộ nhãn và bạn muốn dùng bộ khác.':
     'When you choose an archive, the format is detected from the annotation files inside it. Change it here if the archive holds several annotation sets and you want another one.',
+  // 3D projects
+  'Kéo khung': 'Dragging the view',
+  'Phóng to': 'Zooming in',
+  'Thu nhỏ': 'Zooming out',
+  'Giữ yên 1 giây để ngắt lệnh': 'Hold still for 1 second to let go',
+  'Đã ngắt lệnh thu phóng': 'Zoom let go',
+  'Thu phóng xong, giữ yên tay 1 giây: ngắt lệnh':
+    'After zooming, hold the hand still for 1 second: let go',
+  'Không làm gì': 'Nothing',
+  'Cử chỉ sẽ ghi': 'Gesture to record',
+  'Ghi lại các điểm bàn tay thành tệp JSON để chỉnh và kiểm tra luật cử chỉ':
+    'Record the hand landmarks to a JSON file, for tuning and testing the gesture rules',
+  '■ Dừng & lưu': '■ Stop & save',
+  '● Ghi': '● Record',
+  'Giơ ngón trỏ, đưa sang trái / phải: kéo khung sang trái / phải':
+    'Index finger up, moved left / right: drag the view left / right',
+  'Giơ ngón trỏ, đưa lên / xuống: kéo khung lên / xuống':
+    'Index finger up, moved up / down: drag the view up / down',
+  'Chụm các ngón rồi bung ra: phóng to': 'Bunch the fingers, then spread them: zoom in',
+  'Từ bàn tay mở, chụm các ngón lại: thu nhỏ': 'From an open hand, bunch the fingers: zoom out',
+  'Giơ 1–9 ngón, giữ yên: gọi cờ số đó':
+    'Hold up 1–9 fingers, still: call up the flag with that number',
+  'Tắt điều khiển bằng cử chỉ': 'Turn off gesture control',
+  'Điều khiển bằng cử chỉ tay qua webcam': 'Control with hand gestures through the webcam',
+  'Tắt webcam': 'Turn off the webcam',
+  'Chưa thấy cử chỉ': 'No gesture seen',
+  'Thu phóng': 'Zooming',
+  'Gọi cờ': 'Calling up a flag',
+  'Đang mở webcam và tải MediaPipe…': 'Opening the webcam and loading MediaPipe…',
+  'Trình duyệt không cho mở webcam ở địa chỉ này (cần localhost hoặc HTTPS).':
+    'The browser does not allow the webcam at this address (localhost or HTTPS is needed).',
+  'Chưa được cấp quyền dùng webcam. Cho phép trong trình duyệt rồi bật lại.':
+    'The webcam permission was not granted. Allow it in the browser and switch on again.',
+  'Không mở được webcam. Kiểm tra máy có camera và chưa bị ứng dụng khác giữ.':
+    'The webcam could not be opened. Check that the machine has a camera and no other app is holding it.',
+  'Không tải được MediaPipe hoặc model bàn tay. Kiểm tra kết nối mạng.':
+    'MediaPipe or the hand model could not be loaded. Check the network connection.',
+  'Cử chỉ': 'Gestures',
+  'Ẩn hiện thanh công cụ': 'Show or hide the bars',
+  'Bảng review': 'Review panel',
+  'Ẩn bảng bên phải': 'Hide the right panel',
+  'Hiện bảng bên phải': 'Show the right panel',
+  Ẩn: 'Hide',
+  'Ảnh camera không bắt buộc, chỉ để đối chiếu khi review: dùng component camera_image, hoặc ảnh JPEG rời đặt tên <camera>/<frame>.jpg, với frame là timestamp hoặc số thứ tự frame tính từ 0.':
+    'Camera images are optional and only help the review: use the camera_image component, or loose JPEG files named <camera>/<frame>.jpg, where frame is the timestamp or the frame number counted from 0.',
+  'Tệp .zip được mở ngay trên trình duyệt; máy chủ chỉ nhận các tệp parquet và ảnh camera bên trong. Chọn được nhiều tệp .zip cùng lúc, ví dụ một tệp lidar và một tệp ảnh camera.':
+    'The .zip is opened in the browser; the server only receives the parquet files and camera images inside it. Several .zip files can be chosen at once, for example one with the lidar and one with the camera images.',
+  'Chọn các tệp parquet cùng lúc, hoặc chọn thư mục chứa chúng. Tệp được nhận diện theo thư mục (lidar_box/…) hoặc theo tên Waymo đặt (validation_lidar_box_….parquet).':
+    'Pick the parquet files at once, or pick the folder that holds them. A file is recognised by its folder (lidar_box/…) or by the name Waymo gives it (validation_lidar_box_….parquet).',
+  'Tổng tối đa 2 GB. Tệp parquet gốc không được lưu lại sau khi chuyển đổi.':
+    'At most 2 GB in total. The source parquet files are not kept after conversion.',
+  'Chọn thư mục chứa lidar/, lidar_box/, lidar_calibration/, vehicle_pose/ (và lidar_pose/, camera_image/ nếu có) thay cho lựa chọn trên.':
+    'Pick the folder holding lidar/, lidar_box/, lidar_calibration/, vehicle_pose/ (and lidar_pose/, camera_image/ if any) instead of the choice above.',
+  'Thư mục ảnh camera rời, không bắt buộc': 'Folder of loose camera images (optional)',
+  'Thư mục ảnh camera rời': 'Folder of loose camera images',
+  'Mỗi camera một thư mục con, ví dụ FRONT/1522688014970187.jpg. Bỏ qua nếu đã có camera_image.':
+    'One subfolder per camera, for example FRONT/1522688014970187.jpg. Leave empty when camera_image is given.',
+  'Ảnh camera rời': 'Loose camera images',
+  'Ảnh JPEG của các camera ở từng frame, để đối chiếu khi review.':
+    'JPEG images of the cameras at each frame, to compare against during review.',
+  'Có cả camera_image lẫn ảnh camera rời. Chỉ dùng một trong hai nguồn ảnh.':
+    'Both camera_image and loose camera images were given. Use only one source of images.',
+  'Có ảnh camera trùng tên (cùng camera, cùng frame).':
+    'Some camera images have the same name (same camera, same frame).',
+  'Mỗi ảnh camera tối đa 20 MB.': 'A camera image may be at most 20 MB.',
+  'Vượt giới hạn: tổng các tệp tối đa 2 GB.': 'Over the limit: the files may total at most 2 GB.',
+  'Ảnh camera': 'Camera images',
+  'Hiện ảnh camera': 'Show camera images',
+  'Ẩn ảnh camera': 'Hide camera images',
+  'Không có ảnh': 'No image',
+  'Camera trước': 'Previous camera',
+  'Camera sau': 'Next camera',
+  'Đóng ảnh camera': 'Close camera image',
+  'Không tải được ảnh camera này.': 'This camera image could not be loaded.',
+  'Upload tối đa 2 GB cho một project 3D.': 'A 3D project upload may be at most 2 GB.',
+  'Ảnh camera phải là JPEG đặt tên <camera>/<frame>.jpg.':
+    'A camera image must be a JPEG named <camera>/<frame>.jpg.',
+  'Quá nhiều tệp.': 'Too many files.',
+  'Không ảnh camera nào khớp frame của segment. Tên ảnh phải là timestamp hoặc số thứ tự frame.':
+    'No camera image matches a frame of the segment. Images must be named by timestamp or by frame number.',
+  'Không có tệp này của frame.': 'The frame has no such file.',
+  'Review cuboid trên point cloud': 'Review cuboids on the point cloud',
+  'Xem từng frame của segment, chọn một cuboid để xem chi tiết và lưu quyết định review.':
+    'Go through the segment frame by frame, select a cuboid to see its details and save a review decision.',
+  'Mở review 3D →': 'Open 3D review →',
+  'Góc nhìn': 'View',
+  Trên: 'Top',
+  'Mặt trước': 'Front',
+  'Mặt bên': 'Side',
+  'đã review': 'reviewed',
+  'Phối cảnh': 'Perspective',
+  'Tên cuboid': 'Cuboid names',
+  'Màu cuboid': 'Cuboid colour',
+  'Theo loại': 'By type',
+  'Theo kết quả review': 'By review result',
+  'Chưa review': 'Not reviewed',
+  Đúng: 'Correct',
+  Lỗi: 'Error',
+  'Cuboid trong frame': 'Cuboids in this frame',
+  'Frame này không có cuboid.': 'This frame has no cuboids.',
+  'Chi tiết cuboid': 'Cuboid details',
+  'Đưa camera tới': 'Move camera here',
+  'Bỏ chọn cuboid': 'Deselect cuboid',
+  Loại: 'Type',
+  'Kích thước (m)': 'Size (m)',
+  'Vị trí (m)': 'Position (m)',
+  'Cách xe': 'From the vehicle',
+  'Hướng (yaw)': 'Heading (yaw)',
+  'Điểm trong box': 'Points in box',
+  'Tốc độ': 'Speed',
+  'Xuất hiện': 'Appears in',
+  'Cuboid (vị trí, kích thước, hướng)': 'Cuboid (position, size, heading)',
+  'Ghi đè quyết định đã có ở các frame đó.': 'Replaces the decisions those frames already have.',
+  'Đối tượng đang chọn không có cuboid ở frame này.':
+    'The selected object has no cuboid in this frame.',
+  'Bấm vào một cuboid trong point cloud, hoặc chọn trong danh sách trên, để xem chi tiết và review.':
+    'Click a cuboid in the point cloud, or pick one in the list above, to see its details and review it.',
+  'Không có cuboid này trong scene.': 'The scene has no such cuboid.',
+  'Thiếu đối tượng không phải lỗi của một cuboid đã có.':
+    'A missing object is not an error of an existing cuboid.',
+  '← Dự án': '← Projects',
+  'Point cloud và cuboid': 'Point cloud and cuboids',
+  'Xem từng frame của segment: point cloud của các lidar, cuboid đã gán nhãn, quỹ đạo xe.':
+    'Go through the segment frame by frame: the lidar point clouds, the labelled cuboids, the vehicle trajectory.',
+  'Mở viewer point cloud →': 'Open the point cloud viewer →',
+  Điểm: 'Points',
+  'Cuboid theo loại': 'Cuboids by type',
+  'Dữ liệu': 'Data',
+  'Định dạng': 'Format',
+  'Bù chuyển động': 'Motion compensation',
+  'Có (lidar TOP, từ lidar_pose)': 'Yes (TOP lidar, from lidar_pose)',
+  'Không: segment không có lidar_pose': 'No: the segment has no lidar_pose',
+  'Dung lượng lưu': 'Stored size',
+  'Ngày tạo': 'Created',
+  'Vai trò của bạn': 'Your role',
+  'Chọn dữ liệu của segment': 'Choose the data of the segment',
+  'Nhập segment': 'Import segment',
+  'Độ cao': 'Height',
+  'Cường độ': 'Intensity',
+  'Khoảng cách': 'Range',
+  'Theo lidar': 'By lidar',
+  'Hệ toạ độ': 'Frame of reference',
+  Xe: 'Vehicle',
+  'Toàn cục': 'World',
+  'Camera bám theo xe': 'Camera follows the vehicle',
+  'Quỹ đạo xe': 'Vehicle trajectory',
+  'Đặt lại góc nhìn': 'Reset view',
+  Màu: 'Colour',
+  'Cỡ điểm': 'Point size',
+  'Bù chuyển động (TOP)': 'Motion compensation (TOP)',
+  'Segment này không có lidar_pose.': 'This segment has no lidar_pose.',
+  'Hiện cuboid': 'Show cuboids',
+  'Cảm biến': 'Sensors',
+  'Hiện vị trí lidar trên xe': 'Show the lidars on the vehicle',
+  'Kéo chuột để xoay, chuột phải để dời, cuộn để thu phóng. Phím cách: phát / dừng. ← →: từng frame.':
+    'Drag to rotate, right-drag to pan, scroll to zoom. Space: play / pause. ← →: frame by frame.',
+  'Hiển thị': 'Display',
+  'Tạm dừng': 'Pause',
+  Phát: 'Play',
+  'Frame trước': 'Previous frame',
+  'Frame sau': 'Next frame',
+  'Tốc độ phát': 'Playback speed',
+  'Đang tải scene…': 'Loading the scene…',
+  'Đang tải point cloud…': 'Loading the point cloud…',
+  'Project chưa sẵn sàng. Quay lại trang project để xem trạng thái.':
+    'The project is not ready. Go back to the project page to see its status.',
+  'Trình duyệt không mở được WebGL nên không vẽ được point cloud.':
+    'The browser could not start WebGL, so the point cloud cannot be drawn.',
+  'Point cloud của frame này không khớp số điểm trong scene.':
+    'The point cloud of this frame does not match the point count in the scene.',
+  'Không có point cloud của frame này.': 'This frame has no point cloud.',
+  'Không tìm thấy dữ liệu project trên kho lưu trữ.': 'The project data was not found in storage.',
+  'Project chưa có dữ liệu.': 'The project has no data yet.',
+  'Project này chỉ có dữ liệu trên máy đã import. Bật kho lưu trữ chung rồi tạo lại project để chia sẻ.':
+    'This project only has data on the machine that imported it. Turn on shared storage and create the project again to share it.',
+  'Project 3D': '3D Projects',
+  '+ Project 3D mới': '+ New 3D Project',
+  'Project 3D mới': 'New 3D Project',
+  'Tạo project → upload segment Waymo → chuyển thành point cloud → lưu trữ.':
+    'Create project → upload a Waymo segment → convert to point clouds → store.',
+  'Chưa có project 3D. Chọn + Project 3D mới để bắt đầu.':
+    'No 3D projects yet. Choose + New 3D Project to start.',
+  'Đang chuyển point cloud…': 'Converting point clouds…',
+  'Đang lưu point cloud…': 'Storing point clouds…',
+  'đối tượng': 'objects',
+  'Tên project': 'Project name',
+  'Mô tả, không bắt buộc': 'Description (optional)',
+  'Một segment của Waymo Open Dataset v2: mỗi component một tệp .parquet. Cuboid 3D trong lidar_box là nhãn sẽ được review.':
+    'One segment of the Waymo Open Dataset v2: one .parquet file per component. The 3D cuboids in lidar_box are the labels to be reviewed.',
+  'Tệp .zip được mở ngay trên trình duyệt; máy chủ chỉ nhận các tệp parquet bên trong.':
+    'The .zip is opened in the browser; the server only receives the parquet files inside it.',
+  'Chọn cả năm tệp cùng lúc, hoặc chọn thư mục chứa chúng. Tệp được nhận diện theo thư mục (lidar_box/…) hoặc theo tên Waymo đặt (validation_lidar_box_….parquet).':
+    'Pick all five files at once, or pick the folder that holds them. A file is recognised by its folder (lidar_box/…) or by the name Waymo gives it (validation_lidar_box_….parquet).',
+  'Tổng tối đa 1 GB. Tệp gốc không được lưu lại sau khi chuyển đổi.':
+    'At most 1 GB in total. The source files are not kept after conversion.',
+  'Tệp nén segment (.zip)': 'Segment archive (.zip)',
+  'Tệp parquet': 'Parquet files',
+  'Các tệp nằm trong thư mục con?': 'Are the files in subfolders?',
+  'Chọn thư mục chứa lidar/, lidar_box/, lidar_calibration/, lidar_pose/ và vehicle_pose/ thay cho lựa chọn trên.':
+    'Pick the folder holding lidar/, lidar_box/, lidar_calibration/, lidar_pose/ and vehicle_pose/ instead of the choice above.',
+  'Thư mục segment': 'Segment folder',
+  'Component nhận diện được': 'Components found',
+  'Bắt buộc': 'Required',
+  'Tùy chọn': 'Optional',
+  'Chưa có tệp': 'No file yet',
+  'Chưa có tệp: point cloud của lidar TOP sẽ không được bù chuyển động.':
+    'No file yet: the TOP lidar point cloud will not be motion-compensated.',
+  'Range image của 5 lidar: nguồn của point cloud.':
+    'Range images of the 5 lidars: the source of the point clouds.',
+  'Vị trí gắn và góc nghiêng các tia của từng lidar.':
+    'Mounting position and beam inclinations of each lidar.',
+  'Vị trí của xe ở từng frame.': 'The vehicle pose at each frame.',
+  'Cuboid 3D đã gán nhãn: thứ sẽ được review.': 'The labelled 3D cuboids: what gets reviewed.',
+  'Pose từng điểm của lidar TOP, dùng để bù chuyển động khi lidar quay.':
+    'Per-point pose of the TOP lidar, used to compensate for motion while the lidar spins.',
+  'Tạo project 3D': 'Create 3D project',
+  'Chọn tệp nén chứa các tệp parquet của segment.':
+    'Choose an archive holding the parquet files of the segment.',
+  'Chọn các tệp parquet của segment.': 'Choose the parquet files of the segment.',
+  'Các tệp thuộc nhiều segment khác nhau. Mỗi project 3D là một segment.':
+    'The files belong to different segments. A 3D project is one segment.',
+  'Vượt giới hạn: tổng các tệp parquet tối đa 1 GB.':
+    'Over the limit: the parquet files may total at most 1 GB.',
+  'Đang giải nén tệp parquet…': 'Unpacking the parquet files…',
+  'Đã tải lên. Đang xử lý point cloud…': 'Uploaded. Processing the point clouds…',
+  'Kết nối bị ngắt. Xem trạng thái project 3D ở trang Dự án trước khi thử lại.':
+    'The connection dropped. Check the 3D project on the Projects page before retrying.',
+  'Giữ trang mở đến khi hoàn tất. Chuyển đổi và lưu point cloud của một segment có thể mất vài phút.':
+    'Keep this page open until it finishes. Converting and storing the point clouds of a segment can take a few minutes.',
+  'Project đã được giữ lại. Bạn có thể chọn lại tệp và thử import.':
+    'The project was kept. You can choose the files again and retry the import.',
+  'Upload tối đa 1 GB cho một project 3D.': 'A 3D project upload may be at most 1 GB.',
+  'Project 3D chỉ nhận tệp .parquet của Waymo Open Dataset v2.':
+    '3D projects only take .parquet files of the Waymo Open Dataset v2.',
+  'Quá nhiều tệp parquet.': 'Too many parquet files.',
+  'Chưa có Python cho project 3D. Đặt SMARTREVIEW_3D_PYTHON trong .env tới một Python có numpy và pyarrow.':
+    'No Python for 3D projects. Set SMARTREVIEW_3D_PYTHON in .env to a Python that has numpy and pyarrow.',
+  'Python của project 3D thiếu numpy hoặc pyarrow. Cài hai gói đó rồi thử lại.':
+    'The Python for 3D projects lacks numpy or pyarrow. Install both and retry.',
+  'Số tệp point cloud không khớp số frame của scene.':
+    'The number of point cloud files does not match the frames of the scene.',
+  'Chưa có bảng cho project 3D. Chạy npm run db:migrate.':
+    'The 3D project tables are missing. Run npm run db:migrate.',
+  'Chờ import hoàn tất trước khi xóa.': 'Wait for the import to finish before deleting.',
+  'Scene không có frame nào.': 'The scene has no frames.',
+  'Frame trong scene sai khuôn dạng.': 'A frame of the scene is malformed.',
 };
 
 // Strings built with values in them. Tried only when there is no exact entry above.
@@ -871,6 +1244,23 @@ export const enRules: [RegExp, string][] = [
     'Image $1: $2 annotations, $3 missing regions',
   ],
   [/^Chưa có nhãn · AI: (.+)$/, 'No label · AI: $1'],
+  [
+    /^File thiếu (\d+) ảnh của project\. Xuất đủ mọi ảnh rồi gửi lại\.$/,
+    'The file lacks $1 of the project images. Export every image and send again.',
+  ],
+  [
+    /^File có ảnh không thuộc project hoặc bị lặp: (.+)$/,
+    'The file has an image that is not in the project, or twice: $1',
+  ],
+  [
+    /^Kích thước ảnh (.+) không khớp ảnh của project\.$/,
+    'The size of image $1 does not match the project image.',
+  ],
+  [/^(.+) · AI không thấy đối tượng$/, '$1 · AI sees no object'],
+  [
+    /^AI không thấy đối tượng nào tại khung “(.+)” này — nhãn có thể thừa\.$/,
+    'The AI sees no object at this “$1” box — the label may be extra.',
+  ],
   [
     /^(\d+) ảnh có mask\/3D nên không dò thiếu nhãn\.$/,
     '$1 images have masks/3D, so missing labels were not searched.',
@@ -971,4 +1361,61 @@ export const enRules: [RegExp, string][] = [
     /^Tệp nén này không có tệp nhãn dạng (.+)\.$/,
     'This archive has no annotation files in the $1 format.',
   ],
+  [/^Thiếu tệp parquet của: (.+)\.$/, 'Missing the parquet files of: $1.'],
+  [/^Quá nhiều tệp cho (\w+)\.$/, 'Too many files for $1.'],
+  [/^Quá nhiều tệp cho (\w+) \(tối đa (\d+)\)\.$/, 'Too many files for $1 (at most $2).'],
+  [/^Trùng tên tệp: (.+)$/, 'Duplicate file name: $1'],
+  [/^Tệp không phải parquet hợp lệ: (.+)$/, 'Not a valid parquet file: $1'],
+  [/^Không chuyển được dữ liệu Waymo: (.+)$/, 'Could not convert the Waymo data: $1'],
+  [/^Tổng: (.+)$/, 'Total: $1'],
+  [
+    /^(\d+) tệp khác không thuộc năm component này sẽ bị bỏ qua\.$/,
+    '$1 other files are not one of these five components and will be skipped.',
+  ],
+  [
+    /^Đang chuyển range image thành point cloud…(.*)$/,
+    'Converting range images to point clouds…$1',
+  ],
+  [
+    /^Đang đưa point cloud lên kho lưu trữ chung…(.*) tệp$/,
+    'Sending the point clouds to shared storage…$1 files',
+  ],
+  [/^Đang đưa point cloud lên kho lưu trữ chung…$/, 'Sending the point clouds to shared storage…'],
+  [/^([\d.]+) giây$/, '$1 seconds'],
+  [/^([\d,]+) đối tượng được theo dõi$/, '$1 tracked objects'],
+  [/^([\d.]+) triệu$/, '$1 million'],
+  [/^([\d,]+) điểm mỗi frame$/, '$1 points per frame'],
+  [/^Áp dụng cho cả (\d+) frame của đối tượng này$/, 'Apply to all $1 frames of this object'],
+  [/^Đã lưu cho (\d+) frame\.$/, 'Saved for $1 frames.'],
+  [
+    /^Chưa có tệp: point cloud của lidar TOP sẽ không được bù chuyển động\.$/,
+    'No file yet: the TOP lidar point cloud will not be motion-compensated.',
+  ],
+  [
+    /^Chưa có tệp: viewer sẽ không có ảnh camera\.$/,
+    'No file yet: the viewer will have no camera images.',
+  ],
+  [/^(\d+) camera · (\d+) ảnh$/, '$1 cameras · $2 images'],
+  [
+    /^(\d+) ảnh JPEG không theo tên <camera>\/<frame>\.jpg sẽ bị bỏ qua\.$/,
+    '$1 JPEG files not named <camera>/<frame>.jpg will be skipped.',
+  ],
+  [
+    /^(\d+) tệp khác không phải component hay ảnh camera sẽ bị bỏ qua\.$/,
+    '$1 other files are neither a component nor a camera image and will be skipped.',
+  ],
+  [/^Quá nhiều ảnh camera \(tối đa (\d+)\)\.$/, 'Too many camera images (at most $1).'],
+  [/^Đang tách ảnh camera… (\d+) ảnh$/, 'Extracting camera images… $1 images'],
+  [/^Đang tạo ảnh xem nhanh… (.+) frame$/, 'Making preview images… $1 frames'],
+  [/^Đang đưa dữ liệu lên kho lưu trữ chung…(.*)$/, 'Sending the data to shared storage…$1'],
+  [/^([\d,]+) ảnh · (.+)$/, '$1 images · $2'],
+  [/^Trùng ảnh camera: (.+)$/, 'Duplicate camera image: $1'],
+  [/^Ảnh camera không phải JPEG: (.+)$/, 'Camera image is not a JPEG: $1'],
+  [/^Ảnh camera hỏng hoặc không phải JPEG: (.+)$/, 'Camera image is corrupt or not a JPEG: $1'],
+  [/^Hai ảnh camera cùng chỉ một frame: (.+)$/, 'Two camera images name the same frame: $1'],
+  [/^Tên camera không hợp lệ: (.+)$/, 'Invalid camera name: $1'],
+  [/^Frame này không có cờ số (\d+)\.$/, 'This frame has no flag number $1.'],
+  [/^(\d+) cờ lỗi:$/, '$1 error flags:'],
+  [/^Cờ (\d+): (.+)$/, 'Flag $1: $2'],
+  [/^Lỗi (Class|Cuboid|Tracking|Extra Object|Other)$/, '$1 error'],
 ];

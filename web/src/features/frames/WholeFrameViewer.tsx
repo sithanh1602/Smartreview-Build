@@ -2,7 +2,7 @@ import { Spinner } from '../../components/Spinner';
 import { SessionImage } from '../auth/SessionImage';
 import React, { useRef, useState } from 'react';
 import type {
-  AiFindingView,
+  AiSuggestion,
   Annotation,
   BBox,
   FrameInfo,
@@ -30,7 +30,7 @@ export function WholeFrameViewer({
   onSelect: (id: string) => void;
   selected: string | null;
   onReady: (ready: boolean) => void;
-  suggestions?: AiFindingView[];
+  suggestions?: AiSuggestion[];
 }) {
   // The SVG is mounted whenever a pointer handler runs.
   const svg = useRef<SVGSVGElement>(null!),

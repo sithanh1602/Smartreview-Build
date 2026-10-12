@@ -38,6 +38,9 @@ export function CaseDetail({
   count,
   onNavigate,
   aiFinding,
+  aiButton,
+  locked = false,
+  finish,
   panels,
   siblings,
   imageIndex,
@@ -52,6 +55,11 @@ export function CaseDetail({
   count: number;
   onNavigate: (delta: number) => void;
   aiFinding?: AiFindingView | null;
+  aiButton?: React.ReactNode;
+  // The review was sent to annotators: the decision is shown but cannot be changed.
+  locked?: boolean;
+  // Shown under the decision form: the button that ends the review.
+  finish?: React.ReactNode;
   panels: PanelControls;
   // The flagged cases on this image, in queue order (this case included).
   siblings: Case[];
@@ -375,6 +383,7 @@ export function CaseDetail({
               </Tip>
             </ToggleButtonGroup>
           </div>
+          {aiButton}
         </div>
       </div>
 
@@ -640,14 +649,17 @@ export function CaseDetail({
                   AI Check (Kiểm tra bằng AI) · Điểm ưu tiên {aiFinding.score}
                 </h3>
                 <p className="mt-1.5">{aiFinding.reason}</p>
-                <p className="mt-1.5">
-                  AI: {aiFinding.prediction.label} · Độ tin cậy{' '}
-                  {(aiFinding.prediction.confidence * 100).toFixed(1)}% · IoU (Độ trùng khớp){' '}
-                  {aiFinding.iou?.toFixed(3)}
-                </p>
+                {aiFinding.prediction && (
+                  <p className="mt-1.5">
+                    AI: {aiFinding.prediction.label} · Độ tin cậy{' '}
+                    {(aiFinding.prediction.confidence * 100).toFixed(1)}% · IoU (Độ trùng khớp){' '}
+                    {aiFinding.iou?.toFixed(3)}
+                  </p>
+                )}
                 <p className="mt-1.5 text-muted">
-                  Khung xanh nét đứt là đề xuất AI. Risk bên dưới là điểm kiểm tra bằng quy tắc
-                  riêng.
+                  {aiFinding.prediction
+                    ? 'Khung xanh nét đứt là đề xuất AI. Risk bên dưới là điểm kiểm tra bằng quy tắc riêng.'
+                    : 'Risk bên dưới là điểm kiểm tra bằng quy tắc riêng.'}
                 </p>
               </section>
             )}
@@ -772,6 +784,8 @@ export function CaseDetail({
           key={item.id}
           item={item}
           compact={!shown.info}
+          locked={locked}
+          finish={finish}
           onNext={index < count - 1 ? () => onNavigate(1) : undefined}
         />,
         formHost,

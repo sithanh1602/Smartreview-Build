@@ -9,6 +9,8 @@ import { ImportForm } from '../features/projects/ImportForm';
 import { ProjectPeople } from '../features/projects/ProjectPeople';
 import { StartReviewButton } from '../features/projects/StartReviewButton';
 import { request } from '../lib/api';
+import { CompleteReviewButton } from '../features/handoff/CompleteReviewButton';
+import { ui } from '../lib/i18n';
 import type { Dashboard } from '../types.ts';
 
 export function ProjectDashboardPage() {
@@ -49,6 +51,21 @@ export function ProjectDashboardPage() {
     );
   if (!p) return null;
   const leader = p.my_role === 'leader';
+  const handoff = p.handoff;
+  async function reopen() {
+    if (
+      !window.confirm(
+        ui('Mở lại review? File đã gửi cho Annotator sẽ bị thu hồi và Reviewer sửa lại được.'),
+      )
+    )
+      return;
+    try {
+      await request(`/projects/${projectId}/handoff`, { method: 'DELETE' });
+      retry();
+    } catch (e) {
+      setFailure((e as Error).message);
+    }
+  }
   return (
     <>
       <Link to="/projects" className="text-sm text-muted">
@@ -68,6 +85,55 @@ export function ProjectDashboardPage() {
         )}
       </div>
       <ProjectPeople project={p} />
+      {handoff && (
+        <section className="panel mb-6 border-amber-500 p-5" data-testid="handoff-banner">
+          {handoff.status === 'SENT' ? (
+            <>
+              <h2 className="font-semibold">Review đã hoàn thành</h2>
+              <p className="mt-2 text-sm">
+                {handoff.sent_by_name} đã gửi kết quả cho{' '}
+                {handoff.recipients.map((r) => r.username).join(', ')} lúc{' '}
+                {new Date(handoff.sent_at).toLocaleString('vi-VN')}. Quyết định review đang bị khoá
+                cho tới khi Annotator gửi lại bản đã sửa.
+              </p>
+              {handoff.note && <p className="mt-2 text-sm text-muted">“{handoff.note}”</p>}
+              {!handoff.current && (
+                <p className="mt-2 text-sm text-amber-800">
+                  Dataset đã thay đổi sau khi gửi; file là của bản dataset trước.
+                </p>
+              )}
+            </>
+          ) : (
+            <>
+              <h2 className="font-semibold">Annotator đã gửi lại bản đã sửa</h2>
+              <p className="mt-2 text-sm">
+                {handoff.returned_by_name} gửi lại lúc{' '}
+                {new Date(handoff.returned_at ?? '').toLocaleString('vi-VN')}. Project đang chạy
+                trên bản đã sửa; Reviewer kiểm tra lại rồi bấm Hoàn thành lần nữa nếu còn lỗi.
+              </p>
+            </>
+          )}
+          <div className="mt-4 flex flex-wrap gap-3">
+            {(p.my_role !== 'annotator' || handoff.for_me) && (
+              <Link
+                className="sr-button border-accent text-accent"
+                to={`/projects/${projectId}/fixes`}
+              >
+                {handoff.status === 'RETURNED'
+                  ? 'Kiểm tra lại các lỗi đã gửi →'
+                  : p.my_role === 'annotator'
+                    ? 'Xem lỗi cần sửa →'
+                    : 'Xem file đã gửi →'}
+              </Link>
+            )}
+            {leader && handoff.status === 'SENT' && (
+              <button className="sr-button" onClick={reopen}>
+                Mở lại review
+              </button>
+            )}
+          </div>
+        </section>
+      )}
       {p.error_message && (
         <p role="alert" className="panel mb-6 p-5 text-rose-700">
           {p.error_message}
@@ -152,6 +218,15 @@ export function ProjectDashboardPage() {
           <Link className="sr-button ml-3 mt-7" to={`/projects/${projectId}/frames`}>
             Kiểm tra toàn bộ ảnh →
           </Link>
+          <Link className="sr-button ml-3 mt-7" to={`/projects/${projectId}/ai-check`}>
+            AI Checking →
+          </Link>
+          <CompleteReviewButton
+            project={p}
+            metrics={dashboard.metrics}
+            onSent={retry}
+            className="sr-button ml-3 mt-7 border-accent text-accent"
+          />
           {!dashboard.dataset.total_cases && (
             <p className="mt-4 text-sm text-muted">
               {hint(

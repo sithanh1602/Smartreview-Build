@@ -6,6 +6,7 @@ import { request } from '../lib/api';
 import { ProjectStatus } from '../features/projects/ProjectLayout';
 import { DeleteProjectButton } from '../features/projects/DeleteProjectButton';
 import { JoinProjectForm } from '../features/projects/JoinProjectForm';
+import { Projects3DList } from '../features/projects3d/Projects3DList';
 import { roleLabel } from '../features/auth/AuthGate';
 import { useAuth } from '../features/auth/AuthProvider';
 import type { Project } from '../types.ts';
@@ -44,9 +45,14 @@ export function ProjectsPage() {
           </p>
         </div>
         {leader && (
-          <Link className="sr-button border-accent/40 text-accent" to="/projects/new">
-            {hint('+ New Project')}
-          </Link>
+          <div className="flex flex-wrap gap-3">
+            <Link className="sr-button border-accent/40 text-accent" to="/projects/new">
+              {hint('+ New Project')}
+            </Link>
+            <Link className="sr-button" to="/projects/new-3d">
+              + Project 3D mới
+            </Link>
+          </div>
         )}
       </div>
       {!leader && (
@@ -133,6 +139,7 @@ export function ProjectsPage() {
           ))}
         </div>
       )}
+      <Projects3DList />
     </>
   );
 }

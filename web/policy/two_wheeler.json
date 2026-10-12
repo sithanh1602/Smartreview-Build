@@ -1,0 +1,893 @@
+{
+  "two_wheeler_policy": {
+    "schema_version": "1.0.0",
+    "label": "two_wheeler",
+    "group": "core",
+    "model_drafts": true,
+    "sources": [
+      {
+        "id": "label_policy",
+        "ref": "Build/Policy/label_policy/motorcycle.md, bicycle.md, 00_chung.md"
+      },
+      {
+        "id": "engine",
+        "ref": "SmartReview web/core/risk, engine 6.0.0, policy 4.0.0"
+      },
+      {
+        "id": "previous",
+        "ref": "SmartReview web/core/risk_v5/policy/motorcycle.json, bicycle.json (policy 3.0.0)"
+      }
+    ],
+    "definition": {
+      "summary": "Xe hai bánh, có động cơ hay không: xe máy, xe tay ga, mô-tô, xe đạp, xe đạp điện.",
+      "includes": [
+        "xe máy",
+        "xe tay ga",
+        "mô-tô",
+        "xe đạp",
+        "xe đạp điện, dù dáng xe máy hay dáng xe đạp"
+      ],
+      "excludes": [
+        "xe ba bánh, kể cả xe đạp ba bánh chở hàng",
+        "xe lăn, xe đẩy, xe đẩy em bé",
+        "xe trượt, ván trượt",
+        "hàng rào, lan can sắt có hình khung giống xe đạp",
+        "giá để xe trống"
+      ],
+      "appearance": "Hai bánh thẳng hàng. Xe máy có thân đặc ở giữa (động cơ, bình xăng, yếm) và bánh dày; xe đạp có khung ống mảnh, nhìn xuyên qua được. Thường có người ngồi trên; khi đó phần thấy rõ nhất là người. Xe đạp hay dựng thành hàng trên vỉa hè hoặc giá để xe.",
+      "box": "Chỉ bao xe, không bao người ngồi trên. Người ngồi trên xe có box person riêng. Xe dựng thành hàng: mỗi xe phân biệt được một box.",
+      "one_label": "Xe máy và xe đạp dùng chung một nhãn. Trước policy 4.0.0 chúng là hai nhãn motorcycle và bicycle; các tên đó nay là tên khác của two_wheeler."
+    },
+    "defaults": [
+      {
+        "case": "Xe máy, xe tay ga, mô-tô, xe đạp",
+        "decision": "two_wheeler"
+      },
+      {
+        "case": "Xe đạp điện, dù dáng xe máy hay dáng xe đạp",
+        "decision": "two_wheeler"
+      },
+      {
+        "case": "Xe dựng không người",
+        "decision": "có gán"
+      },
+      {
+        "case": "Xe chở trên thùng xe tải, trên giá sau ô tô hoặc đầu xe buýt",
+        "decision": "có gán"
+      },
+      {
+        "case": "Xe ba bánh, kể cả xe đạp ba bánh chở hàng",
+        "decision": "không gán"
+      },
+      {
+        "case": "Hàng xe dày không tách được từng chiếc",
+        "decision": "chỉ gán những chiếc phân biệt được"
+      }
+    ],
+    "confusable_with": [
+      {
+        "label": null,
+        "when": "hàng rào và lan can sắt"
+      },
+      {
+        "label": "person",
+        "when": "người lái bị gộp vào box xe"
+      }
+    ],
+    "attributes": [
+      {
+        "name": "occluded",
+        "required": false,
+        "values": [true, false],
+        "when_absent": "skip",
+        "note": "Theo số đo, 83,2% box two_wheeler mang occluded = true, nên giá trị true chỉ nói là có bị che, không nói bị che bao nhiêu."
+      },
+      {
+        "name": "truncated",
+        "required": false,
+        "values": [true, false],
+        "when_absent": "skip",
+        "note": "Theo số đo, 8,3% box two_wheeler mang truncated = true; 70,5% trong số đó chạm mép ảnh."
+      },
+      {
+        "name": "occlusion_pct",
+        "required": false,
+        "values": "0–100",
+        "when_absent": "skip",
+        "note": "Một số bộ dữ liệu ghi phần trăm bị che thay cho giá trị đúng/sai. Khi có, đây là nguồn tốt nhất cho visibility."
+      }
+    ],
+    "statistics": {
+      "boxes": 1476,
+      "images": 10000,
+      "image_size": [1280, 720],
+      "per_image": {
+        "images_with_two_wheeler": 0.0873,
+        "note": "Tính trên các ảnh có ít nhất một two_wheeler.",
+        "median": 1,
+        "p95": 4,
+        "p99": 10,
+        "max": 25
+      },
+      "long_side_px": {
+        "p1": 14,
+        "p5": 20,
+        "p25": 39,
+        "p50": 60,
+        "p95": 190,
+        "p99": 289
+      },
+      "share_long_side_below": {
+        "10": 0.0027,
+        "16": 0.0217,
+        "20": 0.0549,
+        "32": 0.1843
+      },
+      "aspect_ratio": {
+        "all": {
+          "p1": 0.44,
+          "p5": 0.54,
+          "p50": 1.13,
+          "p95": 2.3,
+          "p99": 3.47
+        },
+        "not_occluded_not_truncated": {
+          "boxes": 191,
+          "p1": 0.41,
+          "p5": 0.52,
+          "p50": 1.07,
+          "p95": 2.05,
+          "p99": 2.57
+        }
+      },
+      "bottom_edge_over_height": {
+        "p1": 0.313,
+        "p5": 0.398,
+        "p50": 0.578
+      },
+      "touches_image_edge": 0.0637,
+      "largest_box": {
+        "width_over_image": 0.35,
+        "area_over_image": 0.152
+      },
+      "time_of_day": {
+        "daytime": 0.6701,
+        "night": 0.271,
+        "dawn_dusk": 0.0589
+      },
+      "rider": {
+        "share_with_a_rider_box": 0.375,
+        "overlap_with_rider_box": {
+          "p50": 0.354,
+          "p95": 0.559
+        },
+        "note": "Mức chồng (IoU) giữa box xe và box người lái trong nhãn đúng. Người lái chồng lên xe khoảng một phần ba, hiếm khi quá một nửa."
+      }
+    },
+    "visibility": {
+      "meaning": "Phần của chiếc xe còn thấy được trong ảnh, từ 0 đến 1. Dùng để quyết định một box có đủ căn cứ để tin là xe hay không.",
+      "sources_in_order": [
+        {
+          "from": "attribute occlusion_pct hoặc truncation_pct",
+          "use": "1 − phần trăm bị che hoặc bị cắt",
+          "trust": "high"
+        },
+        {
+          "from": "attribute occluded / truncated (đúng/sai)",
+          "use": "Chỉ biết là có bị che hoặc bị cắt; kết hợp với ước lượng từ box bên dưới",
+          "trust": "medium"
+        },
+        {
+          "from": "ước lượng từ box",
+          "use": "visibility = phần còn trong khung hình × (1 − phần bị box đứng gần camera hơn che)",
+          "trust": "low"
+        }
+      ],
+      "estimate_from_boxes": {
+        "frame_cut": "Box chạm mép trái/phải: rộng ÷ (cao ÷ 1,07). Box chạm mép trên/dưới: cao ÷ (rộng × 1,07). 1,07 là tỉ lệ cao/rộng trung vị của two_wheeler không bị che, không bị cắt.",
+        "covered_by_nearer_boxes": "Phần diện tích box nằm dưới các box xe có đáy thấp hơn (đứng gần camera hơn). Box person không được tính: người lái luôn chồng lên xe. Mỗi box che được thu nhỏ còn 80% quanh tâm trước khi tính.",
+        "caveat": "Ước lượng này không đo đúng mức che khuất: trên các box đúng, nó xếp 11,4% xe có occluded = true và 5,6% xe có occluded = false vào nhóm thấy dưới 50%. Không được dùng để loại box.",
+        "occluder_shrink": 0.8,
+        "typical_ratio": 1.07,
+        "edge_px": 2,
+        "occluders": ["car", "truck", "bus", "two_wheeler"]
+      },
+      "thresholds": {
+        "mostly_hidden": 0.5,
+        "barely_visible": 0.05
+      },
+      "measured": {
+        "note": "Tính bằng ước lượng từ box.",
+        "on_correct_boxes": {
+          "share_below_0_5": 0.1045,
+          "share_below_0_05": 0.0051,
+          "occluded_true_below_0_5": 0.114,
+          "occluded_false_below_0_5": 0.056
+        },
+        "on_model_boxes": {
+          "share_below_0_5": 0.0876,
+          "error_rate_below_0_5": 0.636,
+          "boxes_below_0_5": 44
+        }
+      },
+      "percent_attributes": ["occlusion_pct", "truncation_pct"]
+    },
+    "confirmability": {
+      "meaning": "Có bao nhiêu dấu hiệu độc lập cho thấy khó xác nhận box này là xe.",
+      "weak_signals": [
+        {
+          "id": "low_confidence",
+          "when": "confidence < 0,5",
+          "requires": ["confidence"],
+          "confidence_below": 0.5
+        },
+        {
+          "id": "poor_image",
+          "when": "env_risk ≥ 0,5 (ảnh tối, mưa, mờ)",
+          "requires": ["env_risk"],
+          "env_risk_min": 0.5
+        },
+        {
+          "id": "small",
+          "when": "cạnh dài < 32 px",
+          "long_side_below_px": 32
+        },
+        {
+          "id": "second_label_close",
+          "when": "nhãn thứ hai cách dưới 0,15",
+          "requires": ["label_top2", "score_top2"],
+          "top2_margin_below": 0.15
+        }
+      ],
+      "unconfirmed_when": "từ 2 dấu hiệu trở lên",
+      "missing_data": "Dấu hiệu thiếu dữ liệu thì không tính, không coi là có.",
+      "measured": {
+        "note": "Đo trên box của mô hình, đối chiếu với nhãn đúng.",
+        "error_rate": {
+          "confidence_below_0_5": 0.515,
+          "confidence_from_0_5": 0.125,
+          "long_side_below_32": 0.594,
+          "low_confidence_in_poor_image": 0.535,
+          "low_confidence_in_good_image": 0.5
+        },
+        "boxes": {
+          "long_side_below_32": 32
+        },
+        "reading": "Confidence là dấu hiệu mạnh: box two_wheeler từ 0,7 đúng 97,0%, dưới 0,5 chỉ đúng 48,5%. Box nhỏ (cạnh dài dưới 32 px) sai 59,4%, nhưng chỉ có 32 box."
+      }
+    },
+    "levels": [
+      {
+        "id": "ignore",
+        "meaning": "Box không được đánh giá: không đúng, không sai, không vào danh sách nào."
+      },
+      {
+        "id": "warning",
+        "meaning": "Cảnh báo: có trong danh sách xem thêm, người duyệt có thể xem hoặc bỏ qua. Không chặn ảnh khỏi tự chấp nhận và không tính vào hàng đợi chính."
+      },
+      {
+        "id": "queue",
+        "meaning": "Vào hàng đợi review khi tổng điểm từ 30."
+      },
+      {
+        "id": "high",
+        "meaning": "Mức cao khi tổng điểm từ 70."
+      }
+    ],
+    "rules": [
+      {
+        "id": "two_wheeler.min_side",
+        "status": "active",
+        "check": null,
+        "engine_note": "Không phải một check: engine xếp box vào trạng thái ignored (lý do bỏ qua below_minimum). label_policy gọi là size.below_minimum.",
+        "template": "min_size",
+        "params": {
+          "side": "long",
+          "px": 10,
+          "action": "ignore"
+        },
+        "text": "Box two_wheeler có cạnh dài dưới 10 px không được đánh giá: không đúng, không sai.",
+        "principle": null,
+        "source": "label_policy",
+        "examples": ["BIKE-6"],
+        "evidence": "0,27% box two_wheeler đúng có cạnh dài dưới 10 px; 5,5% dưới 20 px; 18,4% dưới 32 px."
+      },
+      {
+        "id": "two_wheeler.mostly_hidden_unconfirmed",
+        "status": "active",
+        "check": "visibility.mostly_hidden",
+        "template": "visibility_risk",
+        "params": {
+          "visibility_below": 0.5,
+          "weak_signals_at_least": 2
+        },
+        "applies_to": "any",
+        "level": "queue",
+        "score": 30,
+        "error_type": "EXTRA_OBJECT",
+        "text": "Xe hai bánh bị che hoặc nằm ngoài khung hình quá nửa, và có từ hai dấu hiệu khó xác nhận: không đủ căn cứ để tin đây là two_wheeler.",
+        "principle": "N5, N6",
+        "source": "yêu cầu của chủ dự án, 2026-10-10",
+        "measured": {
+          "flagged_share": 0.0179,
+          "error_rate": 0.889,
+          "boxes": 9,
+          "error_rate_not_hidden_with_two_signals": 0.518
+        },
+        "evidence": "9 box two_wheeler (1,8%) bị gắn cờ; 88,9% sai. Mẫu quá nhỏ để kết luận.",
+        "note": "Người ngồi trên xe không được tính là vật che. Box có từ hai dấu hiệu mà không bị che: 112 box, 51,8% sai."
+      },
+      {
+        "id": "two_wheeler.barely_visible",
+        "status": "active",
+        "check": "visibility.barely_visible",
+        "template": "min_visibility",
+        "params": {
+          "visibility_below": 0.05,
+          "action_when_measured": "ignore",
+          "action_when_estimated": "queue"
+        },
+        "applies_to": "any",
+        "level": "queue",
+        "score": 30,
+        "error_type": "EXTRA_OBJECT",
+        "text": "Xe hai bánh chỉ còn thấy dưới 5%: không đủ để đánh giá. Có attribute phần trăm thì coi như không tồn tại; chỉ có ước lượng từ box thì đưa vào hàng đợi.",
+        "principle": "N5",
+        "source": "yêu cầu của chủ dự án, 2026-10-10",
+        "measured": {
+          "flagged_share": 0.004,
+          "error_rate": 1.0,
+          "boxes": 2
+        },
+        "evidence": "2 box two_wheeler (0,4%) bị gắn cờ; 100,0% sai. Mẫu quá nhỏ để kết luận.",
+        "note": "Theo quyết định đã chốt cho car."
+      },
+      {
+        "id": "two_wheeler.box_not_positive",
+        "status": "active",
+        "check": "geometry.bbox_validity",
+        "template": "valid_box",
+        "params": {
+          "require": "positive_size"
+        },
+        "applies_to": "any",
+        "score": 70,
+        "error_type": "BBOX",
+        "text": "Box có chiều rộng hoặc chiều cao không dương.",
+        "principle": null,
+        "source": "engine"
+      },
+      {
+        "id": "two_wheeler.box_outside_image",
+        "status": "active",
+        "check": "geometry.bbox_validity",
+        "template": "valid_box",
+        "params": {
+          "require": "inside_image",
+          "tolerance_px": 0.1
+        },
+        "applies_to": "any",
+        "score": 40,
+        "error_type": "BBOX",
+        "text": "Box vượt ra ngoài giới hạn ảnh.",
+        "principle": null,
+        "source": "engine"
+      },
+      {
+        "id": "two_wheeler.low_confidence",
+        "status": "active",
+        "check": "confidence.low_score",
+        "template": "low_confidence",
+        "params": {
+          "below": 0.5
+        },
+        "applies_to": "model",
+        "family": "weak",
+        "score": 20,
+        "text": "Mô hình kém tự tin với box này (confidence dưới 0,5).",
+        "principle": "N5",
+        "source": "label_policy",
+        "examples": ["BIKE-2", "BIKE-5", "MOTO-3", "MOTO-6"],
+        "note": "Điểm cố ý đặt dưới ngưỡng vào hàng đợi (30).",
+        "measured": {
+          "flagged_share": 0.4562,
+          "error_rate": 0.515,
+          "boxes": 229,
+          "share_of_all_errors": 0.776,
+          "error_rate_from_0_5": 0.125
+        },
+        "evidence": "Box two_wheeler dưới 0,5 sai 51,5%; từ 0,5 trở lên sai 12,5%. Theo khoảng confidence, tỉ lệ đúng là 48,5% (0,3–0,5), 78,7% (0,5–0,7) và 97,0% (từ 0,7)."
+      },
+      {
+        "id": "two_wheeler.class_margin",
+        "status": "active",
+        "check": "confidence.class_margin",
+        "template": "class_margin",
+        "params": {
+          "margin": 0.15
+        },
+        "applies_to": "model",
+        "requires": ["label_top2", "score_top2"],
+        "score": 30,
+        "error_type": "CLASS",
+        "suggests": "label_top2",
+        "text": "Mô hình phân vân giữa two_wheeler và một nhãn khác: hai điểm cách nhau dưới 0,15.",
+        "principle": "N11",
+        "source": "label_policy",
+        "examples": ["BIKE-2", "MOTO-3"]
+      },
+      {
+        "id": "two_wheeler.confused_with_rider",
+        "status": "active",
+        "check": "confidence.person_vs_two_wheeler",
+        "template": "class_margin",
+        "params": {
+          "margin": 0.25,
+          "confusable_with": ["person"]
+        },
+        "applies_to": "model",
+        "requires": ["label_top2", "score_top2"],
+        "score": 20,
+        "error_type": "CLASS",
+        "text": "Nhãn thứ hai là person và cách nhãn two_wheeler dưới 0,25: mô hình dao động giữa xe và người lái.",
+        "principle": "N11",
+        "examples": ["MOTO-3"],
+        "source": "label_policy"
+      },
+      {
+        "id": "two_wheeler.duplicate_other_label",
+        "status": "active",
+        "check": "geometry.cross_class_overlap",
+        "template": "forbidden_overlap",
+        "params": {
+          "with": "other_labels",
+          "except_with": ["person"],
+          "iou": 0.8,
+          "flag": "weaker",
+          "class_error_within_margin": 0.15
+        },
+        "applies_to": "model",
+        "score": 40,
+        "error_type": "EXTRA_OBJECT",
+        "text": "Box two_wheeler gần trùng với một box mang nhãn khác có confidence cao hơn: một vật bị vẽ hai lần dưới hai tên.",
+        "principle": "N3",
+        "source": "label_policy",
+        "examples": ["MOTO-1"],
+        "measured": {
+          "flagged_share": 0.002,
+          "error_rate": 1.0,
+          "boxes": 1,
+          "share_of_all_errors": 0.007
+        },
+        "evidence": "1 box two_wheeler (0,2%) bị gắn cờ; 100,0% sai. Mẫu quá nhỏ để kết luận.",
+        "note": "Cặp xe hai bánh và person được loại trừ: người lái chồng lên xe là bình thường. Điểm gắn vào box có confidence thấp hơn."
+      },
+      {
+        "id": "two_wheeler.duplicate_hand_drawn",
+        "status": "active",
+        "check": "geometry.manual_overlap",
+        "template": "forbidden_overlap",
+        "params": {
+          "with": "same",
+          "iou": 0.5,
+          "flag": "later"
+        },
+        "applies_to": "human",
+        "score": 30,
+        "error_type": "EXTRA_OBJECT",
+        "text": "Hai box two_wheeler vẽ tay chồng nhau quá nửa: box vẽ sau bị gắn cờ.",
+        "principle": "N3",
+        "source": "label_policy",
+        "examples": [],
+        "evidence": "Trong 1.476 box two_wheeler đúng có 5 cặp chồng nhau từ 0,8. Xe dựng thành hàng chồng lên nhau là có thật, nên luật này cần người xem."
+      },
+      {
+        "id": "two_wheeler.inside_large_vehicle",
+        "status": "active",
+        "check": "context.vehicle_in_large_vehicle",
+        "template": "forbidden_inside",
+        "params": {
+          "container": ["truck", "bus"],
+          "containment": 0.9,
+          "not_duplicate_iou": 0.8
+        },
+        "applies_to": "any",
+        "score": 30,
+        "error_type": "EXTRA_OBJECT",
+        "text": "Box two_wheeler nằm trọn trong box của một truck hoặc bus: thường là một chi tiết của xe lớn (bánh dự phòng, thang, giá đỡ, lan can) bị nhận nhầm.",
+        "principle": "N4",
+        "source": "label_policy",
+        "exceptions": [
+          "Xe đứng trên thùng xe tải hoặc trên xe cứu hộ.",
+          "Xe đạp buộc trên giá ở đầu xe buýt.",
+          "Xe ở xa nhìn thấy qua khoảng hở của xe lớn."
+        ],
+        "examples": ["BIKE-4", "MOTO-5"],
+        "evidence": "Trên nhãn đúng, 4 box two_wheeler (0,27%) nằm trọn trong một truck hoặc bus. Trên box của mô hình: 1 box bị gắn cờ, 100,0% sai. Mẫu quá nhỏ để kết luận.",
+        "measured": {
+          "flagged_share": 0.002,
+          "error_rate": 1.0,
+          "boxes": 1
+        }
+      },
+      {
+        "id": "two_wheeler.above_road",
+        "status": "active",
+        "check": "geometry.vehicle_position",
+        "template": "builtin",
+        "params": {
+          "check": "geometry.vehicle_position",
+          "max_bottom_over_height": 0.3,
+          "horizon_from_other_vehicles": 3,
+          "horizon_slack_over_box_height": 0.25
+        },
+        "applies_to": "any",
+        "score": 30,
+        "error_type": "EXTRA_OBJECT",
+        "text": "Cả box nằm ở phần trên cùng của ảnh, phía trên mặt đường: thường là hình trên biển quảng cáo hoặc bóng trên kính.",
+        "principle": "N1",
+        "source": "label_policy",
+        "exceptions": [
+          "Xe trên cầu vượt hoặc trên dốc cao.",
+          "Xe được chở trên giá của xe khác.",
+          "Camera chúi xuống: khi ảnh có từ 3 xe khác, đường chân trời của chính ảnh đó quyết định."
+        ],
+        "examples": [],
+        "evidence": "0,9% box two_wheeler đúng có đáy cao hơn 30% chiều cao ảnh. Trên box của mô hình không box nào bị gắn cờ, nên chưa có số đo.",
+        "measured": {
+          "flagged_share": 0.0,
+          "error_rate": null,
+          "boxes": 0
+        }
+      },
+      {
+        "id": "two_wheeler.too_tall",
+        "status": "active",
+        "check": "geometry.two_wheeler_aspect",
+        "template": "aspect_ratio",
+        "params": {
+          "max": 3
+        },
+        "applies_to": "any",
+        "score": 15,
+        "error_type": "BBOX",
+        "unless": [
+          {
+            "attribute": "occluded",
+            "equals": true
+          },
+          {
+            "visibility_below": 0.5
+          }
+        ],
+        "text": "Box cao gấp hơn ba lần chiều rộng: xe hai bánh nhìn từ trước hoặc sau thì hẹp nhưng không cao; box cao thường đã bao cả người lái.",
+        "principle": "N2",
+        "examples": ["BIKE-5", "MOTO-2"],
+        "note": "Xe bị che hoặc thấy dưới một nửa được bỏ qua.",
+        "source": "label_policy",
+        "evidence": "Trên nhãn đúng: 1,69% box two_wheeler có tỉ lệ cao/rộng trên 3 (25 box; 72% bị che, 32% bị cắt), và 9,6% trên 2. Với xe không bị che, không bị cắt, khoảng p1–p99 là 0,41–2,57. Trên box của mô hình: 4 box bị gắn cờ, 100,0% sai. Mẫu quá nhỏ để kết luận.",
+        "measured": {
+          "flagged_share": 0.008,
+          "error_rate": 1.0,
+          "boxes": 4
+        }
+      },
+      {
+        "id": "two_wheeler.edge_sliver",
+        "status": "active",
+        "check": "geometry.edge_truncated",
+        "template": "edge_sliver",
+        "params": {
+          "edge_px": 2,
+          "max_confidence": 0.5,
+          "normal_ratio": [0.7, 2.5],
+          "side_cut_ratio_over": 5,
+          "vertical_cut_ratio_under": 0.35
+        },
+        "applies_to": "model",
+        "family": "weak",
+        "score": 10,
+        "error_type": "BBOX",
+        "text": "Xe hai bánh bị khung hình cắt quá nửa và mô hình kém tự tin.",
+        "principle": "N5",
+        "source": "label_policy",
+        "evidence": "6,4% box two_wheeler đúng chạm mép ảnh; 91,5% trong số đó được gán truncated = true. Khoảng tỉ lệ bình thường 0,7–2,5 so với xe không bị che, không bị cắt: p1 0,41, p95 2,05. Trên box của mô hình: 1 box bị gắn cờ, 0,0% sai. Mẫu quá nhỏ để kết luận.",
+        "measured": {
+          "flagged_share": 0.002,
+          "error_rate": 0.0,
+          "boxes": 1
+        }
+      },
+      {
+        "id": "two_wheeler.weak_in_poor_image",
+        "status": "active",
+        "check": "env.poor_condition",
+        "template": "builtin",
+        "params": {
+          "check": "env.poor_condition",
+          "min_env_risk": 0.5,
+          "max_confidence": 0.5
+        },
+        "applies_to": "model",
+        "family": "weak",
+        "requires": ["env_risk"],
+        "score": 10,
+        "text": "Box yếu trong ảnh điều kiện xấu (tối, mưa, mờ).",
+        "principle": "N6",
+        "source": "label_policy",
+        "measured": {
+          "flagged_share": 0.1972,
+          "error_rate": 0.535,
+          "boxes": 99,
+          "error_rate_low_confidence_in_good_image": 0.5
+        },
+        "evidence": "99 box two_wheeler (19,7%) bị gắn cờ; 53,5% sai.",
+        "note": "Box two_wheeler kém tự tin sai 53,5% trong ảnh xấu và 50,0% trong ảnh tốt."
+      },
+      {
+        "id": "two_wheeler.box_excludes_rider",
+        "status": "manual",
+        "template": "manual",
+        "text": "Box chỉ bao xe, không bao người ngồi trên; người lái có box person riêng.",
+        "examples": ["BIKE-5", "MOTO-1", "MOTO-2"],
+        "note": "Phần bắt được bằng số: two_wheeler.too_tall (box quá cao) và, ở phía box người, context.person_two_wheeler (box person gần trùng box xe, chồng từ 0,5, 20 điểm).",
+        "source": "label_policy"
+      },
+      {
+        "id": "two_wheeler.one_label_for_all",
+        "status": "manual",
+        "template": "manual",
+        "text": "Xe máy, xe đạp và xe đạp điện đều gán two_wheeler: không phân biệt có động cơ hay không.",
+        "note": "Trước policy 4.0.0 đây là hai nhãn. Trong 147 box motorcycle của mô hình, 16,3% thực ra là xe đạp, và không tín hiệu nào từ box bắt được lỗi đó.",
+        "source": "yêu cầu của chủ dự án, 2026-10-12"
+      },
+      {
+        "id": "two_wheeler.parked_is_labelled",
+        "status": "manual",
+        "template": "manual",
+        "text": "Xe dựng không người vẫn gán. Xe dựng sát chồng lên nhau là bình thường.",
+        "examples": ["MOTO-6"],
+        "source": "label_policy"
+      },
+      {
+        "id": "two_wheeler.carried_is_labelled",
+        "status": "manual",
+        "template": "manual",
+        "text": "Xe chở trên thùng xe tải, xe cứu hộ, giá sau ô tô hoặc đầu xe buýt vẫn gán.",
+        "examples": ["BIKE-4", "MOTO-5"],
+        "note": "MOTO-5 và BIKE-4 là báo động giả của two_wheeler.inside_large_vehicle.",
+        "source": "label_policy"
+      },
+      {
+        "id": "two_wheeler.three_wheeler_not_labelled",
+        "status": "manual",
+        "template": "manual",
+        "text": "Không gán xe ba bánh (kể cả xe đạp ba bánh chở hàng), xe lăn, xe đẩy, xe đẩy em bé, xe trượt, ván trượt.",
+        "source": "label_policy"
+      },
+      {
+        "id": "two_wheeler.row_of_bikes",
+        "status": "manual",
+        "template": "manual",
+        "text": "Xe dựng thành hàng: mỗi xe phân biệt được một box; hàng xe dày không tách được thì chỉ gán những chiếc phân biệt được.",
+        "note": "Vì vậy box two_wheeler chồng lên nhau là có thật; xem two_wheeler.duplicate_same_label.",
+        "source": "label_policy"
+      },
+      {
+        "id": "two_wheeler.fence_or_railing",
+        "status": "manual",
+        "template": "manual",
+        "text": "Không gán hàng rào, lan can sắt, giá để xe trống.",
+        "examples": ["BIKE-3"],
+        "note": "BIKE-3 là trường hợp lọt lưới: cỡ, tỉ lệ và vị trí đều giống xe đạp nên không tín hiệu số nào bật.",
+        "source": "label_policy"
+      },
+      {
+        "id": "two_wheeler.picture_or_reflection",
+        "status": "manual",
+        "template": "manual",
+        "text": "Không gán hình xe trên biển quảng cáo hay bóng phản chiếu.",
+        "principle": "N12",
+        "source": "label_policy"
+      },
+      {
+        "id": "two_wheeler.occlusion_attributes_valid",
+        "status": "active",
+        "check": "attribute.required",
+        "template": "required_attribute",
+        "params": {
+          "names": ["occluded", "truncated"],
+          "values": [true, false],
+          "only_when_dataset_has_them": true
+        },
+        "applies_to": "any",
+        "score": 30,
+        "error_type": "ATTRIBUTE",
+        "text": "Bộ dữ liệu có attribute occluded hoặc truncated thì mọi box two_wheeler phải mang giá trị đúng/sai cho attribute đó.",
+        "source": "yêu cầu của chủ dự án, 2026-10-10",
+        "note": "Bộ dữ liệu không có attribute này thì luật không chạy. Điểm 30 là đánh giá, chưa có số đo."
+      },
+      {
+        "id": "two_wheeler.truncated_matches_edge",
+        "status": "active",
+        "check": "attribute.truncated_edge",
+        "template": "attribute_matches_edge",
+        "text": "Box chạm mép ảnh thì truncated phải là true; box không chạm mép thì truncated phải là false.",
+        "source": "số đo",
+        "note": "Chỉ chạy trên box mang attribute truncated dạng đúng/sai. Điểm 10 là đánh giá, chưa có số đo: một mình nó không đưa box vào hàng đợi.",
+        "params": {
+          "attribute": "truncated",
+          "edge_px": 2
+        },
+        "applies_to": "any",
+        "score": 10,
+        "error_type": "ATTRIBUTE",
+        "evidence": "Số đo: 91,5% box two_wheeler chạm mép ảnh có truncated = true, nhưng chỉ 70,5% box truncated = true chạm mép ảnh."
+      },
+      {
+        "id": "two_wheeler.duplicate_same_label",
+        "status": "active",
+        "check": "geometry.duplicate_draft",
+        "template": "forbidden_overlap",
+        "params": {
+          "with": "same",
+          "iou": 0.6,
+          "flag": "weaker"
+        },
+        "applies_to": "model",
+        "score": 50,
+        "error_type": "EXTRA_OBJECT",
+        "text": "Hai box two_wheeler do mô hình sinh ra chồng nhau từ 60%: box có confidence thấp hơn là box thừa.",
+        "principle": "N3",
+        "source": "số đo",
+        "measured": {
+          "flagged_share": 0.0458,
+          "error_rate": 1.0,
+          "boxes": 23
+        },
+        "evidence": "23 box two_wheeler (4,6%) bị gắn cờ; 100,0% sai. Mẫu quá nhỏ để kết luận.",
+        "note": "Ngưỡng 0,8 không bao giờ bật vì bước lọc trùng của mô hình đã bỏ các cặp cùng nhãn chồng nhau trên 0,7. Từ policy 4.0.0 cặp motorcycle và bicycle chồng nhau cũng là cặp cùng nhãn. Xe đạp dựng thành hàng chồng lên nhau là có thật."
+      }
+    ],
+    "scoring": {
+      "weak_family": "Các luật có family = weak (low_confidence, edge_sliver, weak_in_poor_image) cùng mô tả một box yếu: chỉ tính một lần, lấy điểm cao nhất. Các luật khác cộng dồn, tối đa 100.",
+      "queue_from": 30,
+      "severe_from_side_px": 32,
+      "severe_note": "18,4% box two_wheeler có cạnh dài dưới 32 px."
+    },
+    "frame_rules": [
+      {
+        "id": "coverage.grey_vehicles",
+        "text": "Từ 3 box vùng xám thuộc lớp xe (confidence 0,2–0,3, cạnh từ 32 px, không chồng box nháp nào): nghi sót nhiều xe.",
+        "blocking": true,
+        "evidence": "Quan trọng nhất với two_wheeler: trong 1.169 xe của nhãn đúng, mô hình bỏ sót 66,6% và chỉ gán đúng 31,2%. Lỗi chính của nhãn này là xe sót, không phải box sai."
+      },
+      {
+        "id": "coverage.dense_traffic",
+        "text": "Từ 25 box nháp thuộc lớp xe trong một ảnh.",
+        "blocking": true
+      }
+    ],
+    "calibration": {
+      "what": "Đối chiếu box two_wheeler của mô hình với nhãn đúng để biết luật nào thật sự chỉ ra lỗi. Mô hình vẫn sinh hai tên motorcycle và bicycle; cả hai được tính là two_wheeler.",
+      "model_boxes": 502,
+      "images": 8000,
+      "min_confidence": 0.3,
+      "min_long_side_px": 10,
+      "error_definition": "Box sai khi không khớp với box xe hai bánh nào trong nhãn đúng ở mức chồng từ 0,5, hoặc khi một box two_wheeler có confidence cao hơn đã khớp với chính vật đó (box thứ hai trên một vật).",
+      "baseline_error_rate": 0.303,
+      "errors_extra_object": 0.233,
+      "errors_wrong_class": 0.028,
+      "errors_second_box_on_one_object": 0.042,
+      "wrong_class_breakdown": {
+        "car": 0.02,
+        "person": 0.006,
+        "truck": 0.002
+      },
+      "by_confidence": [
+        {
+          "range": "0,3–0,5",
+          "boxes": 229,
+          "correct": 0.485,
+          "extra": 0.38,
+          "wrong_class": 0.048,
+          "duplicate": 0.087
+        },
+        {
+          "range": "0,5–0,7",
+          "boxes": 141,
+          "correct": 0.787,
+          "extra": 0.184,
+          "wrong_class": 0.021,
+          "duplicate": 0.007
+        },
+        {
+          "range": "từ 0,7",
+          "boxes": 132,
+          "correct": 0.97,
+          "extra": 0.03,
+          "wrong_class": 0.0,
+          "duplicate": 0.0
+        }
+      ],
+      "ground_truth_objects": {
+        "boxes": 1169,
+        "found_as_two_wheeler": 0.312,
+        "missed": 0.666,
+        "found_as_car": 0.012,
+        "found_as_person": 0.009,
+        "found_as_truck": 0.001
+      },
+      "merge_effect": {
+        "note": "Cùng các box đó, tính theo hai nhãn riêng (policy 3.0.0) và theo một nhãn. Chỉ tính box không khớp vật nào cùng nhãn; box thứ hai trên một vật không tính ở đây.",
+        "error_rate_two_labels": 0.321,
+        "error_rate_one_label": 0.261,
+        "motorcycle_drafts": {
+          "boxes": 147,
+          "error_rate_two_labels": 0.442,
+          "error_rate_one_label": 0.279
+        },
+        "bicycle_drafts": {
+          "boxes": 355,
+          "error_rate_two_labels": 0.27,
+          "error_rate_one_label": 0.254
+        }
+      },
+      "queue": {
+        "boxes_scored_30_or_more": 32,
+        "error_rate": 0.969,
+        "share_of_all_errors": 0.204
+      },
+      "how_to_read": "measured.error_rate của một luật là tỉ lệ box sai trong số box luật đó gắn cờ. Mức chung của two_wheeler là 30,3%.",
+      "limits": [
+        "Mẫu nhỏ: chỉ 502 box two_wheeler của mô hình. Ngoài hai luật về box kém tự tin, các luật gắn cờ dưới 30 box, nên tỉ lệ sai theo từng luật chưa dùng được để hiệu chỉnh.",
+        "Chỉ một mô hình và một bộ ảnh; mô hình hoặc camera khác sẽ cho con số khác.",
+        "Nhãn đúng cũng có chỗ sót, nên một phần box bị tính là sai thật ra đúng.",
+        "Hai luật cần nhãn thứ hai của mô hình (class_margin, confused_with_rider) chưa đo được.",
+        "Bộ ảnh đã đo có ít xe hai bánh; dữ liệu đường phố Việt Nam sẽ có phân bố khác hẳn, nhất là số xe mỗi ảnh và tỉ lệ xe có người lái."
+      ]
+    },
+    "decisions": [
+      {
+        "question": "Gộp motorcycle và bicycle thành một nhãn.",
+        "decision": "Gộp thành two_wheeler từ policy 4.0.0. Annotation mang tên cũ được đổi tên khi import.",
+        "basis": "Tính theo hai nhãn, 44,2% box motorcycle của mô hình sai, phần lớn vì vật là xe đạp; tính theo một nhãn còn 27,9%. Với box bicycle là 27,0% và 25,4%. Không tín hiệu nào từ box phân biệt được hai loại xe.",
+        "source": "yêu cầu của chủ dự án, 2026-10-12"
+      },
+      {
+        "question": "Điểm của two_wheeler.duplicate_same_label.",
+        "decision": "50 điểm, ngưỡng chồng 0,6.",
+        "basis": "23 box bị gắn cờ, 100,0% sai. 18 box trong đó là box thứ hai trên cùng một xe: mô hình vẽ một xe hai lần, một lần là motorcycle và một lần là bicycle. Trước khi gộp, cặp này chỉ bị bắt khi chồng từ 0,8."
+      },
+      {
+        "question": "Các ngưỡng chưa được hiệu chỉnh trên tỉ lệ lỗi thật.",
+        "decision": "Giữ nguyên điểm của engine; không điều chỉnh gì theo số đo.",
+        "basis": "Chỉ luật kém tự tin có đủ box để tin: 229 box, 51,5% sai, so với mức chung 30,3%."
+      },
+      {
+        "question": "Điểm của two_wheeler.mostly_hidden_unconfirmed và two_wheeler.barely_visible.",
+        "decision": "30 điểm cho cả hai, theo truck.",
+        "basis": "Chỉ 9 và 2 box rơi vào hai trường hợp này; không đủ để đặt điểm riêng."
+      },
+      {
+        "question": "Tỉ lệ cao/rộng điển hình dùng để ước lượng phần bị khung hình cắt.",
+        "decision": "1,07, trung vị của xe hai bánh không bị che, không bị cắt.",
+        "basis": "Trước khi gộp là 0,93 cho xe máy và 1,07 cho xe đạp. Hai con số gần nhau, và ước lượng này chỉ dùng cho box chạm mép ảnh."
+      },
+      {
+        "question": "Ngưỡng chồng của luật người lái gần trùng với xe (context.person_two_wheeler, 0,5).",
+        "decision": "Giữ 0,5.",
+        "basis": "Trong nhãn đúng, box người lái chồng lên box xe ở mức trung vị 0,354 và chỉ 5% vượt 0,559. Ngưỡng 0,5 nằm sát mép trên của mức bình thường, nên luật sẽ báo động giả ở khoảng 5–10% cặp xe và người lái đúng."
+      }
+    ],
+    "open_questions": [
+      "Mô hình bỏ sót 66,6% xe hai bánh của nhãn đúng. Các luật trong file này chỉ chấm box đã có.",
+      "Các luật chỉ đưa 32 box vào hàng đợi, chứa 20,4% số box sai. Phần lớn box sai là box kém tự tin không có dấu hiệu nào khác.",
+      "Box nhỏ (cạnh dưới 32 px) sai 59,4% so với mức chung 30,3%, nhưng chỉ có 32 box.",
+      "Cần đo lại trên dữ liệu có nhiều xe hai bánh trước khi tin bất kỳ ngưỡng nào ở đây.",
+      "two_wheeler.class_margin và two_wheeler.confused_with_rider chưa đo được: cần dự đoán có nhãn thứ hai.",
+      "Bên dùng dữ liệu cần phân biệt xe máy với xe đạp thì phải thêm một attribute, vì nhãn không còn mang thông tin đó."
+    ],
+    "merged_from": ["motorcycle", "bicycle"]
+  }
+}

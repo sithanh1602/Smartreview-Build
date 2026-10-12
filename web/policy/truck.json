@@ -182,7 +182,7 @@
         "occluder_shrink": 0.8,
         "typical_ratio": 1,
         "edge_px": 2,
-        "occluders": ["car", "truck", "bus", "motorcycle", "bicycle", "person"]
+        "occluders": ["car", "truck", "bus", "two_wheeler", "person"]
       },
       "thresholds": {
         "mostly_hidden": 0.5,

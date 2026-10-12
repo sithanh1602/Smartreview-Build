@@ -1,8 +1,8 @@
 # Khuôn dạng Policy theo từng nhãn
 
-Trạng thái: **engine 5.0.0 chấm rủi ro từ các file này.** Mọi quy tắc `active` trong `policy/` được `core/risk` đọc và chạy; điểm, ngưỡng và loại lỗi lấy từ file, không còn nằm trong code (mục 1.1). Tài liệu chốt cách viết Policy thành dữ liệu để (1) sưu tầm quy định theo một dạng thống nhất, và (2) Guideline của từng dự án trở thành một bản vá trên Policy thay vì một bộ quy tắc riêng.
+Trạng thái: **engine 6.0.0 chấm rủi ro từ các file này.** Mọi quy tắc `active` trong `policy/` được `core/risk` đọc và chạy; điểm, ngưỡng và loại lỗi lấy từ file, không còn nằm trong code (mục 1.1). Tài liệu chốt cách viết Policy thành dữ liệu để (1) sưu tầm quy định theo một dạng thống nhất, và (2) Guideline của từng dự án trở thành một bản vá trên Policy thay vì một bộ quy tắc riêng.
 
-Đã viết theo khuôn dạng này: hai file chung (`_dataset.json`, `_frame.json`), đủ 10 file nhãn và file cặp nhãn `car_truck.json`. Tài liệu mô tả đúng những gì các file đó đang dùng; không còn quy tắc nào ở trạng thái `proposed`: mỗi quy tắc hoặc đang chạy, hoặc là `manual`. Những gì còn thiếu ghi ở mục 9.
+Đã viết theo khuôn dạng này: hai file chung (`_dataset.json`, `_frame.json`), đủ 9 file nhãn và file cặp nhãn `car_truck.json`. Tài liệu mô tả đúng những gì các file đó đang dùng; không còn quy tắc nào ở trạng thái `proposed`: mỗi quy tắc hoặc đang chạy, hoặc là `manual`. Những gì còn thiếu ghi ở mục 9.
 
 Nguyên tắc xuyên suốt: mỗi quy tắc hoặc là một **khuôn chạy được** kèm tham số, hoặc được đánh dấu rõ là **cần người xem** (`manual`). Không có quy tắc nào chỉ là một câu mô tả mà lại được coi là đang chạy.
 
@@ -15,8 +15,7 @@ policy/
   car.json            một file cho mỗi nhãn
   truck.json
   bus.json
-  motorcycle.json
-  bicycle.json
+  two_wheeler.json    xe máy và xe đạp, một nhãn từ policy 4.0.0 (mục 5)
   person.json
   traffic_light.json  nhãn bonus
   traffic_sign.json   nhãn bonus
@@ -44,14 +43,17 @@ Muốn đổi điểm hay ngưỡng thì sửa file của nhãn. Muốn thử m�
 
 **Phiên bản engine.** Sửa file policy là đổi điểm của mọi dự án đang chạy engine mới nhất, nên mỗi lần đổi hành vi phải tăng `ENGINE_VERSION` và giữ lại bản cũ. Dự án ghi phiên bản engine lúc import và tiếp tục chạy trên đúng phiên bản đó:
 
-| `engine_version` | Thư mục        | Policy                                                   |
-| ---------------- | -------------- | -------------------------------------------------------- |
-| `2.0.0`, `2.1.0` | `core/risk_v1` | 5 check gốc, thêm 4 check ảnh đơn ở 2.1.0                |
-| `3.0.0`          | `core/risk_v3` | policy 1.0.0, viết trong code                            |
-| `4.0.0`          | `core/risk_v4` | policy 2.0.0, viết trong code: 33 check, 9 rule mức ảnh  |
-| `5.0.0`          | `core/risk`    | policy 3.0.0, đọc từ `policy/`: 43 check, 9 rule mức ảnh |
+| `engine_version` | Thư mục        | Policy                                                                                                          |
+| ---------------- | -------------- | --------------------------------------------------------------------------------------------------------------- |
+| `2.0.0`, `2.1.0` | `core/risk_v1` | 5 check gốc, thêm 4 check ảnh đơn ở 2.1.0                                                                       |
+| `3.0.0`          | `core/risk_v3` | policy 1.0.0, viết trong code                                                                                   |
+| `4.0.0`          | `core/risk_v4` | policy 2.0.0, viết trong code: 33 check, 9 rule mức ảnh                                                         |
+| `5.0.0`          | `core/risk_v5` | policy 3.0.0, đọc từ `core/risk_v5/policy`: 44 check, 9 rule mức ảnh; `motorcycle` và `bicycle` còn là hai nhãn |
+| `6.0.0`          | `core/risk`    | policy 4.0.0, đọc từ `policy/`: 44 check, 9 rule mức ảnh; hai nhãn đó gộp thành `two_wheeler`                   |
 
 `analyzeDataset(data, { engineVersion })` chọn engine; `npm run import -- ... --engine 4.0.0` chấm một bộ dữ liệu bằng engine cũ.
+
+Engine đọc policy từ file thì bản đóng băng của nó mang theo cả bản sao các file policy (`core/risk_v5/policy`). Sửa `policy/` không bao giờ đổi điểm của dự án đang chạy engine cũ.
 
 ## 2. File của một nhãn
 
@@ -219,7 +221,7 @@ Quy ước chung:
 Tham số của `forbidden_overlap`:
 
 - `with`: nhãn của box kia. Một danh sách nhãn, `same` (cùng nhãn), hoặc `other_labels` (mọi nhãn khác).
-- `except_with`: các nhãn không tính dù khớp `with` (ví dụ `person` không bị coi là trùng với `motorcycle`, `bicycle`: người lái chồng lên xe là bình thường).
+- `except_with`: các nhãn không tính dù khớp `with` (ví dụ `person` không bị coi là trùng với `two_wheeler`: người lái chồng lên xe là bình thường).
 - `class_error_within_margin`: hai confidence cách nhau dưới mức này thì lỗi nghi ngờ là `CLASS` thay cho `error_type` của quy tắc, và nhãn của box kia được gợi ý.
 - `between`: dùng thay `with` trong file cặp, ghi cả hai nhãn (`["car", "truck"]`).
 - `flag`: box nào nhận điểm. `weaker` (confidence thấp hơn), `stronger` (confidence cao hơn), `later` (box vẽ sau, cho box người vẽ), hoặc một tên nhãn (luôn gắn cờ box mang nhãn đó, ví dụ `person` trong `person.overlap_two_wheeler`).
@@ -354,24 +356,26 @@ Không có `score`. Ngoài điều kiện đã ghi, các check trong `waives` v�
 ```json
 {
   "schema_version": "1.0.0",
-  "policy_version": "3.0.0",
+  "policy_version": "4.0.0",
   "labels": [
     "car",
     "truck",
     "bus",
-    "motorcycle",
-    "bicycle",
+    "two_wheeler",
     "person",
     "traffic_light",
     "traffic_sign",
     "barrier",
     "pole"
   ],
+  "merged_labels": { "two_wheeler": ["motorcycle", "bicycle"] },
   "aliases": {
     "stop_sign": "traffic_sign",
-    "motor": "motorcycle",
-    "motorbike": "motorcycle",
-    "bike": "bicycle",
+    "motorcycle": "two_wheeler",
+    "bicycle": "two_wheeler",
+    "motor": "two_wheeler",
+    "motorbike": "two_wheeler",
+    "bike": "two_wheeler",
     "pedestrian": "person",
     "rider": "person"
   },
@@ -388,6 +392,7 @@ Không có `score`. Ngoài điều kiện đã ghi, các check trong `waives` v�
 }
 ```
 
+- `merged_labels`: các nhãn đã gộp vào một nhãn khác. Tên cũ nằm trong `aliases`, nên engine chấm chúng như nhãn mới. Khác với alias thường, khi import (`mergeLabels` trong `core/risk/policy.ts`) annotation mang tên cũ được **đổi tên** thành nhãn mới, nên dữ liệu lưu và dữ liệu xuất ra chỉ còn một nhãn. Alias thường (`rider`, `stop_sign`) chỉ là cách viết khác: engine hiểu nhưng không sửa dữ liệu. Lệnh `npm run import -- ... --engine 5.0.0` không đổi tên, vì engine đó còn hai nhãn.
 - `groups.flagged_bonus_boxes`: `queue` (đang dùng) đưa box bonus bị gắn cờ từ 30 điểm vào hàng đợi chính và chặn ảnh khỏi tự chấp nhận; chỉ box core mới đẩy ảnh sang `relabel`. `advisory` chỉ liệt kê chúng ở danh sách phụ, như engine 4.0.0. Việc **thiếu** box bonus thì không bao giờ chặn ảnh.
 - `labels` là danh sách đóng. `unknown_label: "score_as_core"` là hành vi hiện tại của engine: nhãn ngoài danh sách không bị gắn cờ chỉ vì lạ, không có luật riêng và không có cỡ tối thiểu, nhưng các quy tắc chung vẫn chạy và box bị gắn cờ chặn ảnh như nhãn `core`. Giá trị `flag` (gắn cờ mọi box mang nhãn lạ) được dự trù nhưng engine chưa có.
 - Ngoài các trường trong ví dụ, file còn có: `groups` (nhãn nào `core`, nhãn nào `bonus`), `pairs` (các file cặp), `label_normalisation`, `min_side_px`, `normal_ratio` (cho khuôn `edge_sliver`), `box_states` (`draft`, `manual`, `grey`, `ignored`, `invalid`, `unsupported`), `scoring`, `auto_accept` và `open_questions`.
@@ -492,7 +497,7 @@ Ví dụ dưới đây là bản rút gọn để minh hoạ khuôn dạng, bỏ
     {
       "id": "person.overlap_two_wheeler",
       "template": "forbidden_overlap",
-      "params": { "with": ["motorcycle", "bicycle"], "iou": 0.8, "flag": "weaker" },
+      "params": { "with": ["two_wheeler"], "iou": 0.8, "flag": "weaker" },
       "score": 30,
       "error_type": "BBOX",
       "text": "Box người và box xe hai bánh gần trùng nhau: một box đang ôm cả hai.",
@@ -531,7 +536,9 @@ Lưu ý: `score` và khoảng tỉ lệ trong ví dụ này là minh hoạ cho k
 
 ## 9. Những gì khuôn dạng này chưa giải quyết
 
-- **Sửa policy là đổi điểm.** Engine 5.0.0 đọc thẳng các file này, nên sau khi đã có dự án thật chạy trên nó, mỗi lần đổi quy tắc phải ra phiên bản engine mới và giữ bản cũ (mục 1.1). Engine 4.0.0 đã được giữ nguyên ở `core/risk_v4`: báo cáo của nó khớp từng trường với bản trước khi tách, trên 3.000 bộ dữ liệu sinh ngẫu nhiên.
+- **Sửa policy là đổi điểm.** Engine đọc thẳng các file này, nên mỗi lần đổi quy tắc phải ra phiên bản engine mới và giữ bản cũ (mục 1.1). Engine 4.0.0 được giữ ở `core/risk_v4` và 5.0.0 ở `core/risk_v5`; báo cáo của mỗi bản khớp với bản trước khi tách trên các bộ dữ liệu sinh ngẫu nhiên (3.000 bộ cho 4.0.0, 1.500 bộ cho 5.0.0).
+- **Gộp nhãn làm mất thông tin.** Từ policy 4.0.0, dữ liệu import không còn phân biệt xe máy với xe đạp. Bên dùng dữ liệu cần phân biệt thì phải thêm một attribute. AI Check (`core/risk/ai-compare.ts`) chưa biết nhãn `two_wheeler`: mô hình của nó vẫn trả `motorcycle` và `bicycle`, nên box `two_wheeler` bị bỏ qua vì nhãn không được hỗ trợ.
+- **Box gộp nhiều xe và box quá to so với vật.** Đo trên 66.227 box nháp car, truck, bus: 0,7% là box gộp từ hai xe trở lên, 1,1% là box to quá 1,5 lần vật. Không dấu hiệu nào từ toạ độ tách được chúng: box chứa box xe khác sai 12,1%, bằng mức chung 12,2%, vì xe gần che xe xa là cảnh thường gặp. Cần mô hình thứ hai (AI Check).
 - **Điểm của các quy tắc mới bật chưa được kiểm trên dữ liệu ngoài.** Chúng lấy từ số đo trên một bộ dữ liệu; `*.occlusion_attributes_valid` (30) và `*.truncated_matches_edge` (10) là đánh giá, chưa có số đo.
 - **Box đèn có confidence thấp.** 84% số box đèn sai có confidence dưới 0,5, và trong nhóm đó đúng sai gần ngang nhau. Toạ độ box không tách được chúng; các quy tắc vị trí chỉ bắt được khoảng 7% số lỗi, dù rất chắc. Đèn cho người đi bộ, mặt sau hộp đèn và đèn bị sót cũng không có dấu hiệu nào trong dữ liệu box. Cần tín hiệu từ ảnh (màu, độ sáng vùng box) hoặc mô hình thứ hai.
 - **Biển báo.** Mô hình chỉ sinh biển stop, nên gần như mọi biển khác đều thiếu box và không quy tắc nào thấy được việc đó.

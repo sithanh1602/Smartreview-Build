@@ -1,0 +1,677 @@
+{
+  "traffic_sign_policy": {
+    "schema_version": "1.0.0",
+    "label": "traffic_sign",
+    "group": "bonus",
+    "model_drafts": true,
+    "model_drafts_note": "Một phần: mô hình chỉ sinh box cho biển stop. Mọi loại biển khác do người vẽ từ đầu.",
+    "sources": [
+      {
+        "id": "label_policy",
+        "ref": "Build/Policy/label_policy/traffic_sign.md, 00_chung.md"
+      },
+      {
+        "id": "engine",
+        "ref": "SmartReview web/core/risk, engine 4.0.0, policy 2.0.0"
+      }
+    ],
+    "definition": {
+      "summary": "Biển báo giao thông: biển cấm, biển hiệu lệnh, biển cảnh báo, biển chỉ dẫn.",
+      "includes": [
+        "biển cấm, biển hiệu lệnh, biển cảnh báo, biển chỉ dẫn",
+        "biển tên đường",
+        "biển chỉ hướng lớn trên giá ngang",
+        "mặt sau của biển",
+        "biển tạm ở công trường"
+      ],
+      "excludes": [
+        "biển quảng cáo, biển hiệu cửa hàng",
+        "đèn hậu tròn đỏ, vật tròn đỏ khác",
+        "biển số xe",
+        "vạch sơn và chữ sơn trên mặt đường",
+        "biển gắn trên xe"
+      ],
+      "appearance": "Tấm phẳng có viền và màu chuẩn (đỏ, vàng, xanh, trắng), hình tròn, tam giác, vuông, bát giác hoặc chữ nhật. Gắn trên cột bên đường hoặc trên giá ngang phía trên đường. Thường ở nửa trên và hai bên ảnh.",
+      "box": "Mỗi tấm biển một box, không bao cột.",
+      "special": "Mô hình chỉ nhận ra biển stop (bát giác đỏ, chữ trắng). Mỗi box nháp traffic_sign thực chất là khẳng định 'đây là biển stop' và được chấm theo hình dạng biển stop; ảnh không có box nháp vẫn có thể đầy biển khác."
+    },
+    "defaults": [
+      {
+        "case": "Mặt sau của biển",
+        "decision": "có gán"
+      },
+      {
+        "case": "Biển tên đường",
+        "decision": "có gán"
+      },
+      {
+        "case": "Biển chỉ hướng lớn trên giá ngang",
+        "decision": "có gán, mỗi tấm một box"
+      },
+      {
+        "case": "Nhiều biển trên cùng một cột",
+        "decision": "mỗi tấm một box"
+      },
+      {
+        "case": "Biển gắn trên xe (tay stop của xe buýt trường học)",
+        "decision": "không gán"
+      },
+      {
+        "case": "Biển tạm ở công trường",
+        "decision": "có gán"
+      }
+    ],
+    "confusable_with": [
+      {
+        "label": "traffic_light",
+        "when": "biển nhỏ hình chữ nhật đứng"
+      },
+      {
+        "label": null,
+        "when": "mọi vật đỏ gần tròn; biển quảng cáo có nền đỏ"
+      }
+    ],
+    "attributes": [
+      {
+        "name": "occluded",
+        "required": false,
+        "values": [true, false],
+        "when_absent": "skip",
+        "note": "Theo số đo, 11,8% box traffic_sign mang occluded = true."
+      },
+      {
+        "name": "truncated",
+        "required": false,
+        "values": [true, false],
+        "when_absent": "skip",
+        "note": "Theo số đo, 2,6% box traffic_sign mang truncated = true; 82,8% trong số đó chạm mép ảnh."
+      },
+      {
+        "name": "occlusion_pct",
+        "required": false,
+        "values": "0–100",
+        "when_absent": "skip",
+        "note": "Một số bộ dữ liệu ghi phần trăm bị che thay cho giá trị đúng/sai. Khi có, đây là nguồn tốt nhất cho visibility."
+      }
+    ],
+    "statistics": {
+      "boxes": 34724,
+      "images": 10000,
+      "image_size": [1280, 720],
+      "per_image": {
+        "images_with_traffic_sign": 0.821,
+        "note": "Tính trên các ảnh có ít nhất một traffic_sign.",
+        "median": 3,
+        "p90": 8,
+        "p95": 10,
+        "p99": 14,
+        "max": 28
+      },
+      "long_side_px": {
+        "p1": 10,
+        "p5": 12,
+        "p25": 19,
+        "p50": 27,
+        "p95": 86,
+        "p99": 154
+      },
+      "share_long_side_below": {
+        "10": 0.0157,
+        "16": 0.1663,
+        "20": 0.306,
+        "32": 0.6031
+      },
+      "aspect_ratio": {
+        "all": {
+          "p1": 0.21,
+          "p5": 0.3,
+          "p50": 0.85,
+          "p95": 1.87,
+          "p99": 2.75
+        },
+        "not_occluded_not_truncated": {
+          "boxes": 29814,
+          "p1": 0.22,
+          "p5": 0.3,
+          "p50": 0.84,
+          "p95": 1.82,
+          "p99": 2.64
+        }
+      },
+      "bottom_edge_over_height": {
+        "p1": 0.079,
+        "p5": 0.172,
+        "p50": 0.391,
+        "p95": 0.596,
+        "p99": 0.728
+      },
+      "center_over_height": {
+        "p1": 0.049,
+        "p5": 0.145,
+        "p50": 0.375,
+        "p95": 0.581,
+        "p99": 0.711
+      },
+      "touches_image_edge": 0.0234,
+      "largest_box": {
+        "width_over_image": 0.74,
+        "area_over_image": 0.115
+      },
+      "time_of_day": {
+        "daytime": 0.5578,
+        "night": 0.3678,
+        "dawn_dusk": 0.0734
+      },
+      "note": "Tính trên mọi loại biển báo trong nhãn đúng, không riêng biển stop."
+    },
+    "levels": [
+      {
+        "id": "ignore",
+        "meaning": "Box không được đánh giá: không đúng, không sai, không vào danh sách nào."
+      },
+      {
+        "id": "warning",
+        "meaning": "Cảnh báo: có trong danh sách xem thêm, người duyệt có thể xem hoặc bỏ qua. Không chặn ảnh khỏi tự chấp nhận và không tính vào hàng đợi chính."
+      },
+      {
+        "id": "queue",
+        "meaning": "Vào hàng đợi review khi tổng điểm từ 30."
+      },
+      {
+        "id": "high",
+        "meaning": "Mức cao khi tổng điểm từ 70."
+      }
+    ],
+    "rules": [
+      {
+        "id": "traffic_sign.min_side",
+        "status": "active",
+        "check": null,
+        "engine_note": "Không phải một check: engine xếp box vào trạng thái ignored (lý do bỏ qua below_minimum). label_policy gọi là size.below_minimum.",
+        "template": "min_size",
+        "params": {
+          "side": "long",
+          "px": 10,
+          "action": "ignore"
+        },
+        "text": "Box traffic_sign có cạnh dài dưới 10 px không được đánh giá: không đúng, không sai.",
+        "principle": "N8",
+        "source": "label_policy",
+        "examples": [],
+        "evidence": "1,57% box traffic_sign đúng có cạnh dài dưới 10 px; 30,6% dưới 20 px; 60,3% dưới 32 px."
+      },
+      {
+        "id": "traffic_sign.box_not_positive",
+        "status": "active",
+        "check": "geometry.bbox_validity",
+        "template": "valid_box",
+        "params": {
+          "require": "positive_size"
+        },
+        "applies_to": "any",
+        "score": 70,
+        "error_type": "BBOX",
+        "text": "Box có chiều rộng hoặc chiều cao không dương.",
+        "principle": null,
+        "source": "engine"
+      },
+      {
+        "id": "traffic_sign.box_outside_image",
+        "status": "active",
+        "check": "geometry.bbox_validity",
+        "template": "valid_box",
+        "params": {
+          "require": "inside_image",
+          "tolerance_px": 0.1
+        },
+        "applies_to": "any",
+        "score": 40,
+        "error_type": "BBOX",
+        "text": "Box vượt ra ngoài giới hạn ảnh.",
+        "principle": null,
+        "source": "engine"
+      },
+      {
+        "id": "traffic_sign.low_confidence",
+        "status": "active",
+        "check": "confidence.low_score",
+        "template": "low_confidence",
+        "params": {
+          "below": 0.5
+        },
+        "applies_to": "model",
+        "family": "weak",
+        "score": 20,
+        "text": "Mô hình kém tự tin với box này (confidence dưới 0,5).",
+        "principle": "N5",
+        "source": "label_policy",
+        "examples": [],
+        "note": "Điểm cố ý đặt dưới ngưỡng vào hàng đợi (30).",
+        "evidence": "Box traffic_sign dưới 0,5 sai 15,9%; từ 0,5 trở lên sai 3,8%. Theo khoảng confidence, tỉ lệ đúng là 84,1% (0,3–0,5), 94,7% (0,5–0,7) và 97,1% (từ 0,7).",
+        "measured": {
+          "flagged_share": 0.2933,
+          "error_rate": 0.159,
+          "boxes": 44,
+          "share_of_all_errors": 0.636,
+          "error_rate_from_0_5": 0.038
+        }
+      },
+      {
+        "id": "traffic_sign.class_margin",
+        "status": "active",
+        "check": "confidence.class_margin",
+        "template": "class_margin",
+        "params": {
+          "margin": 0.15
+        },
+        "applies_to": "model",
+        "requires": ["label_top2", "score_top2"],
+        "score": 30,
+        "error_type": "CLASS",
+        "suggests": "label_top2",
+        "text": "Mô hình phân vân giữa traffic_sign và một nhãn khác: hai điểm cách nhau dưới 0,15.",
+        "principle": "N11",
+        "source": "label_policy",
+        "examples": [],
+        "note": "Chưa đo được vì cần nhãn thứ hai của mô hình."
+      },
+      {
+        "id": "traffic_sign.duplicate_other_label",
+        "status": "active",
+        "check": "geometry.cross_class_overlap",
+        "template": "forbidden_overlap",
+        "params": {
+          "with": "other_labels",
+          "iou": 0.8,
+          "flag": "weaker",
+          "class_error_within_margin": 0.15
+        },
+        "applies_to": "model",
+        "score": 40,
+        "error_type": "EXTRA_OBJECT",
+        "text": "Box traffic_sign gần trùng với một box mang nhãn khác có confidence cao hơn: một vật bị vẽ hai lần dưới hai tên.",
+        "principle": "N3",
+        "source": "label_policy",
+        "examples": [],
+        "note": "Điểm gắn vào box có confidence thấp hơn. Nếu hai confidence cách nhau dưới 0,15 thì lỗi nghi ngờ là CLASS và gợi ý nhãn của box kia.",
+        "evidence": "Không box traffic_sign nào của mô hình gần trùng với một box nhãn khác mạnh hơn, nên chưa có số đo.",
+        "measured": {
+          "flagged_share": 0,
+          "error_rate": null,
+          "boxes": 0
+        }
+      },
+      {
+        "id": "traffic_sign.duplicate_hand_drawn",
+        "status": "active",
+        "check": "geometry.manual_overlap",
+        "template": "forbidden_overlap",
+        "params": {
+          "with": "same",
+          "iou": 0.5,
+          "flag": "later"
+        },
+        "applies_to": "human",
+        "score": 30,
+        "error_type": "EXTRA_OBJECT",
+        "text": "Hai box traffic_sign vẽ tay chồng nhau quá nửa: box vẽ sau bị gắn cờ.",
+        "principle": "N3",
+        "source": "label_policy",
+        "examples": ["SIGN-8"],
+        "evidence": "Trong 34.724 box traffic_sign đúng có 14 cặp cùng nhãn chồng nhau từ 0,5 và 3 cặp từ 0,8."
+      },
+      {
+        "id": "traffic_sign.inside_vehicle",
+        "status": "active",
+        "check": "context.sign_in_vehicle",
+        "template": "forbidden_inside",
+        "params": {
+          "container": ["car", "truck", "bus", "motorcycle"],
+          "containment": 0.9,
+          "not_duplicate_iou": 0.8
+        },
+        "applies_to": "model",
+        "score": 30,
+        "error_type": "EXTRA_OBJECT",
+        "text": "Box biển báo do mô hình sinh ra nằm trọn trong box của một car, truck, bus hoặc motorcycle: thường là đèn hậu đỏ, logo hoặc hình in trên xe.",
+        "exceptions": ["Biển thật ở xa phía sau một xe lớn lọt vào box xe đó."],
+        "principle": "N4",
+        "examples": ["SIGN-2", "SIGN-3"],
+        "note": "Chỉ chạy trên box của mô hình: biển do người vẽ nằm trong box xe là chuyện thường. Mẫu quá nhỏ để kết luận.",
+        "evidence": "Trên nhãn đúng, 2,28% biển thật (790 box) nằm trọn trong một box xe. Trên box của mô hình: 3 box bị gắn cờ.",
+        "measured": {
+          "flagged_share": 0.02,
+          "error_rate": 0.333,
+          "boxes": 3,
+          "share_of_correct_boxes_inside_a_vehicle": 0.0228
+        },
+        "source": "label_policy"
+      },
+      {
+        "id": "traffic_sign.stop_sign_shape",
+        "status": "active",
+        "check": "geometry.stop_sign_aspect",
+        "template": "aspect_ratio",
+        "params": {
+          "min": 0.6,
+          "max": 1.6
+        },
+        "applies_to": "model",
+        "score": 20,
+        "error_type": "EXTRA_OBJECT",
+        "text": "Box biển báo do mô hình sinh ra có tỉ lệ cao/rộng ngoài khoảng 0,6–1,6: không giống biển stop.",
+        "exceptions": ["Biển stop nhìn nghiêng hẹp lại nhưng không dẹt."],
+        "principle": "N2",
+        "examples": ["SIGN-4", "SIGN-5"],
+        "note": "Mô hình chỉ nhận ra biển stop, nên mỗi box nháp là một khẳng định 'đây là biển stop' và được chấm theo hình dạng biển stop. Không áp dụng cho biển do người vẽ. Mẫu quá nhỏ để kết luận.",
+        "evidence": "Trên box của mô hình: 23 box bị gắn cờ (15,3%), 26,1% sai, so với mức chung 7,3%. Trên nhãn đúng (mọi loại biển), 40,5% biển nằm ngoài khoảng này, nên luật không dùng được cho biển người vẽ.",
+        "measured": {
+          "flagged_share": 0.1533,
+          "error_rate": 0.261,
+          "boxes": 23,
+          "share_of_all_errors": 0.545,
+          "share_of_all_correct_signs_outside_range": 0.4054
+        },
+        "source": "label_policy"
+      },
+      {
+        "id": "traffic_sign.near_road",
+        "status": "active",
+        "check": "geometry.sign_position",
+        "template": "position_band",
+        "params": {
+          "anchor": "center",
+          "max_y": 0.7,
+          "relative_to": "image"
+        },
+        "applies_to": "any",
+        "score": 20,
+        "error_type": "EXTRA_OBJECT",
+        "text": "Tâm box biển báo nằm thấp hơn 70% chiều cao ảnh: biển báo gắn cao để người lái thấy.",
+        "principle": "N1",
+        "examples": ["SIGN-2"],
+        "note": "Chạy trên cả biển do người vẽ. Mẫu quá nhỏ để kết luận.",
+        "evidence": "Trên nhãn đúng, 1,09% biển thật có tâm thấp hơn 70%; tâm trung vị ở 38% chiều cao ảnh. Trên box của mô hình: 1 box bị gắn cờ.",
+        "measured": {
+          "flagged_share": 0.0067,
+          "error_rate": 0,
+          "boxes": 1,
+          "false_alarm_share_on_correct_boxes": 0.0109
+        },
+        "source": "label_policy"
+      },
+      {
+        "id": "traffic_sign.duplicate_same_label",
+        "status": "active",
+        "check": "geometry.sign_overlap",
+        "template": "forbidden_overlap",
+        "params": {
+          "with": "same",
+          "iou": 0.3,
+          "flag": "weaker"
+        },
+        "applies_to": "any",
+        "score": 20,
+        "error_type": "EXTRA_OBJECT",
+        "text": "Hai box biển báo chồng nhau từ 0,3: một tấm biển bị vẽ hai lần.",
+        "exceptions": ["Nhiều tấm biển gắn sát nhau trên cùng một cột: mỗi tấm một box."],
+        "principle": "N3",
+        "examples": ["SIGN-8"],
+        "note": "Box không có confidence là box người vẽ và luôn được coi là mạnh hơn box của mô hình; giữa hai box người vẽ thì box vẽ sau nhận điểm. Cộng dồn với traffic_sign.duplicate_hand_drawn khi mức chồng từ 0,5 (SIGN-8: 50 điểm). Mẫu quá nhỏ để kết luận.",
+        "evidence": "Trên nhãn đúng có 41 cặp chồng nhau từ 0,3 trong 34.724 box. Trên box của mô hình: 1 box bị gắn cờ.",
+        "measured": {
+          "flagged_share": 0.0067,
+          "error_rate": 1,
+          "boxes": 1
+        },
+        "source": "label_policy"
+      },
+      {
+        "id": "traffic_sign.edge_sliver",
+        "status": "active",
+        "check": "geometry.edge_truncated",
+        "template": "edge_sliver",
+        "params": {
+          "edge_px": 2,
+          "max_confidence": 0.5,
+          "normal_ratio": [0.6, 1.6],
+          "side_cut_ratio_over": 3.2,
+          "vertical_cut_ratio_under": 0.3
+        },
+        "applies_to": "model",
+        "family": "weak",
+        "score": 10,
+        "error_type": "BBOX",
+        "text": "Biển báo bị khung hình cắt quá nửa và mô hình kém tự tin.",
+        "principle": "N5",
+        "source": "label_policy",
+        "evidence": "2,3% box traffic_sign đúng chạm mép ảnh; 92,4% trong số đó được gán truncated = true. Khoảng tỉ lệ bình thường 0,6–1,6 so với vật không bị che, không bị cắt: p1 0,22, p99 2,64. Trên box của mô hình: 0 box bị gắn cờ. Mẫu quá nhỏ để kết luận.",
+        "measured": {
+          "flagged_share": 0,
+          "error_rate": null,
+          "boxes": 0
+        }
+      },
+      {
+        "id": "traffic_sign.weak_in_poor_image",
+        "status": "active",
+        "check": "env.poor_condition",
+        "template": "builtin",
+        "params": {
+          "check": "env.poor_condition",
+          "min_env_risk": 0.5,
+          "max_confidence": 0.5
+        },
+        "applies_to": "model",
+        "family": "weak",
+        "requires": ["env_risk"],
+        "score": 10,
+        "text": "Box yếu trong ảnh điều kiện xấu (tối, mưa, mờ).",
+        "principle": "N6",
+        "source": "label_policy",
+        "note": "Box traffic_sign kém tự tin sai 25,0% trong ảnh xấu (20 box) và 8,3% trong ảnh tốt (24 box).",
+        "measured": {
+          "flagged_share": 0.1333,
+          "error_rate": 0.25,
+          "boxes": 20,
+          "error_rate_low_confidence_in_good_image": 0.083
+        }
+      },
+      {
+        "id": "traffic_sign.every_image_needs_a_manual_pass",
+        "status": "manual",
+        "template": "manual",
+        "text": "Mọi ảnh cần một lượt gán tay cho biển báo: mô hình chỉ sinh box cho biển stop, nên ảnh không có box nháp vẫn có thể đầy biển khác.",
+        "examples": ["SIGN-1", "SIGN-6"],
+        "note": "Tự chấp nhận ảnh không bao giờ có nghĩa là đã đủ biển báo.",
+        "source": "label_policy"
+      },
+      {
+        "id": "traffic_sign.one_box_per_plate",
+        "status": "manual",
+        "template": "manual",
+        "text": "Mỗi tấm biển một box, không bao cột. Nhiều biển trên cùng một cột và biển chỉ hướng lớn trên giá ngang: mỗi tấm một box.",
+        "note": "Thiếu ngưỡng cho mức dư được chấp nhận.",
+        "source": "label_policy"
+      },
+      {
+        "id": "traffic_sign.advertising_not_labelled",
+        "status": "manual",
+        "template": "manual",
+        "text": "Không gán biển quảng cáo, biển hiệu cửa hàng.",
+        "examples": ["SIGN-4"],
+        "source": "label_policy"
+      },
+      {
+        "id": "traffic_sign.red_round_object_not_labelled",
+        "status": "manual",
+        "template": "manual",
+        "text": "Không gán đèn hậu tròn đỏ và các vật tròn đỏ khác.",
+        "examples": ["SIGN-2"],
+        "source": "label_policy"
+      },
+      {
+        "id": "traffic_sign.licence_plate_not_labelled",
+        "status": "manual",
+        "template": "manual",
+        "text": "Không gán biển số xe.",
+        "principle": "N4",
+        "source": "label_policy"
+      },
+      {
+        "id": "traffic_sign.road_marking_not_labelled",
+        "status": "manual",
+        "template": "manual",
+        "text": "Không gán vạch sơn và chữ sơn trên mặt đường.",
+        "source": "label_policy"
+      },
+      {
+        "id": "traffic_sign.sign_on_vehicle_not_labelled",
+        "status": "manual",
+        "template": "manual",
+        "text": "Không gán biển gắn trên xe (tay stop của xe buýt trường học).",
+        "principle": "N4",
+        "examples": ["SIGN-3"],
+        "note": "Guideline quy định có gán thì viết thành bản vá tắt traffic_sign.inside_vehicle.",
+        "source": "label_policy"
+      },
+      {
+        "id": "traffic_sign.back_name_and_temporary_are_labelled",
+        "status": "manual",
+        "template": "manual",
+        "text": "Mặt sau của biển, biển tên đường và biển tạm ở công trường vẫn gán.",
+        "source": "label_policy"
+      },
+      {
+        "id": "traffic_sign.draft_may_be_another_red_sign",
+        "status": "manual",
+        "template": "manual",
+        "text": "Box nháp là một biển tròn đỏ khác (ví dụ cấm đi ngược chiều) vẫn đúng nhãn traffic_sign.",
+        "examples": ["SIGN-9"],
+        "source": "label_policy"
+      },
+      {
+        "id": "traffic_sign.occlusion_attributes_valid",
+        "status": "active",
+        "check": "attribute.required",
+        "template": "required_attribute",
+        "params": {
+          "names": ["occluded", "truncated"],
+          "values": [true, false],
+          "only_when_dataset_has_them": true
+        },
+        "applies_to": "any",
+        "score": 30,
+        "error_type": "ATTRIBUTE",
+        "text": "Bộ dữ liệu có attribute occluded hoặc truncated thì mọi box traffic_sign phải mang giá trị đúng/sai cho attribute đó.",
+        "source": "yêu cầu của chủ dự án, 2026-10-10",
+        "note": "Bộ dữ liệu không có attribute này thì luật không chạy. Điểm 30 là đánh giá, chưa có số đo."
+      },
+      {
+        "id": "traffic_sign.truncated_matches_edge",
+        "status": "active",
+        "check": "attribute.truncated_edge",
+        "template": "attribute_matches_edge",
+        "text": "Box chạm mép ảnh thì truncated phải là true; box không chạm mép thì truncated phải là false.",
+        "source": "số đo",
+        "note": "Chỉ chạy trên box mang attribute truncated dạng đúng/sai. Điểm 10 là đánh giá, chưa có số đo: một mình nó không đưa box vào hàng đợi.",
+        "evidence": "Số đo: 92,4% box traffic_sign chạm mép ảnh có truncated = true, nhưng chỉ 82,8% box truncated = true chạm mép ảnh.",
+        "params": {
+          "attribute": "truncated",
+          "edge_px": 2
+        },
+        "applies_to": "any",
+        "score": 10,
+        "error_type": "ATTRIBUTE"
+      }
+    ],
+    "scoring": {
+      "weak_family": "Các luật có family = weak (low_confidence, edge_sliver, weak_in_poor_image) cùng mô tả một box yếu: chỉ tính một lần, lấy điểm cao nhất. Các luật khác cộng dồn, tối đa 100.",
+      "queue_from": 30,
+      "severe_from_side_px": 16,
+      "severe_note": "16,6% box traffic_sign có cạnh dài dưới 16 px."
+    },
+    "frame_rules": [
+      {
+        "id": "coverage.many_stop_signs",
+        "text": "Hơn 3 box nháp traffic_sign trong một ảnh: một ảnh hiếm khi thấy hơn vài biển stop.",
+        "blocking": false,
+        "examples": ["SIGN-7"],
+        "evidence": "Luật bật ở 0 trong 8.000 ảnh đã đo.",
+        "measured": {
+          "images": 0,
+          "images_share": 0
+        }
+      }
+    ],
+    "calibration": {
+      "what": "Đối chiếu box traffic_sign của mô hình với nhãn đúng để biết luật nào thật sự chỉ ra lỗi.",
+      "model_boxes": 150,
+      "images": 8000,
+      "min_confidence": 0.3,
+      "min_long_side_px": 10,
+      "error_definition": "Box sai khi không khớp với box traffic_sign nào (bất kể loại biển) trong nhãn đúng ở mức chồng từ 0,5.",
+      "baseline_error_rate": 0.073,
+      "errors_extra_object": 0.073,
+      "errors_wrong_class": 0,
+      "wrong_class_breakdown": {},
+      "by_confidence": [
+        {
+          "range": "0,3–0,5",
+          "boxes": 44,
+          "correct": 0.841,
+          "extra": 0.159,
+          "wrong_class": 0
+        },
+        {
+          "range": "0,5–0,7",
+          "boxes": 38,
+          "correct": 0.947,
+          "extra": 0.053,
+          "wrong_class": 0
+        },
+        {
+          "range": "từ 0,7",
+          "boxes": 68,
+          "correct": 0.971,
+          "extra": 0.029,
+          "wrong_class": 0
+        }
+      ],
+      "ground_truth_objects": {
+        "boxes": 27257,
+        "found_as_traffic_sign": 0.005,
+        "missed": 0.987,
+        "found_as_traffic_light": 0.007,
+        "found_as_car": 0.001
+      },
+      "how_to_read": "measured.error_rate của một luật là tỉ lệ box sai trong số box luật đó gắn cờ. Mức chung của traffic_sign là 7,3%.",
+      "limits": [
+        "Mẫu nhỏ: chỉ 150 box traffic_sign của mô hình. Hầu hết luật gắn cờ dưới 30 box, nên tỉ lệ sai theo từng luật chưa dùng được để hiệu chỉnh.",
+        "Nhãn đúng không ghi loại biển, nên không kiểm được box nháp có đúng là biển stop hay không; chỉ kiểm được ở đó có một tấm biển.",
+        "Chỉ một mô hình và một bộ ảnh; mô hình hoặc camera khác sẽ cho con số khác.",
+        "Nhãn đúng cũng có chỗ sót, nên một phần box bị tính là sai thật ra đúng.",
+        "traffic_sign.class_margin chưa đo được: cần nhãn thứ hai của mô hình."
+      ]
+    },
+    "decisions": [
+      {
+        "question": "traffic_sign.stop_sign_shape có nên chạy trên biển do người vẽ không?",
+        "decision": "Không; chỉ box của mô hình.",
+        "basis": "40,5% biển thật (mọi loại) có tỉ lệ ngoài 0,6–1,6."
+      },
+      {
+        "question": "Các ngưỡng chưa được hiệu chỉnh trên tỉ lệ lỗi thật.",
+        "decision": "Giữ nguyên điểm của engine; không điều chỉnh gì theo số đo.",
+        "basis": "Box của mô hình sai 7,3%; chỉ traffic_sign.stop_sign_shape (23 box, 26,1% sai) và nhóm kém tự tin (44 box, 15,9% sai) có số đo, và cả hai đều dưới 50 box."
+      }
+    ],
+    "open_questions": [
+      "Mô hình chỉ tìm ra 0,5% số biển của nhãn đúng. Gần như mọi biển phải do người vẽ; các luật trong file này không bắt được biển sót.",
+      "Không có luật nào kiểm biển do người vẽ ngoài vị trí, trùng box và box hợp lệ. Cần so hai người vẽ độc lập hoặc một mô hình nhận được nhiều loại biển.",
+      "coverage.many_stop_signs chưa từng bật trên dữ liệu đã đo.",
+      "Chưa có luật về mức thấy được cho nhãn này: ước lượng từ box không dùng được cho vật gắn trên cao.",
+      "Số đo đến từ một mô hình và một bộ ảnh. Nên đo lại khi đổi mô hình hoặc nguồn ảnh."
+    ]
+  }
+}
