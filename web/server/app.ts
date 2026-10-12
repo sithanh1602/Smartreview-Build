@@ -18,6 +18,8 @@ export interface AppOptions {
   projects?: ProjectService | null;
   auth?: AuthService | null;
   secureCookies?: boolean;
+  // Set for requests a project route passed on: the caller's project role is already checked.
+  projectScoped?: boolean;
 }
 const ASSET_TYPES: Record<string, string> = {
   '.jpg': 'image/jpeg',
@@ -41,6 +43,7 @@ export function createHandler({
   projects,
   auth,
   secureCookies = false,
+  projectScoped = false,
 }: AppOptions) {
   const json: Json = (res, status, data) => {
     res.writeHead(status, {
@@ -59,24 +62,25 @@ export function createHandler({
         if (!auth) throw new ReviewError(503, 'Dịch vụ đăng nhập chưa sẵn sàng.');
         req.user = await auth.authenticate(cookie(req, 'sr_access'));
         if (!['GET', 'HEAD'].includes(req.method)) checkOrigin(req);
-        if (url.pathname === '/api/annotator/home') {
-          if (req.user.role !== 'annotator') throw new ReviewError(403, 'Chỉ dành cho annotator.');
-          if (req.method !== 'GET') throw new ReviewError(405, 'Use GET.');
-          return json(res, 200, {
-            user: req.user,
-            message: 'Khu vực annotation đang được phát triển.',
-          });
-        }
-        if (req.user.role !== 'reviewer')
-          throw new ReviewError(403, 'Bạn không có quyền truy cập chức năng reviewer.');
+        // Project routes check the caller's role in that project; everything else (the
+        // default dataset, guideline analysis) is the leader's.
+        if (
+          !projectScoped &&
+          !/^\/api\/projects(\/|$)/.test(url.pathname) &&
+          req.user.role !== 'leader'
+        )
+          throw new ReviewError(403, 'Chức năng này chỉ dành cho Leader.');
       }
-      if (await handleGuideline(req, res, url.pathname, { json })) return;
+      if (!projectScoped && (await handleGuideline(req, res, url.pathname, { json }))) return;
       if (
         await handleProjects(req, res, url, {
           projects,
           json,
           dispatch: (context, request, response) =>
-            createHandler({ ...context, distRoot, auth, secureCookies })(request, response),
+            createHandler({ ...context, distRoot, auth, secureCookies, projectScoped: true })(
+              request,
+              response,
+            ),
         })
       )
         return;

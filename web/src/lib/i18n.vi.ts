@@ -16,10 +16,7 @@ export const vi: Record<string, string> = {
   annotations: 'nhãn',
   Errors: 'Lỗi',
   Correct: 'Đúng',
-  Reviewer: 'Người kiểm tra',
-  Annotator: 'Người gán nhãn',
   'Model:': 'Mô hình:',
-  'ANNOTATOR WORKSPACE': 'KHÔNG GIAN GÁN NHÃN',
   'Import failed.': 'Nhập dữ liệu thất bại.',
   'Image metadata CSV (optional)': 'CSV thông tin ảnh (không bắt buộc)',
   'SmartReview dataset': 'Bộ dữ liệu SmartReview',
@@ -135,4 +132,31 @@ export const vi: Record<string, string> = {
   'quy tắc so được với policy ·': 'quy tắc so được với quy định ·',
   'Phân tích guideline': 'Phân tích hướng dẫn gán nhãn',
   Guideline: 'Hướng dẫn',
+  // Roles: swapping single terms would read badly here.
+  'Project chưa có dữ liệu. Leader cần import dataset trước khi bạn làm việc.':
+    'Dự án chưa có dữ liệu. Leader cần nhập bộ dữ liệu trước khi bạn làm việc.',
+  'Chỉ Leader của project được thực hiện thao tác này.':
+    'Chỉ Leader của dự án được thực hiện thao tác này.',
+  'Bạn đã là Reviewer của project này. Leader có thể đổi vai trò cho bạn.':
+    'Bạn đã là Reviewer của dự án này. Leader có thể đổi vai trò cho bạn.',
+  'Bạn đã là Annotator của project này. Leader có thể đổi vai trò cho bạn.':
+    'Bạn đã là Annotator của dự án này. Leader có thể đổi vai trò cho bạn.',
+  // API messages where swapping single terms would read badly.
+  'Project metadata quá lớn.': 'Thông tin dự án quá lớn.',
+  'Annotation extension không khớp format.': 'Phần mở rộng của tệp nhãn không khớp định dạng.',
+  'Quá nhiều upload parts.': 'Tải lên quá nhiều phần.',
+  'Review đã tồn tại. Tải lại quyết định rồi chỉnh sửa.':
+    'Đánh giá đã tồn tại. Tải lại quyết định rồi chỉnh sửa.',
+  'Review chưa tồn tại.': 'Đánh giá chưa tồn tại.',
+  'Review đã được chỉnh sửa ở nơi khác. Tải lại quyết định.':
+    'Đánh giá đã được chỉnh sửa ở nơi khác. Tải lại quyết định.',
+  'Project chưa READY. Xem trạng thái import.': 'Dự án chưa sẵn sàng. Xem trạng thái nhập dữ liệu.',
+  'Project đang import hoặc đã READY. Tạo project mới cho dataset khác.':
+    'Dự án đang nhập dữ liệu hoặc đã sẵn sàng. Tạo dự án mới cho bộ dữ liệu khác.',
+  'Project này chỉ có dữ liệu trên máy đã import. Chạy npm run storage:push trên máy đó để chia sẻ.':
+    'Dự án này chỉ có dữ liệu trên máy đã nhập. Chạy npm run storage:push trên máy đó để chia sẻ.',
+  'Annotation, metadata và guideline tối đa 10 MB mỗi file.':
+    'Tệp nhãn, metadata và guideline tối đa 10 MB mỗi tệp.',
+  'Tối đa 1000 ảnh, một annotation file, một metadata file và một guideline.':
+    'Tối đa 1000 ảnh, một tệp nhãn, một tệp metadata và một guideline.',
 };

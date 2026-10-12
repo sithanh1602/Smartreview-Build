@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { request } from '../lib/api';
 import { FrameViewer } from '../features/review/FrameViewer';
+import { useProject } from '../features/projects/useProject';
 import type { AiReport } from '../types.ts';
 
 export function AiCheckPage() {
@@ -18,6 +19,8 @@ function AiWorkspace({ projectId }: { projectId: string | undefined }) {
     [filter, setFilter] = useState('all'),
     [showAi, setShowAi] = useState(true);
   const endpoint = `/projects/${projectId}/ai-check`;
+  // Members read the results; only the leader starts a run.
+  const leader = useProject(projectId).data?.my_role === 'leader';
   useEffect(() => {
     const controller = new AbortController();
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -69,20 +72,22 @@ function AiWorkspace({ projectId }: { projectId: string | undefined }) {
             Đối chiếu nhãn và khung bao với model cục bộ. Gợi ý cần người kiểm tra xác nhận.
           </p>
         </div>
-        <button
-          className="sr-button border-accent text-accent"
-          disabled={!report?.available || running || busy}
-          onClick={start}
-        >
-          {(running || busy) && <Spinner />}
-          {running
-            ? 'Đang kiểm tra…'
-            : busy
-              ? 'Đang bắt đầu…'
-              : report?.status === 'READY'
-                ? 'Chạy lại AI Check'
-                : 'Bắt đầu AI Check'}
-        </button>
+        {leader && (
+          <button
+            className="sr-button border-accent text-accent"
+            disabled={!report?.available || running || busy}
+            onClick={start}
+          >
+            {(running || busy) && <Spinner />}
+            {running
+              ? 'Đang kiểm tra…'
+              : busy
+                ? 'Đang bắt đầu…'
+                : report?.status === 'READY'
+                  ? 'Chạy lại AI Check'
+                  : 'Bắt đầu AI Check'}
+          </button>
+        )}
       </div>
       {error && (
         <div role="alert" className="panel mb-4 p-4 text-rose-700">

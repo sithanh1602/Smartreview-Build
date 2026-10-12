@@ -545,6 +545,259 @@ export const en: Record<string, string> = {
   'Lý do': 'Reason',
   'Đây là bản nháp để người duyệt. Công cụ chưa tự đổi cách chấm điểm theo lựa chọn này.':
     'This is a draft for a person to review. Scoring does not change with these choices yet.',
+  // Roles and project members. Leader, Reviewer and Annotator are written the same in both
+  // languages, so they have no entry here or in i18n.vi.ts.
+  'Loại tài khoản': 'Account type',
+  'Thành viên': 'Member',
+  'Tham gia project bằng mã mời, làm Reviewer hoặc Annotator.':
+    'Join projects with an invite code, as a Reviewer or an Annotator.',
+  'Tạo project, mời và quản lý thành viên.': 'Create projects, invite and manage members.',
+  'Chọn vai trò làm việc': 'Choose your working role',
+  'Bạn đổi được vai trò bất cứ lúc nào. Chưa tham gia project? Chọn vai trò rồi nhập mã mời Leader gửi cho bạn.':
+    'You can switch roles at any time. Not in a project yet? Choose a role, then enter the invite code your Leader sent you.',
+  'Kiểm tra và đánh giá nhãn trong các project bạn tham gia.':
+    'Check and review labels in the projects you joined.',
+  'Xem và sửa nhãn trong các project bạn tham gia.':
+    'View and edit labels in the projects you joined.',
+  project: 'project(s)',
+  'Đổi vai trò': 'Switch role',
+  'Mã mời từ Leader': 'Invite code from your Leader',
+  'VD: K7M2QX9RTB': 'e.g. K7M2QX9RTB',
+  'Tham gia project': 'Join project',
+  'Các project bạn đã tham gia bằng mã mời của Leader.':
+    'The projects you joined with your Leader’s invite code.',
+  'Đã tham gia project:': 'Joined project:',
+  'Bạn chưa tham gia project nào với vai trò này. Nhập mã mời ở trên để bắt đầu.':
+    'You have not joined any project in this role. Enter an invite code above to start.',
+  'Vai trò của bạn:': 'Your role:',
+  'Thành viên project': 'Project members',
+  'Đang tải thành viên…': 'Loading members…',
+  'Người tạo (Leader)': 'Created by (Leader)',
+  'Chưa gán — mọi Leader cùng quản lý': 'Unassigned — managed by every Leader',
+  'Chưa có ai tham gia.': 'Nobody has joined yet.',
+  'Mã mời': 'Invite code',
+  'Chuyển sang': 'Move to',
+  Xóa: 'Remove',
+  'Xóa thành viên này khỏi project?': 'Remove this member from the project?',
+  'Sao chép': 'Copy',
+  'Đã sao chép': 'Copied',
+  'Tạo mã mới': 'New code',
+  'Tạo mã mới? Mã cũ sẽ không dùng được nữa.': 'Create a new code? The old one will stop working.',
+  'Project chưa có dữ liệu. Leader cần import dataset trước khi bạn làm việc.':
+    'This project has no data yet. The Leader needs to import a dataset before you can work.',
+  // Messages from the API
+  'Mã mời không đúng hoặc đã bị thay.': 'That invite code is wrong or has been replaced.',
+  'Mã mời gồm 10 ký tự chữ và số.': 'Invite codes have 10 letters and digits.',
+  'Tài khoản Leader không tham gia project bằng mã mời.':
+    'Leader accounts do not join projects with an invite code.',
+  'Chỉ Leader được tạo project.': 'Only a Leader can create projects.',
+  'Chỉ Leader của project được thực hiện thao tác này.': 'Only the project’s Leader can do this.',
+  'Chức năng này chỉ dành cho Leader.': 'This is for Leaders only.',
+  'Thành viên không thuộc project này.': 'That member is not part of this project.',
+  'Vai trò phải là Reviewer hoặc Annotator.': 'The role must be Reviewer or Annotator.',
+  'Loại tài khoản phải là Leader hoặc Thành viên.': 'The account type must be Leader or Member.',
+  'Project không tồn tại.': 'This project does not exist.',
+  // Added by the full audit: dialogs, API error messages and policy check descriptions.
+  'check sẽ tắt khi chấm': 'check(s) will be switched off when scoring',
+  'dòng của guideline chưa được phân loại': 'guideline line(s) were not classified',
+  '. Hãy đọc lại các dòng này bằng tay hoặc phân tích lại.':
+    '. Read these lines by hand or analyse again.',
+  'Bị loại khi đối chiếu với guideline': 'Rejected when checked against the guideline',
+  'ZIP64 chưa được hỗ trợ. Dùng tệp nén dưới 4 GB và dưới 65535 tệp.':
+    'ZIP64 is not supported. Use an archive under 4 GB with fewer than 65535 files.',
+  'Mục lục ZIP bị hỏng.': 'The ZIP directory is damaged.',
+  'Lượt kiểm tra bị ngắt khi server dừng. Bấm chạy lại.':
+    'The run was interrupted when the server stopped. Start it again.',
+  'Project đang được xóa.': 'This project is being deleted.',
+  'Một lượt AI đang chạy. Hãy chờ hoàn tất rồi thử lại.':
+    'An AI run is in progress. Wait for it to finish, then try again.',
+  'Chưa có Python hoặc model cục bộ. Xem docs/ai-check.md để cấu hình.':
+    'Python or the local model is missing. See docs/ai-check.md to set it up.',
+  'Dataset chưa có ảnh phù hợp để chạy AI.': 'The dataset has no images suitable for the AI run.',
+  'AI Check hỗ trợ tối đa 1000 ảnh mỗi lượt.': 'AI Check handles at most 1000 images per run.',
+  'AI quá thời gian 20 phút. Thử dataset nhỏ hơn.':
+    'The AI run exceeded 20 minutes. Try a smaller dataset.',
+  'Không chạy được model. Kiểm tra Python/Ultralytics trong docs/ai-check.md rồi thử lại.':
+    'The model could not run. Check Python/Ultralytics in docs/ai-check.md and try again.',
+  'Dịch vụ đăng nhập chưa sẵn sàng.': 'The sign-in service is not ready.',
+  'Chưa có dataset mặc định. Mở Projects để tạo và import dataset.':
+    'There is no default dataset. Open Projects to create one and import a dataset.',
+  'Không tìm thấy media.': 'Media not found.',
+  'Video cần frame cụ thể.': 'A video needs a specific frame.',
+  'Không tìm thấy frame của media này.': 'No frame was found for this media.',
+  'Không kết nối được dịch vụ dữ liệu. Kiểm tra MySQL rồi thử lại.':
+    'Could not reach the data service. Check MySQL and try again.',
+  'Tên đăng nhập cần 3–64 ký tự: chữ, số, _, . hoặc -.':
+    'Usernames need 3–64 characters: letters, digits, _, . or -.',
+  'Mật khẩu cần từ 12 đến 128 ký tự.': 'Passwords need 12 to 128 characters.',
+  'Phiên đăng nhập không hợp lệ hoặc đã hết hạn.': 'Your session is invalid or has expired.',
+  'Tên đăng nhập hợp lệ và mật khẩu từ 12 đến 128 ký tự là bắt buộc.':
+    'A valid username and a password of 12 to 128 characters are required.',
+  'Hệ thống đang bận. Vui lòng thử lại.': 'The system is busy. Please try again.',
+  'Tên đăng nhập đã tồn tại.': 'That username is already taken.',
+  'Nhập tên đăng nhập và mật khẩu hợp lệ.': 'Enter a valid username and password.',
+  'Tên đăng nhập không hợp lệ.': 'That username is not valid.',
+  'Tên đăng nhập hoặc mật khẩu không đúng.': 'Wrong username or password.',
+  'Đăng nhập quá nhiều lần. Thử lại sau 15 phút.':
+    'Too many sign-in attempts. Try again in 15 minutes.',
+  'Đăng ký quá nhiều lần. Thử lại sau 15 phút.':
+    'Too many sign-up attempts. Try again in 15 minutes.',
+  'Đánh giá ảnh quá lớn (tối đa 64 KB).': 'The image review is too large (64 KB at most).',
+  'JSON không hợp lệ.': 'Invalid JSON.',
+  'Không tìm thấy đường dẫn ảnh.': 'Image route not found.',
+  'Mã ảnh không hợp lệ.': 'Invalid image ID.',
+  'Không tìm thấy ảnh.': 'Image not found.',
+  'Chưa có ảnh để kiểm tra.': 'There are no images to check yet.',
+  'Đánh giá đã thay đổi ở nơi khác. Tải lại bản đã lưu trước khi chỉnh sửa.':
+    'The review was changed elsewhere. Reload the saved version before editing.',
+  'Ảnh đã có đánh giá. Tải lại bản đã lưu.':
+    'This image already has a review. Reload the saved version.',
+  'Guideline tối đa 512 KB văn bản để phân tích.':
+    'A guideline can have at most 512 KB of text to analyse.',
+  'Chưa cấu hình GEMINI_API_KEY trong .env của backend.':
+    'GEMINI_API_KEY is not set in the backend .env.',
+  'Import bị ngắt khi server dừng. Chọn lại files để thử lại.':
+    'The import was interrupted when the server stopped. Choose the files again to retry.',
+  'Không thể xóa dataset demo mặc định.': 'The default demo dataset cannot be deleted.',
+  'Chờ import hoặc AI Check hoàn tất trước khi xóa.':
+    'Wait for the import or AI Check to finish before deleting.',
+  'Tên project 1–160 ký tự; mô tả tối đa 2000 ký tự.':
+    'Project names have 1–160 characters; descriptions up to 2000.',
+  'Format chưa được hỗ trợ.': 'That format is not supported.',
+  'Không đọc được dữ liệu từ kho lưu trữ chung. Kiểm tra mạng và cấu hình Dropbox.':
+    'Could not read from shared storage. Check the network and the Dropbox settings.',
+  'Project này chỉ có dữ liệu trên máy đã import. Chạy npm run storage:push trên máy đó để chia sẻ.':
+    "This project's data exists only on the machine that imported it. Run npm run storage:push there to share it.",
+  'Storage key của project không hợp lệ.': "The project's storage key is invalid.",
+  'Không tìm thấy dữ liệu project trên kho lưu trữ chung. Nếu project được chia sẻ ở dạng .tar cũ, chạy npm run storage:push trên máy còn giữ file.':
+    "The project's data was not found in shared storage. If it was shared as an old .tar, run npm run storage:push on the machine that still has the files.",
+  'Project chưa READY. Xem trạng thái import.': 'The project is not READY. See the import status.',
+  'Dataset trên disk đã thay đổi. Tạo project mới để import lại.':
+    'The dataset on disk has changed. Create a new project to import it again.',
+  'Project đang import hoặc đã READY. Tạo project mới cho dataset khác.':
+    'The project is importing or already READY. Create a new project for another dataset.',
+  'MVP hỗ trợ tối đa 100000 annotations và 10000 frames.':
+    'The MVP supports at most 100000 annotations and 10000 frames.',
+  'Có ảnh upload không được annotation tham chiếu. Chỉ chọn ảnh của dataset.':
+    "Some uploaded images are not referenced by the annotations. Choose only the dataset's images.",
+  'File lựa chọn quy tắc không phải JSON hợp lệ.': 'The rule choices file is not valid JSON.',
+  'Không thể xử lý import. Kiểm tra storage/MySQL rồi thử lại.':
+    'The import could not be processed. Check storage/MySQL and try again.',
+  'Tên file/path không hợp lệ. Không dùng đường dẫn tuyệt đối hoặc ../.':
+    'Invalid file name or path. Do not use absolute paths or ../.',
+  'Project metadata quá lớn.': 'The project metadata is too large.',
+  'Upload tối đa 200 MB.': 'Uploads can be at most 200 MB.',
+  'Chỉ chọn một annotation file.': 'Choose only one annotation file.',
+  'Annotation extension không khớp format.':
+    'The annotation file extension does not match the format.',
+  'Chỉ chọn một file metadata ảnh.': 'Choose only one image metadata file.',
+  'Metadata ảnh phải là file CSV.': 'Image metadata must be a CSV file.',
+  'Chỉ chọn một file guideline/policy.': 'Choose only one guideline/policy file.',
+  'Guideline/policy phải là file Markdown, TXT, DOCX, PDF hoặc JSON.':
+    'The guideline/policy must be a Markdown, TXT, DOCX, PDF or JSON file.',
+  'Chỉ gửi một file lựa chọn quy tắc.': 'Send only one rule choices file.',
+  'Lựa chọn quy tắc phải là file JSON.': 'Rule choices must be a JSON file.',
+  'Media chỉ hỗ trợ PNG/JPEG/WebP/GIF; không nhận SVG, ZIP hoặc video.':
+    'Media must be PNG/JPEG/WebP/GIF; SVG, ZIP and video are not accepted.',
+  'Mỗi ảnh tối đa 20 MB.': 'Each image can be at most 20 MB.',
+  'Annotation, metadata và guideline tối đa 10 MB mỗi file.':
+    'Annotation, metadata and guideline files can be at most 10 MB each.',
+  'Tối đa 1000 ảnh, một annotation file, một metadata file và một guideline.':
+    'At most 1000 images, one annotation file, one metadata file and one guideline.',
+  'Quá nhiều upload parts.': 'Too many upload parts.',
+  'Upload bị ngắt.': 'The upload was interrupted.',
+  'Upload không hoàn chỉnh.': 'The upload is incomplete.',
+  'Cần annotation file và ít nhất một ảnh.':
+    'An annotation file and at least one image are required.',
+  'Review đã tồn tại. Tải lại quyết định rồi chỉnh sửa.':
+    'A review already exists. Reload the decision, then edit it.',
+  'Review chưa tồn tại.': 'No review exists yet.',
+  'Review đã được chỉnh sửa ở nơi khác. Tải lại quyết định.':
+    'The review was edited elsewhere. Reload the decision.',
+  'Dữ liệu đánh giá ảnh không hợp lệ.': 'The image review data is invalid.',
+  'Thiếu phiên bản đánh giá hợp lệ.': 'A valid review version is missing.',
+  'Trạng thái đánh giá không hợp lệ.': 'The review status is invalid.',
+  'Ghi chú tối đa 2000 ký tự.': 'Notes can have at most 2000 characters.',
+  'Tối đa 50 vùng thiếu đối tượng mỗi ảnh.': 'At most 50 missing-object regions per image.',
+  'Mã vùng đánh dấu không hợp lệ hoặc bị trùng.': 'A region ID is invalid or duplicated.',
+  'Tên đối tượng tối đa 100 ký tự; ghi chú vùng tối đa 500 ký tự.':
+    'Object names have at most 100 characters; region notes at most 500.',
+  'Vùng thiếu phải nằm trong ảnh, rộng và cao ít nhất 1 pixel.':
+    'A missing region must lie inside the image and be at least 1 pixel wide and high.',
+  'Trong một track, frame giữa mang lớp khác hai frame trước và sau thì bị gắn cờ.':
+    'Within a track, a middle frame whose class differs from the frames before and after is flagged.',
+  'Độ tin cậy của một frame thấp hơn trung bình hai frame kề từ 0,2 trở lên thì bị gắn cờ.':
+    'A frame whose confidence is 0.2 or more below the average of its two neighbours is flagged.',
+  'Diện tích khung lệch từ 50% so với trung bình hai frame kề trong cùng track thì bị gắn cờ.':
+    'A box whose area differs by 50% or more from the average of the two neighbouring frames in its track is flagged.',
+  'Tâm khung lệch khỏi điểm giữa của hai frame kề từ nửa đường chéo khung trở lên thì bị gắn cờ.':
+    'A box whose centre is half a box diagonal or more away from the midpoint of the two neighbouring frames is flagged.',
+  'Khung có chiều rộng hoặc chiều cao không hợp lệ thì bị gắn cờ.':
+    'A box with an invalid width or height is flagged.',
+  'Hai khung cùng lớp do người vẽ chồng nhau từ 50% (IoU) thì khung vẽ sau bị gắn cờ.':
+    'When two hand-drawn boxes of the same class overlap by 50% (IoU) or more, the one drawn later is flagged.',
+  'Xe nằm gần trọn trong khung xe tải hoặc xe buýt bị coi là một bộ phận của xe lớn.':
+    'A vehicle lying almost entirely inside a truck or bus box is treated as part of the larger vehicle.',
+  'Khung xe chạm mép dưới ảnh mà không vươn tới giữa ảnh bị coi là nắp ca-pô của xe gắn camera.':
+    'A vehicle box touching the bottom edge without reaching the middle of the image is treated as the hood of the camera car.',
+  'Khung xe nằm trọn ở phần trên cùng của ảnh (trên đường chân trời) thì bị gắn cờ.':
+    'A vehicle box lying entirely in the top part of the image (above the horizon) is flagged.',
+  'Khung ô tô, xe tải, xe buýt cao hoặc dẹt bất thường (tỉ lệ cao/rộng trên 2 hoặc dưới 0,2) thì bị gắn cờ.':
+    'A car, truck or bus box that is unusually tall or flat (height/width above 2 or below 0.2) is flagged.',
+  'Khung xe hai bánh cao bất thường (thường do ôm cả người lái) thì bị gắn cờ.':
+    'A two-wheeler box that is unusually tall (usually because it includes the rider) is flagged.',
+  'Khung người nằm trong khung xe bốn bánh theo kiểu hành khách sau kính thì bị gắn cờ.':
+    'A person box inside a four-wheeled vehicle box, like a passenger behind glass, is flagged.',
+  'Khung người và khung xe hai bánh gần trùng nhau (một khung ôm cả hai) thì bị gắn cờ.':
+    'A person box and a two-wheeler box that nearly coincide (one box covering both) are flagged.',
+  'Khung người có tỉ lệ cao/rộng bất thường thì bị gắn cờ.':
+    'A person box with an unusual height/width ratio is flagged.',
+  'Khung đèn tín hiệu nằm trọn trong khung xe bị coi là đèn hậu của xe.':
+    "A traffic light box lying entirely inside a vehicle box is treated as the vehicle's tail light.",
+  'Khung đèn tín hiệu nằm thấp sát mặt đường (tâm dưới 65% chiều cao ảnh) thì bị gắn cờ.':
+    'A traffic light box close to the road surface (centre below 65% of the image height) is flagged.',
+  'Khung đèn tín hiệu có tâm thấp hơn mép trên của ít nhất ba phần tư số xe trong ảnh thì bị gắn cờ (thường là đèn hậu hoặc bóng phản chiếu).':
+    'A traffic light box whose centre is below the top edge of at least three quarters of the vehicles in the image is flagged (usually a tail light or a reflection).',
+  'Khung đèn tín hiệu có hình dạng quá khác thường thì bị gắn cờ.':
+    'A traffic light box with a very unusual shape is flagged.',
+  'Hai khung đèn tín hiệu gần trùng nhau bị coi là gán trùng.':
+    'Two traffic light boxes that nearly coincide are treated as a duplicate label.',
+  'Khung biển báo do mô hình sinh ra nằm trong khung xe thì bị gắn cờ.':
+    'A model-generated sign box inside a vehicle box is flagged.',
+  'Khung biển dừng do mô hình sinh ra có tỉ lệ cạnh bất thường thì bị gắn cờ.':
+    'A model-generated stop sign box with an unusual aspect ratio is flagged.',
+  'Khung biển báo ở vị trí bất thường trong ảnh thì bị gắn cờ.':
+    'A sign box at an unusual position in the image is flagged.',
+  'Hai khung biển báo gần trùng nhau bị coi là gán trùng.':
+    'Two sign boxes that nearly coincide are treated as a duplicate label.',
+  'Khung rào chắn có tỉ lệ cạnh bất thường thì bị gắn cờ.':
+    'A barrier box with an unusual aspect ratio is flagged.',
+  'Rào chắn bị xe cắt ngang mà vẫn gán một khung liền thì bị gắn cờ (phải tách hai đoạn).':
+    'A barrier cut across by a vehicle but labelled as one continuous box is flagged (it must be split in two).',
+  'Khung cột có tỉ lệ cạnh bất thường thì bị gắn cờ.':
+    'A pole box with an unusual aspect ratio is flagged.',
+  'Khung cột ôm cả đèn hoặc biển gắn trên cột thì bị gắn cờ (chỉ gán thân cột).':
+    'A pole box that also covers the light or sign mounted on it is flagged (label the pole only).',
+  'Hai khung cùng lớp do mô hình sinh ra chồng nhau từ 60% (IoU) thì khung có độ tin cậy thấp hơn bị coi là khung thừa.':
+    'When two model-generated boxes of the same class overlap by 60% (IoU) or more, the one with lower confidence is treated as extra.',
+  'Khung xe tải hoặc xe buýt gần trùng với một khung khác lớp có độ tin cậy thấp hơn vẫn bị gắn cờ: tên lớp còn đáng ngờ.':
+    'A truck or bus box that nearly coincides with a lower-confidence box of another class is still flagged: its class name is doubtful.',
+  'Vật thể bị che hoặc nằm ngoài khung hình quá nửa và có từ hai dấu hiệu khó xác nhận (độ tin cậy thấp, ảnh xấu, khung nhỏ, phân vân lớp) thì bị gắn cờ.':
+    'An object more than half hidden or out of frame, with two or more signs that it is hard to confirm (low confidence, poor image, small box, class doubt), is flagged.',
+  'Vật thể chỉ còn thấy dưới 5% (ước lượng từ các khung đứng gần camera hơn) thì bị gắn cờ là khung thừa.':
+    'An object less than 5% visible (estimated from boxes closer to the camera) is flagged as an extra box.',
+  'Bộ dữ liệu có attribute occluded hoặc truncated thì khung nào thiếu hoặc mang giá trị không hợp lệ bị gắn cờ.':
+    'When the dataset has an occluded or truncated attribute, any box missing it or carrying an invalid value is flagged.',
+  'Khung chạm mép ảnh mà truncated không phải true, hoặc không chạm mép mà truncated là true, thì bị gắn cờ.':
+    'A box touching the image edge without truncated set to true, or not touching it with truncated set to true, is flagged.',
+  'Một khung ô tô và một khung xe tải gần trùng chỗ thì khung xe tải bị gắn cờ và ô tô được gợi ý, dù khung nào có độ tin cậy cao hơn.':
+    'When a car box and a truck box nearly share a place, the truck box is flagged and car is suggested, whichever has the higher confidence.',
+  'Khung ô tô mà mô hình nghiêng hẳn về xe tải (xe tải cao hơn trên 15%) được cảnh báo, không cộng điểm.':
+    'A car box where the model clearly leans towards truck (truck more than 15% higher) gets a warning with no added score.',
+  'Khung xe tải có độ tin cậy dưới 70% và không có ý kiến thứ hai của mô hình thì bị gắn cờ: tên lớp chưa đủ căn cứ.':
+    'A truck box with confidence below 70% and no second opinion from the model is flagged: the class name lacks support.',
+  'Khung xe tải không cao hơn 1,3 lần các khung ô tô đứng cùng tầm xa thì bị gắn cờ.':
+    'A truck box no more than 1.3 times taller than car boxes at the same distance is flagged.',
 };
 
 // Strings built with values in them. Tried only when there is no exact entry above.
@@ -574,5 +827,83 @@ export const enRules: [RegExp, string][] = [
   [
     /^Dịch vụ trả về dữ liệu không hợp lệ \(HTTP (\d+)\)\. Hãy thử lại\.$/,
     'The service returned invalid data (HTTP $1). Try again.',
+  ],
+  [
+    /^Bạn đã là (Reviewer|Annotator) của project này\. Leader có thể đổi vai trò cho bạn\.$/,
+    'You are already a $1 in this project. The Leader can change your role.',
+  ],
+  [/^Thiếu (\d+)(: .+)?$/, 'Missing $1$2'],
+  [
+    /^Xóa project “(.+)”\? Toàn bộ ảnh upload, annotation, kết quả AI và đánh giá của project sẽ bị xóa vĩnh viễn\.$/,
+    'Delete project “$1”? All its uploaded images, annotations, AI results and reviews will be permanently deleted.',
+  ],
+  [/^· (\d+) lần gọi mô hình bị lỗi$/, '· $1 model call(s) failed'],
+  [/^Tệp nén có mật khẩu: (.+)$/, 'The archive is password-protected: $1'],
+  [/^Kiểu nén chưa được hỗ trợ \((.+)\): (.+)$/, 'Unsupported compression method ($1): $2'],
+  [/^ZIP bị hỏng tại (.+)$/, 'The ZIP is damaged at $1'],
+  [/^Không giải nén được (.+)$/, 'Could not extract $1'],
+  [
+    /^Kích thước thực của (.+) lớn hơn khai báo trong ZIP\.$/,
+    'The real size of $1 is larger than the ZIP declares.',
+  ],
+  [/^Object \(Đối tượng\): (.+)$/, 'Object: $1'],
+  [/^Frame \(Khung hình\): (.+)$/, 'Frame: $1'],
+  [
+    /^Không đọc được ảnh (.+) từ kho lưu trữ chung\.$/,
+    'Could not read image $1 from shared storage.',
+  ],
+  [/^Không phân tích được guideline: (.+)$/, 'The guideline could not be analysed: $1'],
+  [/^Mã mời gồm (\d+) ký tự chữ và số\.$/, 'Invite codes have $1 letters and digits.'],
+  [/^Tên file chỉ khác nhau chữ hoa\/thường: (.+)$/, 'File names differ only in letter case: $1'],
+  [
+    /^Dữ liệu project nằm trên (.+)\. Cấu hình SMARTREVIEW_REMOTE_STORAGE trong \.env để đọc\.$/,
+    "The project's data is on $1. Set SMARTREVIEW_REMOTE_STORAGE in .env to read it.",
+  ],
+  [/^Frame (.+) thiếu image reference\.$/, 'Frame $1 has no image reference.'],
+  [
+    /^Thiếu ảnh hoặc tên ảnh không duy nhất: (.+)$/,
+    'An image is missing or its name is not unique: $1',
+  ],
+  [
+    /^Kích thước ảnh (.+) không khớp annotation \((\d+)×(\d+) thực tế\)\.$/,
+    'The size of image $1 does not match the annotation (actually $2×$3).',
+  ],
+  [/^BBox (.+): width và height phải > 0\.$/, 'BBox $1: width and height must be > 0.'],
+  [/^Trùng media filename: (.+)$/, 'Duplicate media file name: $1'],
+  [
+    /^Nội dung ảnh không khớp loại file: (.+)$/,
+    'The image content does not match its file type: $1',
+  ],
+  [
+    /^Ảnh hỏng, ảnh động hoặc vượt 25 megapixels: (.+)$/,
+    'The image is damaged, animated or over 25 megapixels: $1',
+  ],
+  [
+    /^Khung của mô hình có độ tin cậy dưới (\d+%) thì bị gắn cờ\.$/,
+    'A model box with confidence below $1 is flagged.',
+  ],
+  [
+    /^Điểm của lớp đứng đầu và lớp thứ hai cách nhau dưới (\d+%) thì bị gắn cờ \(mô hình phân vân giữa hai nhãn\)\.$/,
+    'When the top class and the second class score less than $1 apart, the box is flagged (the model is torn between two labels).',
+  ],
+  [
+    /^Lớp thứ hai là một loại xe gần giống và cách lớp đứng đầu dưới (\d+%) thì bị gắn cờ\.$/,
+    'When the second class is a similar vehicle type less than $1 behind the top class, the box is flagged.',
+  ],
+  [
+    /^Mô hình phân vân giữa người và xe hai bánh, hai điểm cách nhau dưới (\d+%), thì bị gắn cờ\.$/,
+    'When the model is torn between person and two-wheeler, with scores less than $1 apart, the box is flagged.',
+  ],
+  [
+    /^Hai khung khác lớp chồng nhau từ (\d+%) \(IoU\) bị coi là một vật thể gán hai tên; người ngồi trên xe hai bánh được loại trừ\.$/,
+    'Two boxes of different classes overlapping by $1 (IoU) or more are treated as one object with two names; a person riding a two-wheeler is excluded.',
+  ],
+  [
+    /^Khung sát mép ảnh, chỉ còn một dải hẹp của vật thể và có độ tin cậy dưới (\d+%) thì bị gắn cờ\.$/,
+    'A box at the image edge showing only a narrow strip of the object, with confidence below $1, is flagged.',
+  ],
+  [
+    /^Khung có độ tin cậy dưới (\d+%) trong frame có điều kiện xấu \(env_risk từ (\d+%)\) thì bị gắn cờ\.$/,
+    'A box with confidence below $1 in a frame with poor conditions (env_risk of $2 or more) is flagged.',
   ],
 ];

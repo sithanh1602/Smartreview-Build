@@ -1,6 +1,7 @@
 import { Spinner } from '../../components/Spinner';
 import React, { useState } from 'react';
 import { request } from '../../lib/api';
+import { ui } from '../../lib/i18n';
 import type { Project } from '../../types.ts';
 
 export function DeleteProjectButton({
@@ -15,7 +16,9 @@ export function DeleteProjectButton({
   async function remove() {
     if (
       !window.confirm(
-        `Xóa project “${project.name}”? Toàn bộ ảnh upload, annotation, kết quả AI và đánh giá của project sẽ bị xóa vĩnh viễn.`,
+        ui(
+          `Xóa project “${project.name}”? Toàn bộ ảnh upload, annotation, kết quả AI và đánh giá của project sẽ bị xóa vĩnh viễn.`,
+        ),
       )
     )
       return;
@@ -25,7 +28,9 @@ export function DeleteProjectButton({
       const result = await request(`/projects/${project.id}`, { method: 'DELETE' });
       if (result.cleanupPending)
         window.alert(
-          'Project đã xóa. Một số file chờ dọn trong storage/.trash; kiểm tra quyền thư mục trên máy chủ.',
+          ui(
+            'Project đã xóa. Một số file chờ dọn trong storage/.trash; kiểm tra quyền thư mục trên máy chủ.',
+          ),
         );
       onDeleted();
     } catch (e) {

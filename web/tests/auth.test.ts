@@ -2,6 +2,7 @@ import type { AddressInfo } from 'node:net';
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
+import { ProjectService } from '../server/projects/service.ts';
 import { createApp } from '../server/app.ts';
 import { AuthService, tokenHash } from '../server/auth/service.ts';
 import { migrate } from '../server/db/migrate.ts';
@@ -37,15 +38,16 @@ before(async () => {
   reviewer = await auth.createUser({
     username: 'review_' + randomUUID(),
     password,
-    role: 'reviewer',
+    role: 'leader',
   });
   annotator = await auth.createUser({
     username: 'anno_' + randomUUID(),
     password,
-    role: 'annotator',
+    role: 'member',
   });
   server = createApp({
     auth,
+    projects: new ProjectService(pool, '/tmp/smartreview-auth-no-storage'),
     distRoot: '/tmp/smartreview-auth-no-dist',
     dataset: { meta: { dataset_id: 'auth-test' } } as any,
   });
@@ -64,25 +66,25 @@ after(async () => {
     await pool.end();
   }
 });
-test('all reviewer APIs require authentication and forbid annotators before dispatch', async () => {
+test('all APIs require authentication; members reach only projects they joined', async () => {
   const cookies = jar(await login(annotator));
-  for (const [route, method] of [
-    ['/api/projects', 'GET'],
-    ['/api/projects/anything', 'DELETE'],
-    ['/api/projects/import', 'POST'],
-    ['/api/cases', 'GET'],
-    ['/api/reviews', 'GET'],
-    ['/api/assets/test', 'GET'],
-    ['/api/projects/demo/annotations', 'GET'],
-    ['/api/projects/demo/ai-check', 'POST'],
-  ]) {
+  // Leader-only routes, then project routes of a project the member is not part of.
+  for (const [route, method, denied] of [
+    ['/api/projects', 'POST', 403],
+    ['/api/cases', 'GET', 403],
+    ['/api/reviews', 'GET', 403],
+    ['/api/assets/test', 'GET', 403],
+    ['/api/guideline/analyze', 'POST', 403],
+    ['/api/projects/anything', 'DELETE', 404],
+    ['/api/projects/demo/annotations', 'GET', 404],
+    ['/api/projects/demo/ai-check', 'POST', 404],
+  ] as [string, string, number][]) {
     assert.equal((await call(route, method)).status, 401, route);
-    assert.equal((await call(route, method, cookies)).status, 403, route);
+    assert.equal((await call(route, method, cookies)).status, denied, route);
   }
-  assert.equal((await call('/api/annotator/home', 'GET', cookies)).status, 200);
+  assert.equal((await call('/api/annotator/home', 'GET', cookies)).status, 403);
   const reviewCookies = jar(await login(reviewer));
   assert.equal((await call('/api/meta', 'GET', reviewCookies)).status, 200);
-  assert.equal((await call('/api/annotator/home', 'GET', reviewCookies)).status, 403);
 });
 test('session cookies are HttpOnly, scoped, and secrets are hashed in DB, absent from JSON', async () => {
   const res = await login(reviewer),
@@ -133,13 +135,13 @@ test('refresh rotates tokens atomically; logout and expiry revoke access', async
 test('role changes and disabled accounts take effect for existing tokens', async () => {
   const cookies = jar(await login(reviewer));
   try {
-    await pool.execute("UPDATE users SET role='annotator' WHERE id=?", [reviewer.id]);
+    await pool.execute("UPDATE users SET role='member' WHERE id=?", [reviewer.id]);
     assert.equal((await call('/api/meta', 'GET', cookies)).status, 403);
     await pool.execute('UPDATE users SET enabled=0 WHERE id=?', [reviewer.id]);
     assert.equal((await call('/api/auth/me', 'GET', cookies)).status, 401);
     assert.equal((await call('/api/auth/refresh', 'POST', cookies, {})).status, 401);
   } finally {
-    await pool.execute("UPDATE users SET enabled=1,role='reviewer' WHERE id=?", [reviewer.id]);
+    await pool.execute("UPDATE users SET enabled=1,role='leader' WHERE id=?", [reviewer.id]);
   }
 });
 test('rejects role injection, wrong passwords, cross-origin writes and brute force', async () => {
@@ -182,7 +184,7 @@ test('rejects role injection, wrong passwords, cross-origin writes and brute for
   }
 });
 
-test('registration validates input, fixes role, hashes password and supports login', async () => {
+test('registration validates input and account type, hashes password and supports login', async () => {
   const username = 'signup_' + randomUUID();
   const ipBucket = tokenHash('register:ip:127.0.0.1');
   try {
@@ -192,6 +194,7 @@ test('registration validates input, fixes role, hashes password and supports log
       { username, password: 'short' },
       { username: 'bad name', password },
       { username, password, role: 'reviewer' },
+      { username, password, admin: true },
     ]) {
       assert.equal((await call('/api/auth/register', 'POST', '', data)).status, 400);
     }
@@ -216,7 +219,7 @@ test('registration validates input, fixes role, hashes password and supports log
     assert.deepEqual(res.headers.getSetCookie(), []);
     const body = await res.json();
     assert.equal(body.user.username, username);
-    assert.equal(body.user.role, 'annotator');
+    assert.equal(body.user.role, 'member');
     assert.deepEqual(Object.keys(body.user).sort(), ['id', 'role', 'username']);
     const [[row]] = await pool.execute('SELECT password_hash FROM users WHERE username=?', [
       username,
@@ -228,8 +231,9 @@ test('registration validates input, fixes role, hashes password and supports log
     );
     const signedIn = await login({ username });
     assert.equal(signedIn.status, 200);
-    assert.equal((await call('/api/annotator/home', 'GET', jar(signedIn))).status, 200);
-    assert.equal((await call('/api/projects', 'GET', jar(signedIn))).status, 403);
+    assert.equal((await call('/api/meta', 'GET', jar(signedIn))).status, 403);
+    assert.equal((await call('/api/projects', 'POST', jar(signedIn), {})).status, 403);
+    assert.deepEqual(await (await call('/api/projects', 'GET', jar(signedIn))).json(), []);
     await pool.execute('UPDATE auth_login_limits SET attempts=10 WHERE bucket=?', [ipBucket]);
     assert.equal(
       (await call('/api/auth/register', 'POST', '', { username, password })).status,

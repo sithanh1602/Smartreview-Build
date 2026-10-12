@@ -7,13 +7,13 @@ async function signIn(page, role) {
   await page.getByLabel('Mật khẩu', { exact: true }).fill(account.password);
   await page.getByRole('button', { name: 'Đăng nhập', exact: true }).click();
 }
-test('reviewer login, session restore and logout protect the main page', async ({
+test('leader login, session restore and logout protect the main page', async ({
   page,
   context,
 }) => {
   await page.goto('/projects');
   await expect(page).toHaveURL(/\/login$/);
-  await signIn(page, 'reviewer');
+  await signIn(page, 'leader');
   await expect(page).toHaveURL(/\/projects$/);
   const cookies = await context.cookies();
   expect(
@@ -28,26 +28,27 @@ test('reviewer login, session restore and logout protect the main page', async (
   await expect(page).toHaveURL(/\/login$/);
   expect((await context.request.get('/api/projects')).status()).toBe(401);
 });
-test('annotator lands in its workspace and cannot open reviewer pages or APIs', async ({
+test('member chooses a role after login and cannot open leader pages or APIs', async ({
   page,
   context,
 }) => {
-  await signIn(page, 'annotator');
-  await expect(page).toHaveURL(/\/annotation$/);
+  await signIn(page, 'member');
+  await expect(page).toHaveURL(/\/role$/);
   await page.goto('/projects');
-  await expect(page).toHaveURL(/\/annotation$/);
-  for (const route of [
-    '/api/projects',
-    '/api/cases',
-    '/api/assets/test',
-    '/api/projects/demo/annotations',
-  ])
+  await expect(page).toHaveURL(/\/role$/);
+  await page.getByRole('button', { name: /Annotator/ }).click();
+  await expect(page).toHaveURL(/\/projects$/);
+  await expect(page.getByLabel('Mã mời từ Leader')).toBeVisible();
+  await page.goto('/projects/new');
+  await expect(page).toHaveURL(/\/projects$/);
+  expect(await (await context.request.get('/api/projects')).json()).toEqual([]);
+  for (const route of ['/api/cases', '/api/assets/test'])
     expect((await context.request.get(route)).status()).toBe(403);
-  expect((await context.request.delete('/api/projects/demo')).status()).toBe(403);
-  expect((await context.request.post('/api/projects/import', { data: {} })).status()).toBe(403);
+  expect((await context.request.post('/api/projects', { data: {} })).status()).toBe(403);
+  expect((await context.request.get('/api/projects/demo/annotations')).status()).toBe(404);
 });
 
-test('register from login, confirm password, then sign in as annotator', async ({ page }) => {
+test('register from login, confirm password, then sign in as a member', async ({ page }) => {
   const { randomUUID } = await import('node:crypto');
   const { testPool } = await import('../db-helpers.ts');
   const { tokenHash } = await import('../../server/auth/service.ts');
@@ -70,7 +71,7 @@ test('register from login, confirm password, then sign in as annotator', async (
     await expect(page.getByLabel('Tên đăng nhập')).toHaveValue(username);
     await page.getByLabel('Mật khẩu', { exact: true }).fill(password);
     await page.getByRole('button', { name: 'Đăng nhập', exact: true }).click();
-    await expect(page).toHaveURL(/\/annotation$/);
+    await expect(page).toHaveURL(/\/role$/);
     await page.reload();
     await expect(page.getByRole('button', { name: 'Đăng xuất' })).toBeVisible();
   } finally {

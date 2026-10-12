@@ -162,7 +162,9 @@ test('AI job describes the frame for missing-object findings', async () => {
 });
 test('AI routes reject cross-origin writes and unsupported methods', async () => {
   const url = new URL('http://localhost/api/projects/abc/ai-check');
+  const user = { id: 'leader', username: 'leader', role: 'leader' };
   const projects = {
+    members: { role: async () => 'leader' },
     ai: {
       start: () => {
         throw Error('must not run');
@@ -175,6 +177,7 @@ test('AI routes reject cross-origin writes and unsupported methods', async () =>
         {
           method: 'POST',
           headers: { host: 'localhost', origin: 'http://evil.example' },
+          user,
         } as any,
         {} as any,
         url,
@@ -184,7 +187,9 @@ test('AI routes reject cross-origin writes and unsupported methods', async () =>
   );
   await assert.rejects(
     () =>
-      handleProjects({ method: 'DELETE', headers: {} } as any, {} as any, url, { projects } as any),
+      handleProjects({ method: 'DELETE', headers: {}, user } as any, {} as any, url, {
+        projects,
+      } as any),
     (e: any) => e.status === 405,
   );
 });

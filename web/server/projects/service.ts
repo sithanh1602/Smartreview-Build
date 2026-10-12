@@ -11,16 +11,31 @@ import { buildDataset, loadDataset } from '../repository.ts';
 import { ReviewStore } from '../reviews/store.ts';
 import { ReviewError } from '../../shared/review.ts';
 import { receiveUpload, safePath } from './upload.ts';
+import { ProjectMembers } from './members.ts';
 import type { RemoteStorage } from '../storage/remote.ts';
 import type { AssetSource, DatasetOptions } from '../repository.ts';
 import type { Untrusted } from '../../shared/review.ts';
 import type { Dataset } from '../../core/schema/types.ts';
-import type { Connection, Db, LoadedDataset, ProjectContext, Req, Result, Rows } from '../types.ts';
+import type {
+  Connection,
+  Db,
+  LoadedDataset,
+  ProjectContext,
+  Req,
+  Result,
+  Rows,
+  User,
+} from '../types.ts';
 
 type ProjectRow = Rows[number];
 const STORAGE_KEY = /^projects\/[a-f0-9-]{36}\/[a-f0-9-]{36}$/;
 // Frames fetched from the remote stay in memory only; nothing is written to disk.
 const ASSET_CACHE_BYTES = 64 * 1024 * 1024;
+// A project as the API shows it: with who created it and how many people hold each role.
+const PROJECT_VIEW = `SELECT p.*,u.username AS creator_name,
+  (SELECT COUNT(*) FROM project_members m WHERE m.project_id=p.id AND m.role='reviewer') AS reviewer_count,
+  (SELECT COUNT(*) FROM project_members m WHERE m.project_id=p.id AND m.role='annotator') AS annotator_count
+  FROM projects p LEFT JOIN users u ON u.id=p.created_by`;
 const publicProject = ({
   dataset_path,
   dataset_revision_id,
@@ -36,6 +51,7 @@ export class ProjectService {
   cache: Map<string, Promise<ProjectContext>>;
   deleting: Set<string>;
   ai: AiService;
+  members: ProjectMembers;
   remote: RemoteStorage | null;
   demos: Map<string, string>;
   assets: Map<string, Buffer>;
@@ -50,6 +66,7 @@ export class ProjectService {
     this.assets = new Map();
     this.assetBytes = 0;
     this.ai = new AiService(this);
+    this.members = new ProjectMembers(pool);
   }
   async recover() {
     await this.pool.query<Rows>(
@@ -63,7 +80,10 @@ export class ProjectService {
     return row;
   }
   async get(id: string) {
-    return publicProject(await this.row(id));
+    await this.row(id);
+    const [[row]] = await this.pool.execute<Rows>(PROJECT_VIEW + ' WHERE p.id=?', [id]);
+    if (!row) throw new ReviewError(404, 'Project không tồn tại.');
+    return publicProject(row);
   }
   async remove(id: string) {
     await this.row(id);
@@ -128,13 +148,28 @@ export class ProjectService {
     }
     return { deleted: true, cleanupPending };
   }
-  async list() {
-    const [rows] = await this.pool.query<Rows>(
-      'SELECT * FROM projects ORDER BY created_at DESC, id',
+  // Without a user: every project (scripts). A leader sees the projects it created and those
+  // without a creator; a member sees the projects it joined. `my_role` is the user's role there.
+  async list(user?: User) {
+    const order = ' ORDER BY p.created_at DESC, p.id';
+    const [rows] = !user
+      ? await this.pool.query<Rows>(PROJECT_VIEW + order)
+      : user.role === 'leader'
+        ? await this.pool.execute<Rows>(
+            PROJECT_VIEW + ' WHERE p.created_by=? OR p.created_by IS NULL' + order,
+            [user.id],
+          )
+        : await this.pool.execute<Rows>(
+            PROJECT_VIEW.replace('SELECT p.*', 'SELECT p.*,pm.role AS my_role') +
+              ' JOIN project_members pm ON pm.project_id=p.id AND pm.user_id=?' +
+              order,
+            [user.id],
+          );
+    return rows.map((row) =>
+      publicProject(user?.role === 'leader' ? { ...row, my_role: 'leader' } : row),
     );
-    return rows.map(publicProject);
   }
-  async create(input: Untrusted) {
+  async create(input: Untrusted, creator?: User) {
     if (
       !input ||
       typeof input !== 'object' ||
@@ -154,8 +189,8 @@ export class ProjectService {
     if (!Object.hasOwn(importers, format)) throw new ReviewError(400, 'Format chưa được hỗ trợ.');
     const id = randomUUID();
     await this.pool.execute<Rows>(
-      'INSERT INTO projects(id,name,description,format) VALUES (?,?,?,?)',
-      [id, name.trim(), description, format],
+      'INSERT INTO projects(id,name,description,format,created_by) VALUES (?,?,?,?,?)',
+      [id, name.trim(), description, format, creator?.id ?? null],
     );
     return this.get(id);
   }

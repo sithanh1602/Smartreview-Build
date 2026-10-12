@@ -19,7 +19,7 @@ const record = (data: unknown) => fs.appendFile(manifest, JSON.stringify(data) +
 const pool = testPool();
 await migrate(pool);
 const auth = new AuthService(pool);
-for (const role of ['reviewer', 'annotator'] as const) {
+for (const role of ['leader', 'member'] as const) {
   const user = await auth.createUser({
     username: `test_${role}_${process.env.SMARTREVIEW_TEST_RUN.slice(0, 8)}_${process.env.PORT}`,
     password: process.env.SMARTREVIEW_TEST_PASSWORD,
@@ -48,8 +48,8 @@ await record({ storage });
 const projects = new ProjectService(pool, storage);
 const projectIds = [];
 const createProject = projects.create.bind(projects);
-projects.create = async (input) => {
-  const p = await createProject(input);
+projects.create = async (input, creator) => {
+  const p = await createProject(input, creator);
   projectIds.push(p.id);
   await record({ project: p.id });
   return p;

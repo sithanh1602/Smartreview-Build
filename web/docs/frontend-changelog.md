@@ -2,6 +2,30 @@
 
 Ghi lại mỗi lần sửa xong một chức năng hoặc thay đổi lớn ở frontend. Mục mới nhất ở trên cùng.
 
+## 2026-10-12 · Chế độ EN: khôi phục và bổ sung bản dịch
+
+- **Sửa lỗi**: lần chỉnh bản dịch cho phần vai trò đã xóa nhầm 166 mục có sẵn trong `src/lib/i18n.en.ts` (từ form tạo dự án, phân tích guideline, trang tổng quan…), nên chế độ EN hiện tiếng Việt ở các màn đó. Đã khôi phục nguyên văn từ commit `ea414d5`.
+- **Bổ sung** bản EN cho các chuỗi trước giờ chưa có: thông báo lỗi từ API (đăng nhập, project, upload, review, frame review, AI Check, guideline), mô tả 44 check trong `shared/policy-rules.ts`, lỗi đọc tệp ZIP, vài dòng trong pop-up "Kiểm tra rules".
+- Hộp thoại `window.confirm`/`window.alert` (xóa project, bỏ thay đổi ở kiểm tra ảnh) giờ đi qua `ui()` nên cũng đổi theo ngôn ngữ.
+- Ở chế độ VI, vài thông báo lỗi được viết lại trong `i18n.vi.ts` vì thay từng thuật ngữ đọc không xuôi (ví dụ "Đánh giá đã tồn tại…").
+- Kiểm tra: quét toàn bộ chuỗi tiếng Việt trong `src`, `server`, `shared` và dịch thử sang EN; còn lại chỉ là chuỗi không hiện trên giao diện (thông báo CLI, log, prompt gửi mô hình) và nhãn "Chuyển sang tiếng Việt" của nút đổi ngôn ngữ (cố ý để tiếng Việt).
+
+## 2026-10-11 · Vai trò Leader / Reviewer / Annotator, mã mời, thành viên project
+
+Đi cùng thay đổi backend trong [project-roles.md](project-roles.md).
+
+- **Đăng ký** (`RegisterPage`): thêm mục "Loại tài khoản" (`RadioGroup` của HeroUI): Thành viên (mặc định) hoặc Leader. Nút tròn và nhãn nằm chung trong `Radio.Content` (hàng bấm được, rộng hết khung, cao 36px), mô tả nằm bên dưới; cấu trúc ban đầu đặt sai nên chữ lệch khỏi nút và chỉ bấm trúng được nút tròn.
+- **Sau đăng nhập**: leader vào thẳng `/projects`. Member được hỏi vai trò làm việc ở trang mới `/role` (`RolePage`): Reviewer hoặc Annotator, kèm số project đang có ở mỗi vai trò. Lựa chọn giữ theo tab (`sessionStorage`), quên khi đăng xuất. Thanh tài khoản có nút "Đổi vai trò".
+- **Danh sách project** (`ProjectsPage`):
+  - Member thấy ô "Mã mời từ leader" (`JoinProjectForm`) và chỉ các project đã tham gia với vai trò đang chọn. Nhập mã của vai trò kia thì giao diện tự chuyển sang vai trò đó.
+  - Mỗi thẻ hiện leader, số reviewer, số annotator và vai trò của người xem.
+  - Nút "+ New Project" và "Xóa project" chỉ hiện với leader.
+- **Trang project** (`ProjectDashboardPage`): khung "Thành viên project" (`ProjectPeople`) gồm người tạo, danh sách reviewer, danh sách annotator. Leader thấy thêm mã mời của từng vai trò (Sao chép, Tạo mã mới) và nút chuyển vai trò, xóa thành viên. Member không thấy form import và nút xóa.
+- **AI Check**: nút bắt đầu chỉ hiện với leader; member vẫn xem kết quả.
+- **Ngôn ngữ**: Leader, Reviewer, Annotator giữ nguyên ở cả VI và EN (bỏ bản dịch "Người kiểm tra", "Người gán nhãn" trong `i18n.vi.ts`) và luôn viết hoa. Mọi chuỗi mới có bản EN trong `i18n.en.ts`, kể cả thông báo lỗi từ API và hộp xác nhận; ở VI, "project" hiện là "dự án" như phần còn lại của app.
+- **Điều hướng** (`router.tsx`, `AuthGate`): `/projects/new`, `/overview`, `/review` chỉ dành cho leader. Trang chờ `/annotation` đã bỏ, chuyển về `/projects`.
+- Kiểm tra: `npm run typecheck`, `npm run build`. Chưa chạy được test cần DB (`auth`, `projects`, `test:ui`) vì migration 006 chưa áp dụng.
+
 ## 2026-10-11 · Màn review: chú thích cho nút biểu tượng, nút "So sánh ảnh"
 
 - **Nút chỉ có biểu tượng giờ có chú thích** khi rê chuột hoặc focus bằng bàn phím (`src/components/Tip.tsx`, dùng `Tooltip` của HeroUI): ẩn/hiện hàng đợi, case trước/sau, thu nhỏ/phóng to/đặt lại zoom, sao chép thông tin, ẩn/hiện ngữ cảnh, ẩn/hiện bảng thông tin, tập trung. Chú thích kèm phím tắt nếu có.

@@ -5,12 +5,20 @@ import { Link } from 'react-router-dom';
 import { request } from '../lib/api';
 import { ProjectStatus } from '../features/projects/ProjectLayout';
 import { DeleteProjectButton } from '../features/projects/DeleteProjectButton';
+import { JoinProjectForm } from '../features/projects/JoinProjectForm';
+import { roleLabel } from '../features/auth/AuthGate';
+import { useAuth } from '../features/auth/AuthProvider';
 import type { Project } from '../types.ts';
 
 export function ProjectsPage() {
   const [rows, setRows] = useState<Project[] | null>(null),
     [error, setError] = useState(''),
-    [attempt, setAttempt] = useState(0);
+    [attempt, setAttempt] = useState(0),
+    [joined, setJoined] = useState('');
+  const { user, workRole, chooseWorkRole } = useAuth();
+  const leader = user?.role === 'leader';
+  // A member works in one role at a time and sees the projects joined in that role.
+  const shown = rows && (leader ? rows : rows.filter((p) => p.my_role === workRole));
   useEffect(() => {
     const c = new AbortController();
     setError('');
@@ -30,13 +38,32 @@ export function ProjectsPage() {
           <p className="eyebrow mb-3 text-accent">{hint('DATASET WORKSPACE')}</p>
           <h1 className="text-3xl font-semibold">{hint('SmartReview Projects')}</h1>
           <p className="mt-3 text-sm text-muted">
-            {hint('Import dữ liệu đã gán nhãn, kiểm tra chất lượng và lưu quyết định review.')}
+            {leader
+              ? hint('Import dữ liệu đã gán nhãn, kiểm tra chất lượng và lưu quyết định review.')
+              : 'Các project bạn đã tham gia bằng mã mời của Leader.'}
           </p>
         </div>
-        <Link className="sr-button border-accent/40 text-accent" to="/projects/new">
-          {hint('+ New Project')}
-        </Link>
+        {leader && (
+          <Link className="sr-button border-accent/40 text-accent" to="/projects/new">
+            {hint('+ New Project')}
+          </Link>
+        )}
       </div>
+      {!leader && (
+        <JoinProjectForm
+          onJoined={(result) => {
+            // The code may belong to the other role: follow it so the project is listed.
+            chooseWorkRole(result.role);
+            setJoined(result.name);
+            setAttempt((a) => a + 1);
+          }}
+        />
+      )}
+      {joined && (
+        <p role="status" className="panel mb-6 p-4 text-sm text-accent">
+          Đã tham gia project: {joined}
+        </p>
+      )}
       {error ? (
         <div role="alert" className="panel p-6">
           {error}
@@ -44,18 +71,20 @@ export function ProjectsPage() {
             Thử lại
           </button>
         </div>
-      ) : rows === null ? (
+      ) : !shown ? (
         <p role="status" className="panel p-6 text-muted">
           <Spinner />
           {hint('Đang tải projects…')}
         </p>
-      ) : !rows.length ? (
+      ) : !shown.length ? (
         <div className="panel p-10 text-muted">
-          {hint('Chưa có project. Chọn + New Project để bắt đầu.')}
+          {leader
+            ? hint('Chưa có project. Chọn + New Project để bắt đầu.')
+            : 'Bạn chưa tham gia project nào với vai trò này. Nhập mã mời ở trên để bắt đầu.'}
         </div>
       ) : (
         <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-          {rows.map((p) => (
+          {shown.map((p) => (
             <article key={p.id} className="panel block p-6 hover:border-accent/40">
               <Link className="block" to={`/projects/${p.id}`}>
                 <div className="mb-5 flex items-start justify-between gap-4">
@@ -78,15 +107,28 @@ export function ProjectsPage() {
                 <p className="mt-4 text-xs text-muted">
                   {p.format} · {p.created_at?.slice(0, 10)}
                 </p>
+                <p
+                  className="mt-2 flex flex-wrap gap-x-3 text-xs text-muted"
+                  data-testid="project-people-summary"
+                >
+                  <span>Leader: {p.creator_name ?? '—'}</span>
+                  <span>Reviewer: {p.reviewer_count}</span>
+                  <span>Annotator: {p.annotator_count}</span>
+                  <span>
+                    Vai trò của bạn: <b>{roleLabel[p.my_role]}</b>
+                  </span>
+                </p>
               </Link>
-              <div className="mt-5">
-                <DeleteProjectButton
-                  project={p}
-                  onDeleted={() =>
-                    setRows((current) => current && current.filter((row) => row.id !== p.id))
-                  }
-                />
-              </div>
+              {leader && (
+                <div className="mt-5">
+                  <DeleteProjectButton
+                    project={p}
+                    onDeleted={() =>
+                      setRows((current) => current && current.filter((row) => row.id !== p.id))
+                    }
+                  />
+                </div>
+              )}
             </article>
           ))}
         </div>

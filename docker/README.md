@@ -18,16 +18,16 @@ MySQL chờ sẵn sàng trước khi API khởi động; API tự chạy migrati
 
 ## Tài khoản
 
-Tạo reviewer đầu tiên (terminal hỏi mật khẩu ẩn):
+Tạo Leader đầu tiên (terminal hỏi mật khẩu ẩn):
 
 ```bash
-docker compose --env-file .env.docker exec web npm run user:create -- --username thanhdev --role reviewer
+docker compose --env-file .env.docker exec web npm run user:create -- --username thanhdev --role leader
 ```
 
 Hoặc đăng ký qua giao diện rồi đổi quyền:
 
 ```bash
-docker compose --env-file .env.docker exec web npm run user:update -- --username thanhdev --role reviewer
+docker compose --env-file .env.docker exec web npm run user:update -- --username thanhdev --role leader
 ```
 
 ## Dữ liệu và phạm vi

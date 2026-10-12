@@ -3,6 +3,7 @@ import { Spinner } from '../components/Spinner';
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, Navigate, useBlocker, useNavigate, useParams } from 'react-router-dom';
 import { request } from '../lib/api';
+import { ui } from '../lib/i18n';
 import { WholeFrameViewer } from '../features/frames/WholeFrameViewer';
 import type {
   AiFindingView,
@@ -622,7 +623,7 @@ function FrameEditor({
             className="sr-button mt-3"
             disabled={saving}
             onClick={() => {
-              if (!dirty || window.confirm('Bỏ thay đổi chưa lưu và tải lại bản đã lưu?'))
+              if (!dirty || window.confirm(ui('Bỏ thay đổi chưa lưu và tải lại bản đã lưu?')))
                 setAttempt((a) => a + 1);
             }}
           >

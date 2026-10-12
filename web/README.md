@@ -219,6 +219,6 @@ Trong New Project, chọn **COCO Detection · JSON (bbox)**, chọn JSON annotat
 và ảnh tương ứng. Không cần chuyển sang SmartReview JSON. Hỗ trợ class tùy ý,
 ảnh không có annotation và thư mục ảnh con. Xem [phạm vi COCO và CLI](docs/projects-import.md#coco-detection).
 
-## Đăng nhập và hai vai trò
+## Đăng nhập và vai trò
 
-Sau `npm run db:migrate`, tạo tài khoản bằng `npm run user:create -- --username thanh-review --role reviewer` hoặc `--role annotator`. Terminal sẽ hỏi mật khẩu ẩn. Reviewer vào Projects; annotator vào trang `/annotation` và không được gọi các API reviewer. Xem [hướng dẫn tài khoản, phiên và triển khai HTTPS](docs/auth.md).
+Sau `npm run db:migrate`, tạo tài khoản bằng `npm run user:create -- --username thanh-lead --role leader` hoặc `--role member`; người dùng cũng tự đăng ký được tại `/register`. Terminal sẽ hỏi mật khẩu ẩn. Leader tạo và quản lý project. Thành viên chọn vai trò Reviewer hoặc Annotator sau khi đăng nhập, rồi nhập mã mời của Leader để vào project; mã quyết định vai trò trong project đó. Xem [vai trò, mã mời và API thành viên](docs/project-roles.md). Xem [hướng dẫn tài khoản, phiên và triển khai HTTPS](docs/auth.md).
