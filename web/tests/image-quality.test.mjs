@@ -6,6 +6,7 @@ import {
   analyzeDataset,
   checksFor,
   ENGINE_VERSION,
+  IMAGE_ENGINE_VERSION,
   LATEST_ENGINE_VERSION,
 } from '../core/risk/engine.mjs';
 
@@ -41,9 +42,14 @@ test('default engine profile is unchanged; the new checks only exist in the late
     'geometry.bbox_area',
     'geometry.bbox_position',
   ]);
+  const images = analyzeDataset(d, { engineVersion: IMAGE_ENGINE_VERSION });
+  assert.equal(images.engine_version, '2.1.0');
+  assert.equal(Object.keys(images.checks).length, 9);
   const next = analyzeDataset(d, latest);
-  assert.equal(next.engine_version, '2.1.0');
-  assert.equal(Object.keys(next.checks).length, 9);
+  assert.equal(next.engine_version, '2.2.0');
+  assert.equal(Object.keys(next.checks).length, 10);
+  assert.ok('confidence.low' in next.checks);
+  assert.ok(!('confidence.low' in images.checks));
   assert.throws(() => checksFor('9.9.9'), /Unknown engine version/);
 });
 

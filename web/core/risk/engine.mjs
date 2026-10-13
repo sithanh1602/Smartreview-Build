@@ -1,6 +1,6 @@
 import { normalizeDataset } from '../schema/normalize.mjs';
 import temporalClass from './checks/temporal-class.mjs';
-import confidence from './checks/confidence.mjs';
+import confidence, { neighborDropScaled, lowConfidence } from './checks/confidence.mjs';
 import bboxValidity from './checks/bbox-validity.mjs';
 import { areaCheck, positionCheck } from './checks/bbox-temporal.mjs';
 import { imageChecks, labelSizeStats } from './checks/image-quality.mjs';
@@ -10,8 +10,25 @@ export const severity = (score) => (score >= 70 ? 'high' : score >= 40 ? 'medium
 // 2.0.0 is the default so existing projects keep their scores and dataset fingerprints.
 // New imports use LATEST_ENGINE_VERSION and the version is stored with the project.
 export const ENGINE_VERSION = '2.0.0';
-export const LATEST_ENGINE_VERSION = '2.1.0';
-const PROFILES = { [ENGINE_VERSION]: checks, [LATEST_ENGINE_VERSION]: [...checks, ...imageChecks] };
+export const IMAGE_ENGINE_VERSION = '2.1.0';
+export const LATEST_ENGINE_VERSION = '2.2.0';
+// 2.2.0 makes confidence a first-class signal: it swaps in the scaled
+// neighbour-drop check and adds the absolute low-confidence check, so a weak
+// prediction reaches the queue by itself instead of only nudging a case that
+// some geometry check already found. 2.0.0 and 2.1.0 keep their exact scores.
+const PROFILES = {
+  [ENGINE_VERSION]: checks,
+  [IMAGE_ENGINE_VERSION]: [...checks, ...imageChecks],
+  [LATEST_ENGINE_VERSION]: [
+    temporalClass,
+    neighborDropScaled,
+    lowConfidence,
+    bboxValidity,
+    areaCheck,
+    positionCheck,
+    ...imageChecks,
+  ],
+};
 export function checksFor(version = ENGINE_VERSION) {
   if (!Object.hasOwn(PROFILES, version)) throw new Error(`Unknown engine version ${version}`);
   return PROFILES[version];
