@@ -46,6 +46,8 @@ export async function handleProjects3D(
     if (!route && req.method === 'DELETE') {
       sameOrigin(req);
       leaderOnly();
+      if (!(await projects.owns(id, user)))
+        throw new ReviewError(403, 'Chỉ Leader tạo project được xóa project này.');
       json(res, 200, await projects.remove(id));
     } else if (route === '/import') {
       if (req.method !== 'POST') throw new ReviewError(405, 'Use POST.');

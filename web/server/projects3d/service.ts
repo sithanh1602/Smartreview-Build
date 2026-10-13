@@ -102,7 +102,8 @@ export class Project3DService {
       if (!noTable(e)) throw e;
     }
   }
-  // What `user` is in the project; a project the user has no part in reads as missing.
+  // What `user` is in the project. Every leader is a leader in every project; only deleting is
+  // kept for the creator (see `owns`). A project a member has no part in reads as missing.
   async role(id: string, user: User): Promise<ProjectRole> {
     if (!/^[a-f0-9-]{36}$/.test(id)) throw missing();
     const [[row]] = await this.pool.execute<Rows>(
@@ -110,12 +111,13 @@ export class Project3DService {
       [user.id, id],
     );
     if (!row) throw missing();
-    if (user.role === 'leader') {
-      if (row.created_by !== user.id) throw missing();
-      return 'leader';
-    }
+    if (user.role === 'leader') return 'leader';
     if (!row.role) throw missing();
     return row.role;
+  }
+  // Whether `user` may delete the project: the leader who created it.
+  async owns(id: string, user: User) {
+    return user.role === 'leader' && (await this.row(id)).created_by === user.id;
   }
   async row(id: string): Promise<ProjectRow> {
     if (!/^[a-f0-9-]{36}$/.test(id)) throw missing();
@@ -137,12 +139,13 @@ export class Project3DService {
         }),
     };
   }
-  // A leader sees the 3D projects it created; a member sees the ones it was added to.
+  // A leader sees every 3D project, its own and those of other leaders; a member sees the ones
+  // it was added to.
   async list(user: User) {
     const order = ' ORDER BY p.created_at DESC, p.id';
     const [rows] =
       user.role === 'leader'
-        ? await this.pool.execute<Rows>(PROJECT_VIEW + ' WHERE p.created_by=?' + order, [user.id])
+        ? await this.pool.query<Rows>(PROJECT_VIEW + order)
         : await this.pool.execute<Rows>(
             PROJECT_VIEW.replace('SELECT p.*', 'SELECT p.*,pm.role AS my_role') +
               ' JOIN project_members_3d pm ON pm.project_id=p.id AND pm.user_id=?' +

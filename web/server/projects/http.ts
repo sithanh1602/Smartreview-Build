@@ -88,6 +88,8 @@ export async function handleProjects(
   if (!route && req.method === 'DELETE') {
     sameOrigin(req);
     leaderOnly();
+    if (!(await projects.members.owns(id, user)))
+      throw new ReviewError(403, 'Chỉ Leader tạo project được xóa project này.');
     json(res, 200, await projects.remove(id));
     return true;
   }

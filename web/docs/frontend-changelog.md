@@ -2,6 +2,14 @@
 
 Ghi lại mỗi lần sửa xong một chức năng hoặc thay đổi lớn ở frontend. Mục mới nhất ở trên cùng.
 
+## 2026-10-13 · Leader thấy project của nhau, chia hai nhóm
+
+- **Thay đổi**: tài khoản leader thấy mọi project 2D và 3D, không chỉ project mình tạo. Trang Projects chia hai nhóm: **Project của tôi** ở trên, **Project của Leader khác** ở dưới (kèm số lượng); phần Project 3D chia tương tự. Nhóm dưới chỉ hiện khi có project. Member không đổi.
+- **Quyền**: leader khác mở, review, import, chạy AI Check và quản lý thành viên được như người tạo. Nút xóa chỉ hiện với leader tạo project (và project 2D không có người tạo); backend trả 403 nếu leader khác gọi xóa.
+- Project 2D không có người tạo (demo, project cũ) nằm ở nhóm dưới.
+- File: `server/projects/{members,service,http}.ts`, `server/projects3d/{service,http}.ts`, `src/pages/{ProjectsPage,ProjectDashboardPage,Project3DPage}.tsx`, `src/features/projects3d/Projects3DList.tsx`.
+- Kiểm tra: typecheck qua, `tests/projects3d.test.ts` 5/5 qua. Chưa chạy test dùng MySQL và chưa thử trên trình duyệt với hai tài khoản leader.
+
 ## 2026-10-12 · Webcam: giữ yên 1 giây để ngắt lệnh thu phóng
 
 - **Vấn đề**: đang phóng to mà muốn đổi sang cử chỉ khác thì phải nắm tay hoặc co ngón lại, và động tác đó bị đọc thành thu nhỏ.

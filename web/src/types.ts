@@ -172,6 +172,7 @@ export interface Project3D {
     stored_bytes: number;
   } | null;
   created_at: string;
+  created_by: string | null;
   creator_name: string | null;
   reviewer_count: number;
   annotator_count: number;

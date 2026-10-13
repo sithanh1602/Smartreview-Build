@@ -156,17 +156,13 @@ export class ProjectService {
     }
     return { deleted: true, cleanupPending };
   }
-  // Without a user: every project (scripts). A leader sees the projects it created and those
-  // without a creator; a member sees the projects it joined. `my_role` is the user's role there.
+  // Without a user: every project (scripts). A leader sees every project, its own and those of
+  // other leaders; a member sees the projects it joined. `my_role` is the user's role there.
   async list(user?: User) {
     const order = ' ORDER BY p.created_at DESC, p.id';
-    const [rows] = !user
-      ? await this.pool.query<Rows>(PROJECT_VIEW + order)
-      : user.role === 'leader'
-        ? await this.pool.execute<Rows>(
-            PROJECT_VIEW + ' WHERE p.created_by=? OR p.created_by IS NULL' + order,
-            [user.id],
-          )
+    const [rows] =
+      !user || user.role === 'leader'
+        ? await this.pool.query<Rows>(PROJECT_VIEW + order)
         : await this.pool.execute<Rows>(
             PROJECT_VIEW.replace('SELECT p.*', 'SELECT p.*,pm.role AS my_role') +
               ' JOIN project_members pm ON pm.project_id=p.id AND pm.user_id=?' +

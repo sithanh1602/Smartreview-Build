@@ -84,7 +84,7 @@ tạm để trình duyệt tải thẳng từ Dropbox.
   có bù chuyển động không, dung lượng lưu, người tạo, vai trò của người xem).
 - Đang import: dòng trạng thái, tự hỏi lại backend mỗi giây.
 - `CREATED` / `FAILED`: lý do lỗi và form chọn lại tệp của segment (chỉ Leader).
-- Leader có nút xoá project.
+- Leader tạo project có nút xoá project; leader khác xem và quản lý được nhưng không xoá được.
 
 ## Viewer point cloud
 
@@ -292,11 +292,11 @@ Thiếu Python hoặc thiếu hai gói đó thì import trả 503 kèm hướng 
 
 | Route                                            | Ai                 | Kết quả                                                      |
 | ------------------------------------------------ | ------------------ | ------------------------------------------------------------ |
-| `GET /api/projects3d`                            | Mọi tài khoản      | Leader: project mình tạo. Member: project đã được thêm vào   |
+| `GET /api/projects3d`                            | Mọi tài khoản      | Leader: mọi project 3D. Member: project đã được thêm vào     |
 | `POST /api/projects3d` `{ name, description? }`  | Leader             | 201, trạng thái `CREATED`, `format` `waymo-v2`               |
 | `GET /api/projects3d/:id`, `/import-status`      | Thành viên, Leader | Project, `my_role`, `progress`                               |
 | `POST /api/projects3d/:id/import`                | Leader             | Multipart, mỗi field mang tên component của tệp. 201 `READY` |
-| `DELETE /api/projects3d/:id`                     | Leader             | Xoá dòng DB và thư mục `Project3D/<id>`                      |
+| `DELETE /api/projects3d/:id`                     | Leader tạo project | Xoá dòng DB và thư mục `Project3D/<id>`; leader khác: 403    |
 | `GET /api/projects3d/:id/scene`                  | Thành viên, Leader | `scene.json` của project `READY`                             |
 | `GET /api/projects3d/:id/frames/<timestamp>.bin` | Thành viên, Leader | Point cloud của một frame; không có thì 404                  |
 | `GET …/sheets/<timestamp>.jpg`                   | Thành viên, Leader | Ảnh ghép các camera của frame                                |

@@ -7,6 +7,7 @@ import { Import3DForm, stageText } from '../features/projects3d/Import3DForm';
 import { useProject3D } from '../features/projects3d/useProject3D';
 import { BOX_COLORS, cssColor } from '../features/projects3d/viewer/colors';
 import { roleLabel } from '../features/auth/AuthGate';
+import { useAuth } from '../features/auth/AuthProvider';
 
 const count = (value: number) => value.toLocaleString('en-US');
 function Stat({ label, value, note }: { label: string; value: string; note?: string }) {
@@ -21,6 +22,7 @@ function Stat({ label, value, note }: { label: string; value: string; note?: str
 
 export function Project3DPage() {
   const { projectId } = useParams();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const { data: p, error, loading, retry } = useProject3D(projectId);
   if (loading)
@@ -56,7 +58,7 @@ export function Project3DPage() {
           {p.description && <p className="mt-3 text-sm text-muted">{p.description}</p>}
         </div>
         <ProjectStatus status={p.status} />
-        {leader && (
+        {leader && p.created_by === user?.id && (
           <DeleteProjectButton
             project={p}
             base="/projects3d"

@@ -10,11 +10,13 @@ import { ProjectPeople } from '../features/projects/ProjectPeople';
 import { StartReviewButton } from '../features/projects/StartReviewButton';
 import { request } from '../lib/api';
 import { CompleteReviewButton } from '../features/handoff/CompleteReviewButton';
+import { useAuth } from '../features/auth/AuthProvider';
 import { ui } from '../lib/i18n';
 import type { Dashboard } from '../types.ts';
 
 export function ProjectDashboardPage() {
   const { projectId } = useParams();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const { data: p, error, loading, retry } = useProject(projectId);
   const [dashboard, setDashboard] = useState<Dashboard | null>(null),
@@ -77,7 +79,7 @@ export function ProjectDashboardPage() {
           <p className="mt-3 text-sm text-muted">{p.description}</p>
         </div>
         <ProjectStatus status={p.status} />
-        {leader && (
+        {leader && (p.created_by === null || p.created_by === user?.id) && (
           <DeleteProjectButton
             project={p}
             onDeleted={() => navigate('/projects', { replace: true })}

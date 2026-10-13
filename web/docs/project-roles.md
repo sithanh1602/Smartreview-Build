@@ -8,17 +8,19 @@ Thay đổi ngày 2026-10-11. Thay cho mô hình cũ (`reviewer` toàn quyền, 
 - **Vai trò trong project**: `leader` (người tạo), `reviewer`, `annotator`. Một member giữ đúng một vai trò trong một project, có thể giữ vai trò khác ở project khác.
 - **Thêm thành viên**: cách chính là Leader thêm thẳng bằng tên đăng nhập và chọn vai trò. Reviewer cũng thêm được, nhưng chỉ với vai trò Annotator. Mã mời là cách phụ.
 - **Mã mời**: mỗi project có hai mã cố định, một cho reviewer và một cho annotator. Mã 10 ký tự, dùng nhiều lần, không hết hạn. Mã quyết định vai trò; người nhập không tự chọn được.
-- Project không có người tạo (`created_by` NULL: dataset demo và các project có trước thay đổi này) do **mọi leader cùng quản lý**.
+- **Mọi leader thấy và quản lý mọi project**, kể cả project do leader khác tạo (từ 2026-10-13). Riêng việc **xóa project** chỉ dành cho leader đã tạo nó.
+- Project không có người tạo (`created_by` NULL: dataset demo và các project có trước thay đổi này) thì leader nào cũng xóa được.
 
-| Việc                                                | Leader | Reviewer / Annotator                                |
-| --------------------------------------------------- | ------ | --------------------------------------------------- |
-| Tạo project, import dataset, xóa project            | Có     | Không                                               |
-| Thêm thành viên bằng tên đăng nhập                  | Có     | Reviewer: chỉ thêm được Annotator. Annotator: không |
-| Xem mã mời, tạo mã mới, đổi vai trò, xóa thành viên | Có     | Không                                               |
-| Chạy AI Check                                       | Có     | Không (xem kết quả)                                 |
-| Phân tích guideline, dataset mặc định ngoài project | Có     | Không                                               |
-| Xem project, ảnh, annotation, danh sách thành viên  | Có     | Có                                                  |
-| Lưu quyết định review, frame review                 | Có     | Có                                                  |
+| Việc                                                | Leader                                                                  | Reviewer / Annotator                                |
+| --------------------------------------------------- | ----------------------------------------------------------------------- | --------------------------------------------------- |
+| Tạo project, import dataset                         | Có                                                                      | Không                                               |
+| Xóa project                                         | Chỉ leader tạo project (hoặc mọi leader nếu project không có người tạo) | Không                                               |
+| Thêm thành viên bằng tên đăng nhập                  | Có                                                                      | Reviewer: chỉ thêm được Annotator. Annotator: không |
+| Xem mã mời, tạo mã mới, đổi vai trò, xóa thành viên | Có                                                                      | Không                                               |
+| Chạy AI Check                                       | Có                                                                      | Không (xem kết quả)                                 |
+| Phân tích guideline, dataset mặc định ngoài project | Có                                                                      | Không                                               |
+| Xem project, ảnh, annotation, danh sách thành viên  | Có                                                                      | Có                                                  |
+| Lưu quyết định review, frame review                 | Có                                                                      | Có                                                  |
 
 Khi review đã được **Hoàn thành** và gửi cho Annotator thì không ai lưu được quyết định nữa cho tới khi Leader mở lại; xem `docs/review-handoff.md`.
 
@@ -43,12 +45,12 @@ npm run user:update -- --username tuananh --role leader
 
 ## API
 
-Mọi route dưới `/api/projects/:id` kiểm tra vai trò của người gọi trong project đó trước khi đọc dữ liệu (`ProjectMembers.role` trong `server/projects/members.ts`). Người không thuộc project nhận 404 như project không tồn tại. Thao tác chỉ dành cho leader mà member gọi thì nhận 403.
+Mọi route dưới `/api/projects/:id` kiểm tra vai trò của người gọi trong project đó trước khi đọc dữ liệu (`ProjectMembers.role` trong `server/projects/members.ts`). Tài khoản leader có vai trò `leader` ở mọi project. Member không thuộc project nhận 404 như project không tồn tại. Thao tác chỉ dành cho leader mà member gọi thì nhận 403. `DELETE /api/projects/:id` do leader không phải người tạo gọi cũng nhận 403.
 
 | Route                                                 | Ai                                         | Kết quả                                                                                                                                     |
 | ----------------------------------------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | `POST /api/auth/register`                             | Chưa đăng nhập                             | Nhận thêm `role`: `leader` hoặc `member` (mặc định `member`)                                                                                |
-| `GET /api/projects`                                   | Mọi tài khoản                              | Leader: project mình tạo và project chưa có người tạo. Member: project đã tham gia                                                          |
+| `GET /api/projects`                                   | Mọi tài khoản                              | Leader: mọi project (giao diện chia project của mình và của leader khác). Member: project đã tham gia                                       |
 | `POST /api/projects`                                  | Leader                                     | Tạo project, ghi `created_by`                                                                                                               |
 | `POST /api/projects/join` `{ code }`                  | Member                                     | `{ project_id, name, role }`. Đã ở project với vai trò khác: 409                                                                            |
 | `GET /api/projects/:id`                               | Thành viên, leader                         | Thêm `my_role`, `creator_name`, `reviewer_count`, `annotator_count`                                                                         |
