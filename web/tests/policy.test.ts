@@ -101,7 +101,15 @@ test('every engine version still runs, each on its own policy', () => {
     ['car', 0.48, 500, 360, 680, 480, { label_top2: 'truck', score_top2: 0.4 }],
     ['person', 0.4, 100, 300, 300, 400],
   ]);
-  assert.deepEqual(ENGINE_VERSIONS, ['2.0.0', '2.1.0', '3.0.0', '4.0.0', '5.0.0', '6.0.0']);
+  assert.deepEqual(ENGINE_VERSIONS, [
+    '2.0.0',
+    '2.1.0',
+    '2.2.0',
+    '3.0.0',
+    '4.0.0',
+    '5.0.0',
+    '6.0.0',
+  ]);
   assert.equal(ENGINE_VERSION, '6.0.0');
   for (const engineVersion of ENGINE_VERSIONS) {
     const report = analyzeDataset(structuredClone(data), { engineVersion });
@@ -118,7 +126,15 @@ test('every engine version still runs, each on its own policy', () => {
   assert.equal(analyze([]).policy_version, '4.0.0');
   assert.equal(analyze([], { engineVersion: '5.0.0' }).policy_version, '3.0.0');
   assert.equal((analyzeDataset(data) as any).results[0].score, 20);
-  assert.deepEqual(ENGINE_VERSIONS.map(supportsWaivers), [false, false, false, true, true, true]);
+  assert.deepEqual(ENGINE_VERSIONS.map(supportsWaivers), [
+    false,
+    false,
+    false,
+    false,
+    true,
+    true,
+    true,
+  ]);
   assert.throws(
     () => analyzeDataset(data, { engineVersion: '4.0.0', patches: [{ op: 'disable', rule: 'x' }] }),
     /takes no patches/,

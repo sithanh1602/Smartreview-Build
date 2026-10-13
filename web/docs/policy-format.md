@@ -44,13 +44,13 @@ Muốn đổi điểm hay ngưỡng thì sửa file của nhãn. Muốn thử m�
 
 **Phiên bản engine.** Sửa file policy là đổi điểm của mọi dự án đang chạy engine mới nhất, nên mỗi lần đổi hành vi phải tăng `ENGINE_VERSION` và giữ lại bản cũ. Dự án ghi phiên bản engine lúc import và tiếp tục chạy trên đúng phiên bản đó:
 
-| `engine_version` | Thư mục        | Policy                                                                                                          |
-| ---------------- | -------------- | --------------------------------------------------------------------------------------------------------------- |
-| `2.0.0`, `2.1.0` | `core/risk_v1` | 5 check gốc, thêm 4 check ảnh đơn ở 2.1.0                                                                       |
-| `3.0.0`          | `core/risk_v3` | policy 1.0.0, viết trong code                                                                                   |
-| `4.0.0`          | `core/risk_v4` | policy 2.0.0, viết trong code: 33 check, 9 rule mức ảnh                                                         |
-| `5.0.0`          | `core/risk_v5` | policy 3.0.0, đọc từ `core/risk_v5/policy`: 44 check, 9 rule mức ảnh; `motorcycle` và `bicycle` còn là hai nhãn |
-| `6.0.0`          | `core/risk`    | policy 4.0.0, đọc từ `policy/`: 44 check, 9 rule mức ảnh; hai nhãn đó gộp thành `two_wheeler`                   |
+| `engine_version`          | Thư mục        | Policy                                                                                                          |
+| ------------------------- | -------------- | --------------------------------------------------------------------------------------------------------------- |
+| `2.0.0`, `2.1.0`, `2.2.0` | `core/risk_v1` | 5 check gốc, thêm 4 check ảnh đơn ở 2.1.0, confidence thành tín hiệu độc lập ở 2.2.0                            |
+| `3.0.0`                   | `core/risk_v3` | policy 1.0.0, viết trong code                                                                                   |
+| `4.0.0`                   | `core/risk_v4` | policy 2.0.0, viết trong code: 33 check, 9 rule mức ảnh                                                         |
+| `5.0.0`                   | `core/risk_v5` | policy 3.0.0, đọc từ `core/risk_v5/policy`: 44 check, 9 rule mức ảnh; `motorcycle` và `bicycle` còn là hai nhãn |
+| `6.0.0`                   | `core/risk`    | policy 4.0.0, đọc từ `policy/`: 44 check, 9 rule mức ảnh; hai nhãn đó gộp thành `two_wheeler`                   |
 
 `analyzeDataset(data, { engineVersion })` chọn engine; `npm run import -- ... --engine 4.0.0` chấm một bộ dữ liệu bằng engine cũ.
 
