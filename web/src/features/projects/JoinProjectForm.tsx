@@ -21,10 +21,17 @@ export function JoinProjectForm({ onJoined }: { onJoined: (joined: Joined) => vo
         setBusy(true);
         setError('');
         try {
-          const joined = await request<Joined>('/projects/join', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ code }),
+          const join = (collection: string) =>
+            request<Joined>(`${collection}/join`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ code }),
+            });
+          // A code belongs to a 2D or a 3D project; one not known to the first is tried on the
+          // other.
+          const joined = await join('/projects').catch((e) => {
+            if ((e as { status?: number }).status !== 404) throw e;
+            return join('/projects3d');
           });
           setCode('');
           onJoined(joined);

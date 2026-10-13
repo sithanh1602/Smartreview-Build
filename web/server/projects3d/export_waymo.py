@@ -13,7 +13,8 @@ ra là hợp đồng với viewer: sửa ở đây thì phải sửa bên đọc
   camera_image       (tuỳ chọn) ảnh JPEG của từng camera ở từng frame
 
 Đầu ra:
-  <out>/scene.json            lidar, pose từng frame, cuboid từng frame
+  <out>/scene.json            lidar, pose từng frame, cuboid từng frame; mỗi cuboid có "counted":
+                              số điểm của point cloud đã xuất nằm trong cuboid đó
   <out>/frames/<ts>.bin       float32 [x, y, z, intensity] * N  (hệ toạ độ xe, đã bù chuyển động)
                               int16   [dx, dy, dz] * N          (mm, điểm chưa bù = điểm đã bù + d)
   <out>/cameras/<CAMERA>/<ts>.jpg   ảnh camera, ghi nguyên byte JPEG có trong parquet
@@ -164,6 +165,30 @@ def export_cameras(root: Path, output: Path, segment: str, timestamps: set) -> i
     return written
 
 
+def count_points(points, frame_boxes):
+    """Ghi vào từng cuboid số điểm nằm trong nó ("counted"). points: [N, 3], hệ toạ độ xe.
+
+    Đếm ở đây vì point cloud đang có sẵn trong bộ nhớ: phần chấm rủi ro về sau chỉ đọc
+    scene.json, không phải tải lại file .bin nào.
+    """
+    order = np.argsort(points[:, 0])
+    points = points[order]
+    xs = points[:, 0]
+    for box in frame_boxes:
+        center, half = np.array(box["center"]), np.array(box["size"]) / 2
+        # Chỉ xét các điểm trong dải x mà cuboid có thể chạm tới.
+        reach = float(np.hypot(half[0], half[1]))
+        near = points[np.searchsorted(xs, center[0] - reach):np.searchsorted(xs, center[0] + reach, "right")]
+        cos, sin = np.cos(box["heading"]), np.sin(box["heading"])
+        dx, dy = near[:, 0] - center[0], near[:, 1] - center[1]
+        inside = (
+            (np.abs(dx * cos + dy * sin) <= half[0])
+            & (np.abs(dy * cos - dx * sin) <= half[1])
+            & (np.abs(near[:, 2] - center[2]) <= half[2])
+        )
+        box["counted"] = int(inside.sum())
+
+
 def rounded(values, digits=4):
     return [round(float(v), digits) for v in values]
 
@@ -210,6 +235,7 @@ def main():
             c, r, i = clouds.get(laser, (np.zeros((0, 3)), np.zeros((0, 3)), np.zeros(0)))
             counts.append(len(c)); corrected.append(c); raw.append(r); intensity.append(i)
         corrected, raw = np.concatenate(corrected), np.concatenate(raw)
+        count_points(corrected, boxes.get(timestamp, []))
         xyzi = np.column_stack([corrected, np.concatenate(intensity)]).astype("<f4")
         delta = np.clip(np.round((raw - corrected) * 1000), -32767, 32767).astype("<i2")
         with open(frames_dir / f"{timestamp}.bin", "wb") as f:

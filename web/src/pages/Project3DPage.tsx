@@ -1,8 +1,9 @@
 import React from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useNavigation, useParams } from 'react-router-dom';
 import { Spinner } from '../components/Spinner';
 import { DeleteProjectButton } from '../features/projects/DeleteProjectButton';
 import { ProjectStatus } from '../features/projects/ProjectLayout';
+import { ProjectPeople } from '../features/projects/ProjectPeople';
 import { Import3DForm, stageText } from '../features/projects3d/Import3DForm';
 import { useProject3D } from '../features/projects3d/useProject3D';
 import { BOX_COLORS, cssColor } from '../features/projects3d/viewer/colors';
@@ -23,6 +24,8 @@ function Stat({ label, value, note }: { label: string; value: string; note?: str
 export function Project3DPage() {
   const { projectId } = useParams();
   const { user } = useAuth();
+  // The viewer's code is fetched on the first click; the button shows that it is on its way.
+  const opening = useNavigation().state === 'loading';
   const navigate = useNavigate();
   const { data: p, error, loading, retry } = useProject3D(projectId);
   if (loading)
@@ -66,6 +69,7 @@ export function Project3DPage() {
           />
         )}
       </div>
+      <ProjectPeople project={p} collection="/projects3d" />
       {p.error_message && (
         <p role="alert" className="panel mb-6 p-5 text-rose-700">
           {p.error_message}
@@ -99,8 +103,10 @@ export function Project3DPage() {
               className="sr-button border-accent text-accent"
               to={`/projects3d/${p.id}/viewer`}
               data-testid="open-viewer"
+              aria-busy={opening}
             >
-              Mở review 3D →
+              {opening && <Spinner />}
+              {opening ? 'Đang mở review 3D…' : 'Mở review 3D →'}
             </Link>
           </section>
           <div className="mb-6 grid gap-5 sm:grid-cols-2 xl:grid-cols-4">

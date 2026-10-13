@@ -17,13 +17,13 @@ vị trí (`storage_key`), Dropbox giữ file, token Dropbox chỉ nằm trong `
 Khi bật Dropbox, backend **không giữ file project trên đĩa**. Mỗi file được lưu
 riêng trên Dropbox và đọc thẳng từ đó.
 
-| Thao tác    | Backend làm gì                                                                                                       |
-| ----------- | -------------------------------------------------------------------------------------------------------------------- |
-| Import      | Nhận file vào thư mục tạm trong `storage/`, kiểm tra và phân tích, đẩy từng file lên Dropbox, rồi xóa thư mục tạm    |
-| Mở project  | Tải `dataset.json` từ Dropbox vào RAM và phân tích; không ghi gì ra đĩa                                              |
-| Xem ảnh     | `/api/.../assets` tải ảnh từ Dropbox. Ảnh vừa xem được giữ trong RAM (tối đa 64 MB mỗi backend), mất khi tắt backend |
-| AI Check    | Tải các frame vào `storage/.tmp/<uuid>` cho model đọc, xóa khi chạy xong. Kết quả ghi vào Dropbox                    |
-| Xóa project | Xóa dòng MySQL, rồi xóa thư mục `projects/<id>` trên Dropbox                                                         |
+| Thao tác    | Backend làm gì                                                                                                                                                                                 |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Import      | Nhận file vào thư mục tạm trong `storage/`, kiểm tra và phân tích rồi trả lời; đẩy lên Dropbox chạy nền theo lượt 20 file, xong thì xóa thư mục tạm. Lỗi giữa chừng thì giữ thư mục để thử lại |
+| Mở project  | Tải `dataset.json` từ Dropbox vào RAM và phân tích; không ghi gì ra đĩa                                                                                                                        |
+| Xem ảnh     | `/api/.../assets` tải ảnh từ Dropbox. Ảnh vừa xem được giữ trong RAM (tối đa 64 MB mỗi backend), mất khi tắt backend                                                                           |
+| AI Check    | Tải các frame vào `storage/.tmp/<uuid>` cho model đọc, xóa khi chạy xong. Kết quả ghi vào Dropbox                                                                                              |
+| Xóa project | Xóa dòng MySQL, rồi xóa thư mục `projects/<id>` trên Dropbox                                                                                                                                   |
 
 Bố cục trên Dropbox (trong App folder):
 
@@ -112,3 +112,9 @@ ghi `storage_key`, xóa file `.tar` cũ và **xóa bản trên đĩa**. Project 
 pending`; chưa có lệnh dọn file thừa.
 - Mọi backend phải chạy cùng phiên bản code: bản cũ không đọc được project lưu theo
   từng file.
+
+## Khi mạng chập chờn
+
+Mỗi lệnh gọi Dropbox được gọi lại tối đa 4 lần (chờ 1, 2, 4, 8 giây) khi kết nối đứt hoặc không
+có trả lời sau 5 phút, không chỉ khi Dropbox trả 429 / 5xx. Trước đây một lần đứt kết nối
+(`TypeError: fetch failed`) hủy cả import.

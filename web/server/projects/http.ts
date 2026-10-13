@@ -102,11 +102,31 @@ export async function handleProjects(
     } else throw new ReviewError(405, 'Use GET or POST.');
     return true;
   }
+  if (route === '/label-verify') {
+    if (req.method === 'GET') json(res, 200, await projects.verify.status(id));
+    else if (req.method === 'POST') {
+      sameOrigin(req);
+      leaderOnly();
+      // The second engine runs only when the person asks for it.
+      const { second } = (await readJson(req)) ?? {};
+      json(res, 202, await projects.verify.request(id, { second: second === true }));
+    } else throw new ReviewError(405, 'Use GET or POST.');
+    return true;
+  }
   if (route === '/import') {
     if (req.method !== 'POST') throw new ReviewError(405, 'Use POST.');
     sameOrigin(req);
     leaderOnly();
-    json(res, 201, await projects.import(id, req));
+    const imported = await projects.import(id, req);
+    // 202: the dataset is accepted and the import is being finished in the background.
+    json(res, imported.status === 'READY' ? 201 : 202, imported);
+    return true;
+  }
+  if (route === '/import/resume') {
+    if (req.method !== 'POST') throw new ReviewError(405, 'Use POST.');
+    sameOrigin(req);
+    leaderOnly();
+    json(res, 202, await projects.resume(id));
     return true;
   }
   if (route === '/members') {

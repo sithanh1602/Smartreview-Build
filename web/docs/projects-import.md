@@ -45,26 +45,34 @@ Backup phải bao gồm cả MySQL và `storage/`; dataset demo vẫn ở `datas
 
 `CREATED → UPLOADING → VALIDATING → NORMALIZING → ANALYZING → READY`; lỗi chuyển `FAILED`.
 
-UI báo phần trăm truyền file, rồi poll trạng thái thật trong MySQL. Request import được xử lý trong API process, chưa có worker/queue nền. Giữ trang mở tới khi hoàn tất; nếu mất kết nối, vào project kiểm tra trạng thái trước khi thử lại. Project CREATED/FAILED có form upload trên dashboard. Hai request import đồng thời cùng project: chỉ một request được nhận; request còn lại trả 409.
+Import chia hai nửa (từ 2026-10-13):
+
+1. **Trong request**: nhận file, kiểm tra annotation và ảnh, chuẩn hóa, chạy risk engine, ghi `dataset.json` và `risk/report.json` vào thư mục attempt. Lỗi ở đây (sai định dạng, thiếu ảnh…) trả về ngay và thư mục bị dọn.
+2. **Chạy nền sau khi trả lời** (`ProjectService.finish`): đẩy thư mục lên kho lưu trữ chung theo từng lượt 20 file, ghi risk case vào MySQL theo lô 500 dòng, rồi đặt `READY`. Trạng thái trong lúc này là `ANALYZING`; `GET /api/projects/:id` trả thêm `progress` (`{ step: 'publish' | 'save', done, total }`).
+
+Nửa sau lỗi (đứt mạng tới Dropbox hoặc MySQL) thì project `FAILED` nhưng thư mục attempt được giữ lại, `can_resume` là `true`, và `POST /api/projects/:id/import/resume` làm tiếp: file đã lên kho không gửi lại (số file đã gửi ghi ở `<attempt-uuid>.published` cạnh thư mục). Chọn file mới để import lại thì dữ liệu dở bị thay. Dữ liệu chờ nằm trên đĩa của backend đã nhận file, nên chỉ backend đó làm tiếp được.
+
+UI báo phần trăm truyền file; khi backend nhận xong thì trang tạo project hiện hộp thoại "Đã nhận dữ liệu" với hai lựa chọn **Về trang Projects** và **Xem project**. Trang project hiện tiến độ nền và tự chuyển sang dashboard khi `READY`; khi lỗi có nút **Thử lại**. Việc chạy nền nằm trong chính API process (chưa có worker/queue riêng): backend tắt giữa chừng thì project thành `FAILED` lúc khởi động lại và vẫn thử lại được nếu thư mục attempt còn. Project CREATED/FAILED có form upload trên dashboard. Hai request import đồng thời cùng project: chỉ một request được nhận; request còn lại trả 409.
 
 ## API
 
-| Method       | Endpoint                                        | Kết quả                                                          |
-| ------------ | ----------------------------------------------- | ---------------------------------------------------------------- |
-| GET          | `/api/projects`                                 | Danh sách metadata, không lộ đường dẫn storage                   |
-| POST         | `/api/projects`                                 | `{name, description?, format}` → 201 CREATED                     |
-| GET          | `/api/projects/:id`                             | Metadata và status                                               |
-| POST         | `/api/projects/:id/import`                      | Multipart `annotation` một file + `media` nhiều file → 201 READY |
-| GET          | `/api/projects/:id/import-status`               | Status và error_message                                          |
-| GET          | `/api/projects/:id/dashboard`                   | Project, dataset stats, MySQL review metrics                     |
-| GET          | `/api/projects/:id/meta`                        | Metadata dataset                                                 |
-| GET          | `/api/projects/:id/checks`                      | Check coverage                                                   |
-| GET          | `/api/projects/:id/risk-cases`                  | Risk cases; cũng hỗ trợ `/cases`                                 |
-| GET          | `/api/projects/:id/cases/:annotationId`         | Chi tiết case                                                    |
-| GET          | `/api/projects/:id/assets/:frameId?dataset=...` | Ảnh trong project                                                |
-| GET          | `/api/projects/:id/reviews`                     | Map quyết định đã lưu                                            |
-| GET          | `/api/projects/:id/dashboard/metrics`           | Review metrics                                                   |
-| GET/POST/PUT | `/api/projects/:id/cases/:annotationId/review`  | Đọc/tạo/cập nhật review như phase MySQL                          |
+| Method       | Endpoint                                        | Kết quả                                                                                                      |
+| ------------ | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| GET          | `/api/projects`                                 | Danh sách metadata, không lộ đường dẫn storage                                                               |
+| POST         | `/api/projects`                                 | `{name, description?, format}` → 201 CREATED                                                                 |
+| GET          | `/api/projects/:id`                             | Metadata và status                                                                                           |
+| POST         | `/api/projects/:id/import`                      | Multipart `annotation` một file + `media` nhiều file → 202 khi phần còn lại chạy nền (201 READY nếu đã xong) |
+| POST         | `/api/projects/:id/import/resume`               | Leader. Làm tiếp import `FAILED` còn dữ liệu chờ → 202; không còn dữ liệu: 409                               |
+| GET          | `/api/projects/:id/import-status`               | Status, error_message, `progress`, `can_resume`                                                              |
+| GET          | `/api/projects/:id/dashboard`                   | Project, dataset stats, MySQL review metrics                                                                 |
+| GET          | `/api/projects/:id/meta`                        | Metadata dataset                                                                                             |
+| GET          | `/api/projects/:id/checks`                      | Check coverage                                                                                               |
+| GET          | `/api/projects/:id/risk-cases`                  | Risk cases; cũng hỗ trợ `/cases`                                                                             |
+| GET          | `/api/projects/:id/cases/:annotationId`         | Chi tiết case                                                                                                |
+| GET          | `/api/projects/:id/assets/:frameId?dataset=...` | Ảnh trong project                                                                                            |
+| GET          | `/api/projects/:id/reviews`                     | Map quyết định đã lưu                                                                                        |
+| GET          | `/api/projects/:id/dashboard/metrics`           | Review metrics                                                                                               |
+| GET/POST/PUT | `/api/projects/:id/cases/:annotationId/review`  | Đọc/tạo/cập nhật review như phase MySQL                                                                      |
 
 Case list giữ các filter `scope=all`, `level`, `review_status`. Review payload vẫn dùng `dataset_revision`, decision `CORRECT/ERROR/UNSURE`, error_type, corrected_value, note và version khi update.
 
@@ -72,7 +80,7 @@ HTTP: 400 malformed request/filename/file type, 403 origin không hợp lệ, 40
 
 ## Validation và giới hạn
 
-- Tổng upload 200 MB; tối đa 1000 ảnh + một annotation; mỗi ảnh 20 MB; annotation 10 MB.
+- Tổng upload 200 MB; tối đa 100 ảnh + một annotation; mỗi ảnh 20 MB; annotation 10 MB.
 - Ảnh tĩnh tối đa 25 megapixels, kiểm tra signature, giải mã với Sharp, dimensions thực tế phải khớp metadata annotation.
 - Không cho absolute path, `..`, backslash, empty segment, control characters, hidden segment, tên trùng hay extension không cho phép. Không extract archive, execute upload hoặc phục vụ nguyên annotation như HTML.
 - Ảnh được ghép bằng relative path chính xác; nếu chọn file rời thì cho phép basename khi duy nhất. Chọn folder sẽ bỏ tên folder ngoài cùng. Ảnh thiếu, tên không rõ ràng hoặc ảnh thừa đều báo lỗi.
@@ -128,7 +136,7 @@ Dùng được ở cả hai nguồn dữ liệu: **Tệp rời** (chọn tệp n
 | MOT 1.1 (`mot`)                       | `gt.txt`, kèm `labels.txt` nếu có                             | box, track                       | số khung hình: `000001`, `000002`…         |
 | SmartReview JSON (`smartreview-json`) | một JSON theo schema 1.0.0                                    | mọi geometry của schema          | theo `frames[].image`                      |
 
-- **Định dạng nhiều tệp** (PASCAL VOC, YOLO, LabelMe, KITTI, MOT): ở Tệp rời, ô "Tệp nhãn" cho chọn nhiều tệp cùng lúc. Tối đa 1010 tệp nhãn, tổng 10 MB.
+- **Định dạng nhiều tệp** (PASCAL VOC, YOLO, LabelMe, KITTI, MOT): ở Tệp rời, ô "Tệp nhãn" cho chọn nhiều tệp cùng lúc. Tối đa 110 tệp nhãn, tổng 10 MB.
 - **Định dạng không ghi kích thước ảnh** (YOLO, KITTI, MOT, và CVAT for video thiếu `original_size`): kích thước lấy từ chính ảnh upload, nên phải có đủ ảnh.
 - **Ghép ảnh**: theo đường dẫn chính xác, rồi tên tệp duy nhất; với định dạng không ghi đuôi ảnh thì so tên không tính đuôi (`a.txt` ghép với `a.jpg`).
 - **CVAT for video và MOT** tạo một media kiểu video với track, nên các kiểm tra theo thời gian chạy được. Shape `outside="1"` và dòng MOT có cột thứ bảy bằng 0 bị bỏ qua.
@@ -151,7 +159,7 @@ thuộc tính annotation được giữ trong `attributes.coco`; chỉ bbox đư
 và hiển thị. JSON nguồn vẫn được lưu nguyên trong thư mục upload.
 Không hỗ trợ COCO prediction arrays hoặc panoptic; annotation phải có bbox.
 
-Web giữ giới hạn 1000 ảnh / 200 MB, annotation 10 MB, 100000 annotations;
+Web giữ giới hạn 100 ảnh / 200 MB, annotation 10 MB, 100000 annotations;
 bbox có width/height không dương bị từ chối theo validation upload hiện có.
 CLI giữ các box này để core QA đánh dấu. Không cần migration database.
 

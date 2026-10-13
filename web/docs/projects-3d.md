@@ -84,6 +84,8 @@ tạm để trình duyệt tải thẳng từ Dropbox.
   có bù chuyển động không, dung lượng lưu, người tạo, vai trò của người xem).
 - Đang import: dòng trạng thái, tự hỏi lại backend mỗi giây.
 - `CREATED` / `FAILED`: lý do lỗi và form chọn lại tệp của segment (chỉ Leader).
+- Khối **thành viên** như project 2D (`ProjectPeople`): Leader thêm Reviewer / Annotator bằng tên đăng nhập hoặc mã mời, đổi vai trò, xoá; Reviewer thêm được Annotator. Quy tắc giống `docs/project-roles.md`, dữ liệu nằm ở `project_members_3d` và `project_invites_3d`.
+- Nút **Mở review 3D** hiện vòng xoay và "Đang mở review 3D…" trong lúc mã của viewer được tải về.
 - Leader tạo project có nút xoá project; leader khác xem và quản lý được nhưng không xoá được.
 
 ## Viewer point cloud
@@ -237,6 +239,7 @@ Thư mục chính của mọi project 3D là `Project3D`, cả trên Dropbox (tr
 
 ```
 /Project3D/<project_id>/<uuid>/scene.json               lidar, pose và cuboid của từng frame
+/Project3D/<project_id>/<uuid>/risk.json                báo cáo của Risk Engine 3D
 /Project3D/<project_id>/<uuid>/frames/<timestamp>.bin   point cloud của một frame
 ```
 
@@ -279,8 +282,8 @@ db:migrate" (503).
 
 Bước chuyển đổi cần một Python có `numpy` và `pyarrow` (`server/projects3d/requirements.txt`).
 Mặc định là `<smartreview>/.venv/bin/python`: `./setup.sh` tạo venv đó và cài hai gói, nên máy mới
-không phải cấu hình gì. Máy muốn dùng Python khác thì đặt trong `web/.env`; khi đó `./setup.sh`
-chỉ kiểm tra Python ấy và không tạo `.venv` cho project 3D:
+không phải cấu hình gì. Máy muốn dùng Python khác thì đặt trong `web/.env`; `./setup.sh` vẫn cài
+hai gói vào `.venv` và nhắc rằng `web/.env` đang trỏ ra ngoài repo:
 
 ```
 SMARTREVIEW_3D_PYTHON=/absolute/path/to/python
@@ -297,7 +300,13 @@ Thiếu Python hoặc thiếu hai gói đó thì import trả 503 kèm hướng 
 | `GET /api/projects3d/:id`, `/import-status`      | Thành viên, Leader | Project, `my_role`, `progress`                               |
 | `POST /api/projects3d/:id/import`                | Leader             | Multipart, mỗi field mang tên component của tệp. 201 `READY` |
 | `DELETE /api/projects3d/:id`                     | Leader tạo project | Xoá dòng DB và thư mục `Project3D/<id>`; leader khác: 403    |
+| `GET/POST /api/projects3d/:id/members`           | Như 2D             | Danh sách thành viên; thêm thẳng bằng tên đăng nhập          |
+| `GET …/members/candidates`                       | Leader, Reviewer   | Tài khoản thành viên chưa ở trong project                    |
+| `PATCH/DELETE …/members/:userId`                 | Leader             | Đổi vai trò, xoá khỏi project                                |
+| `GET/POST /api/projects3d/:id/invites`           | Leader             | Hai mã mời (reviewer, annotator); POST tạo mã mới            |
+| `POST /api/projects3d/join` `{ code }`           | Member             | Vào project 3D bằng mã mời                                   |
 | `GET /api/projects3d/:id/scene`                  | Thành viên, Leader | `scene.json` của project `READY`                             |
+| `GET /api/projects3d/:id/risk`                   | Thành viên, Leader | Báo cáo của Risk Engine 3D ([risk-3d.md](risk-3d.md))        |
 | `GET /api/projects3d/:id/frames/<timestamp>.bin` | Thành viên, Leader | Point cloud của một frame; không có thì 404                  |
 | `GET …/sheets/<timestamp>.jpg`                   | Thành viên, Leader | Ảnh ghép các camera của frame                                |
 | `GET …/cameras/<CAMERA>/<timestamp>.jpg`         | Thành viên, Leader | Ảnh gốc của một camera ở một frame                           |
@@ -341,15 +350,13 @@ Python hoặc chưa migrate.
 
 ## Chưa làm
 
-- Engine chấm rủi ro 3D: chưa có điểm, chưa có hàng đợi "case đáng nghi"; người review tự đi qua
-  từng frame.
+- Hàng đợi "case đáng nghi" trong viewer: Risk Engine 3D đã chấm lúc import và lưu báo cáo
+  ([risk-3d.md](risk-3d.md)), nhưng viewer chưa dùng nó; người review vẫn tự đi qua từng frame.
 - Đánh dấu đối tượng thiếu cuboid (`frame_reviews_3d`), hoàn thành và gửi cho Annotator
   (`project_handoffs_3d`), sửa cuboid ngay trong viewer, ảnh camera.
 - Loại lỗi dùng lại ENUM của 2D, nên lỗi cuboid được lưu trong DB là `BBOX`.
 - Viewer mới được xem bằng Chromium vẽ phần mềm với 12 frame và API giả lập; chưa đo tốc độ phát
   khi mỗi frame (khoảng 2,7 MB) được đọc qua Dropbox.
-- Thành viên và mã mời của project 3D: bảng đã có, chưa có API và giao diện. Hiện chỉ Leader tạo
-  project mới thấy nó.
 - Chưa chạy trên MySQL và Dropbox thật: migration 008, các câu lệnh của `Project3DService`, hai
   route đọc và
   việc đẩy 534 MB lên Dropbox mới được kiểm bằng test với pool giả và kho giả.

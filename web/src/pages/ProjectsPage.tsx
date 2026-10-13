@@ -171,7 +171,8 @@ export function ProjectsPage() {
           </section>
         ))
       )}
-      <Projects3DList />
+      {/* Listed again after joining by code: the code may be a 3D project's. */}
+      <Projects3DList key={attempt} />
     </>
   );
 }

@@ -1,0 +1,10 @@
+# Label verifier (web/server/verify/verify.py, docs/label-verifier.md). PyTorch đã có sẵn khi
+# cài AI Check; accelerate và bitsandbytes chỉ cần cho Qwen2.5-VL (nạp 4-bit trên GPU).
+torch
+torchvision
+transformers
+pillow
+sentencepiece
+protobuf
+accelerate
+bitsandbytes

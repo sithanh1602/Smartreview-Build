@@ -24,6 +24,7 @@ try {
   const storageRoot = process.env.SMARTREVIEW_STORAGE || path.join(webRoot, 'storage'),
     remote = remoteStorageFromEnv();
   const projects = new ProjectService(pool, storageRoot, remote);
+  projects.background = true;
   await projects.recover();
   const projects3d = new Project3DService(pool, storageRoot, remote);
   await projects3d.recover();

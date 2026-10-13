@@ -3,6 +3,14 @@ import { loginContext } from './fixtures.ts';
 import { hint } from '../../src/lib/englishHints.ts';
 import { test, expect } from './fixtures.ts';
 import path from 'node:path';
+// After an upload a popup asks how the labels are scanned. These tests are about the import,
+// so they leave the image models unticked and go on to the project.
+async function skipScan(page) {
+  const popup = page.getByRole('dialog');
+  await expect(popup.getByTestId('import-accepted')).toBeVisible();
+  await popup.getByRole('checkbox').nth(1).uncheck();
+  await popup.getByRole('button', { name: ui('Vào project') }).click();
+}
 const fixture = path.resolve('fixtures/upload');
 async function importProject(page, name, format = 'cvat-images') {
   await page.goto('/projects');
@@ -45,6 +53,7 @@ async function importProject(page, name, format = 'cvat-images') {
       name: hint('Create & Import'),
     })
     .click();
+  await skipScan(page);
   await expect(
     page.getByRole('heading', {
       name,
@@ -234,6 +243,7 @@ test('invalid import shows error and retry succeeds without creating another pro
       name: hint('Create & Import'),
     })
     .click();
+  await skipScan(page);
   await expect(page.getByTestId('metric-Risk Cases')).toHaveText('1');
   await page.goto('/projects');
   await expect(

@@ -2,6 +2,40 @@
 
 Ghi lại mỗi lần sửa xong một chức năng hoặc thay đổi lớn ở frontend. Mục mới nhất ở trên cùng.
 
+## 2026-10-13 · Quét nhãn bằng ảnh: popup sau khi upload, kết quả vào trang Review
+
+- **Popup "Chọn cách quét nhãn"** (`src/features/verify/ScanChoice.tsx`) mở trong luồng tạo project mới, ngay khi upload xong, thay cho việc chuyển thẳng sang project và thay popup "Đã nhận dữ liệu" cũ. Bấm nút trong popup mới sang trang project. Project đã có sẵn không có popup này.
+- **Ba ô**: Risk Engine (luôn bật, khoá: nó chạy lúc import như trước giờ), SigLIP 2 (tích sẵn), Qwen2.5-VL (không tích; khoá khi SigLIP 2 bỏ tích). Nút là "Quét và vào project", hoặc "Vào project" khi không chọn mô hình ảnh nào.
+- **Quét một lần**: không có nút hay trang kết quả riêng. Nút "Kết quả quét nhãn →" và trang `/projects/:id/label-verify` làm trước đó trong ngày đã gỡ.
+- **Kết quả nằm ở trang Review**: box bị phát hiện sai vào hàng đợi mà nút "Bắt đầu kiểm tra" mở; trong khung "Why flagged" có thêm tín hiệu `verifier.wrong_label` với số điểm của nó. Các số Risk Cases, Remaining ở trang project tính cả các case này.
+- **Dòng trạng thái ở trang project** (`ScanStatus.tsx`): đang chờ, đang quét kèm tiến độ, đã quét (số khung vào hàng đợi), hoặc lỗi kèm nút "Thử lại" cho Leader. Quét xong thì các số trên trang tự tải lại.
+- Kiểm tra: dựng luồng tạo project với API giả, upload `fixtures/upload`, thấy popup hiện trước khi rời trang và yêu cầu quét gửi đúng lựa chọn. `tests/browser/projects.spec.ts` đã sửa để bấm qua popup; chưa chạy được vì database test không vào được.
+- File: `src/features/verify/{ScanChoice,ScanStatus}.tsx`, `src/features/verify/useLabelVerify.ts`, `src/features/projects/ImportForm.tsx`, `src/pages/ProjectDashboardPage.tsx`, `src/types.ts`, `src/lib/i18n.en.ts`; backend `server/verify/{service,queue}.ts`, `server/reviews/store.ts`, `server/projects/{http,service}.ts`. Chi tiết: `docs/label-verifier.md`.
+
+## 2026-10-13 · Import 2D: giới hạn 100 ảnh mỗi project
+
+- **Giới hạn mới**: tối đa 100 ảnh mỗi lần import (trước là 1000); tổng upload vẫn 200 MB, mỗi ảnh 20 MB, annotation 10 MB. Định dạng nhiều tệp nhãn (VOC, YOLO…) nhận tối đa 110 tệp nhãn (trước là 1010).
+- **Kiểm tra ở hai nơi**: form báo "Vượt giới hạn…" trước khi gửi; server từ chối ảnh thứ 101 với 413 "Tối đa 100 ảnh mỗi project."
+- Project đã import trước đó không bị ảnh hưởng. Project 3D và AI Check giữ giới hạn riêng.
+- File: `server/projects/upload.ts`, `src/features/projects/{dataset.ts,ImportForm.tsx}`, `src/lib/i18n.{vi,en}.ts`, `README.md`, `docs/projects-import.md`.
+
+## 2026-10-13 · Import 2D: tải lên chạy nền, thử lại từ chỗ dở
+
+- **Vấn đề**: import dataset nặng chạy gần 5 phút rồi báo "Không thể xử lý import". Log backend: `Request failed: TypeError`, tức một lệnh gọi Dropbox bị đứt mạng; code không gọi lại nên cả import bị hủy và phải chọn lại file.
+- **Dropbox**: lệnh gọi bị đứt hoặc treo được gọi lại tối đa 4 lần.
+- **MySQL**: risk case ghi theo lô 500 dòng một câu lệnh, thay cho hai câu lệnh mỗi case.
+- **Chạy nền**: request import trả lời ngay khi file đã nhận và kiểm tra xong. Trang tạo project hiện hộp thoại "Đã nhận dữ liệu" (Về trang Projects / Xem project). Trang project hiện tiến độ "Đang đưa lên kho lưu trữ: n/N file", rồi "Đang lưu risk case", và tự sang dashboard khi Ready.
+- **Thử lại**: lỗi ở nửa chạy nền thì trang project có nút Thử lại, làm tiếp mà không chọn lại file và không gửi lại file đã lên kho. Form chọn file vẫn ở bên dưới nếu muốn import lại từ đầu.
+- File: `server/projects/{service,http}.ts`, `server/reviews/store.ts`, `server/storage/dropbox.ts`, `server/index.ts`, `src/features/projects/ImportForm.tsx`, `src/pages/ProjectDashboardPage.tsx`. Chi tiết: `docs/projects-import.md`.
+- Kiểm tra: typecheck và build qua; script thử `../verifier-test/scripts/import-background.test.ts` với DB và kho giả 5/5 qua; test không cần MySQL 24/24 qua. Chưa chạy với MySQL và Dropbox thật, chưa thử trên trình duyệt. Project 3D chưa có phần chạy nền này (chỉ hưởng phần gọi lại Dropbox).
+
+## 2026-10-13 · Project 3D: chia sẻ cho Reviewer / Annotator, vòng xoay khi mở review
+
+- **Chia sẻ như 2D**: trang project 3D có khối thành viên của project 2D. Leader thêm Reviewer / Annotator bằng tên đăng nhập hoặc mã mời, đổi vai trò, xoá; Reviewer thêm được Annotator. Ô nhập mã mời ở trang Projects nhận cả mã của project 3D (thử 2D trước, không có thì thử 3D).
+- **Backend**: `ProjectMembers` nhận tên bảng, project 3D dùng `project_members_3d` / `project_invites_3d` (đã có từ migration 008, không cần migration mới). Route mới dưới `/api/projects3d/:id/members`, `/invites` và `/api/projects3d/join`.
+- **Nút Mở review 3D**: hiện vòng xoay và "Đang mở review 3D…" từ lúc bấm đến khi viewer hiện ra. Trong viewer, scene, point cloud và ảnh camera vẫn được backend đọc từ Dropbox như trước, có vòng xoay riêng khi đang tải.
+- Kiểm tra: typecheck qua; test không cần MySQL (`projects3d`, `handoff`) 13/13 qua; chạy thử `ProjectMembers` với DB giả, bản 3D chỉ đụng các bảng `_3d`. Chưa chạy trên MySQL thật và chưa thử trên trình duyệt bằng tài khoản Reviewer / Annotator.
+
 ## 2026-10-13 · Leader thấy project của nhau, chia hai nhóm
 
 - **Thay đổi**: tài khoản leader thấy mọi project 2D và 3D, không chỉ project mình tạo. Trang Projects chia hai nhóm: **Project của tôi** ở trên, **Project của Leader khác** ở dưới (kèm số lượng); phần Project 3D chia tương tự. Nhóm dưới chỉ hiện khi có project. Member không đổi.

@@ -28,8 +28,10 @@ fs.mkdirSync(path.join(out, 'frames'), { recursive: true });
 const frames = [100, 200].map((timestamp, i) => {
   fs.writeFileSync(path.join(out, 'frames', timestamp + '.bin'), Buffer.alloc(22 * 3));
   process.stdout.write('\\r' + (i + 1) + ' frame');
-  return { timestamp, file: 'frames/' + timestamp + '.bin', pose: [], laserCounts: [2, 1],
-    boxes: [{ id: 'a', type: 'VEHICLE' }, ...(i ? [{ id: 'b', type: 'PEDESTRIAN' }] : [])] };
+  const box = (id, type, x, counted) => ({ id, type, center: [x, 0, 1], size: type === 'VEHICLE' ? [4.5, 2, 1.6] : [0.8, 0.8, 1.7], heading: 0, counted });
+  return { timestamp, file: 'frames/' + timestamp + '.bin', pose: [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1], laserCounts: [2, 1],
+    // The vehicle 10 m ahead has no point in it in the second frame: one case for the 3D Risk Engine.
+    boxes: [box('a', 'VEHICLE', 10, i ? 0 : 120), ...(i ? [box('b', 'PEDESTRIAN', 25, 40)] : [])] };
 });
 if (fs.existsSync(path.join(source, 'camera_image')))
   for (const [camera, timestamp] of [['FRONT', 100], ['SIDE_LEFT', 100], ['FRONT', 200], ['FRONT', 999]]) {
@@ -262,12 +264,21 @@ test('importing a segment stores the scene under Project3D on the remote', async
   assert.equal(body.metadata.total_boxes, 3);
   assert.equal(body.metadata.tracked_objects, 2);
   assert.equal(body.metadata.motion_compensated, false);
+  // The segment is scored once, at import, from the scene alone.
+  assert.deepEqual(body.metadata.risk, {
+    engine_version: '3d-1.0.0',
+    policy_version: '1.0.0',
+    total_cases: 1,
+    levels: { high: 0, medium: 1, low: 0 },
+    gaps: 0,
+  });
   assert.equal(body.storage_key, undefined);
   const key = pool.projects.get(project.id).storage_key;
   assert.match(key, new RegExp(`^Project3D/${project.id}/[a-f0-9-]{36}$`));
   assert.deepEqual(stored.filter((k) => k.startsWith(key)).sort(), [
     `${key}/frames/100.bin`,
     `${key}/frames/200.bin`,
+    `${key}/risk.json`,
     `${key}/scene.json`,
   ]);
   // Nothing is left on this machine: neither the parquet files nor the exported scene.
@@ -287,6 +298,10 @@ test('importing a segment stores the scene under Project3D on the remote', async
       }),
     ),
   );
+  // The report of the 3D Risk Engine is read back as it was stored.
+  remoteFiles.set(`${key}/risk.json`, Buffer.from(JSON.stringify({ cases: [{ id: '200:a' }] })));
+  const risk = await fetch(`${base}/api/projects3d/${project.id}/risk`);
+  assert.deepEqual([risk.status, await risk.json()], [200, { cases: [{ id: '200:a' }] }]);
   const scene = await fetch(`${base}/api/projects3d/${project.id}/scene?dataset=x`);
   assert.equal(scene.status, 200);
   assert.match(scene.headers.get('cache-control')!, /immutable/);
@@ -399,6 +414,7 @@ test('camera images are kept as JPEG files and get one sheet for each frame', as
     'cameras/FRONT/100.jpg',
     'cameras/FRONT/200.jpg',
     'cameras/SIDE_LEFT/100.jpg',
+    'risk.json',
     'scene.json',
     'sheets/100.jpg',
     'sheets/200.jpg',
