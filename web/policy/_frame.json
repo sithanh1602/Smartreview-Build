@@ -1,0 +1,284 @@
+{
+  "frame_policy": {
+    "schema_version": "1.0.0",
+    "purpose": "Quy tắc mức ảnh. Chúng không cộng điểm cho box nào: chúng quyết định ảnh có được tự chấp nhận hay phải đưa cho người xem.",
+    "sources": [
+      {
+        "id": "label_policy",
+        "ref": "Build/Policy/label_policy/00_chung.md"
+      },
+      {
+        "id": "engine",
+        "ref": "SmartReview web/core/risk, engine 4.0.0, policy 2.0.0"
+      }
+    ],
+    "applies_when": "Chỉ chạy khi dự án có box của mô hình. Ảnh chỉ có box người vẽ thì không có đầu ra của mô hình để xét.",
+    "blocking_meaning": "blocking = true: ảnh không được tự chấp nhận. blocking = false: chỉ báo cáo (quy tắc về nhãn bonus).",
+    "box_sets": [
+      {
+        "id": "draft",
+        "meaning": "Box của mô hình có confidence từ 0,3 và không nhỏ hơn cỡ tối thiểu của nhãn."
+      },
+      {
+        "id": "grey",
+        "meaning": "Box của mô hình có confidence từ 0,1 đến dưới 0,3."
+      },
+      {
+        "id": "grey, nghi là vật bị sót",
+        "meaning": "Box xám có confidence từ 0,2, cạnh dài từ 32 px và chồng dưới 0,5 với mọi box nháp. Các quy tắc coverage.grey_* đếm tập này."
+      }
+    ],
+    "missing_candidates": {
+      "min_confidence": 0.2,
+      "min_long_side_px": 32,
+      "max_overlap_with_any_draft": 0.5,
+      "note": "Box xám thoả ba điều kiện này được báo là vật nghi bị sót của ảnh (missing_candidates). Các quy tắc coverage.grey_* dùng cùng ba con số trong params của chúng."
+    },
+    "rules": [
+      {
+        "id": "coverage.no_draft_box",
+        "status": "active",
+        "check": "coverage.no_draft_box",
+        "template": "frame_count",
+        "params": {
+          "labels": "any",
+          "state": "draft",
+          "op": "==",
+          "value": 0,
+          "blocking": true
+        },
+        "blocking": true,
+        "text": "Ảnh không có box nháp nào.",
+        "reason": "Ảnh đường phố hiếm khi trống; nhiều khả năng mô hình sót toàn bộ.",
+        "note": "Tỉ lệ ảnh có vật bị sót ở nhóm này thấp hơn mức chung vì một phần là ảnh trống thật. Luật vẫn cần: ảnh không có box nháp thì mọi vật trong ảnh đều phải do người vẽ.",
+        "measured": {
+          "images": 334,
+          "images_share": 0.0418,
+          "share_with_a_missed_core_object": 0.689,
+          "share_with_a_missed_core_object_all_images": 0.8149
+        },
+        "evidence": "Luật bật ở 334 trong 8.000 ảnh (4,18%). 68,9% số ảnh đó có ít nhất một vật thể core bị sót, so với 81,5% trên mọi ảnh.",
+        "source": "label_policy"
+      },
+      {
+        "id": "coverage.night_grey",
+        "status": "active",
+        "check": "coverage.night_grey",
+        "template": "frame_condition",
+        "params": {
+          "env_risk_min": 0.5,
+          "grey_boxes_over": 3,
+          "grey_min_confidence": 0.1,
+          "blocking": true
+        },
+        "blocking": true,
+        "text": "Ảnh có điều kiện xấu (env_risk từ 0,5) và hơn 3 box vùng xám.",
+        "reason": "Đêm và mưa sinh ra đốm sáng, bóng phản chiếu, vệt nhoè: nguồn chính của box thừa và vật bị sót.",
+        "principle": "N6",
+        "note": "Ngưỡng 3 box là giá trị tạm trong engine. Luật bật ở gần một nửa số ảnh, nên chưa tách được ảnh khó khỏi ảnh thường.",
+        "measured": {
+          "images": 3941,
+          "images_share": 0.4926,
+          "share_with_a_missed_core_object": 0.901,
+          "share_with_a_missed_core_object_all_images": 0.8149
+        },
+        "evidence": "Luật bật ở 3.941 trong 8.000 ảnh (49,26%). 90,1% số ảnh đó có ít nhất một vật thể core bị sót, so với 81,5% trên mọi ảnh.",
+        "source": "label_policy"
+      },
+      {
+        "id": "coverage.bus_present",
+        "status": "active",
+        "check": "coverage.bus_present",
+        "template": "frame_count",
+        "params": {
+          "labels": ["bus"],
+          "state": "draft",
+          "op": ">=",
+          "value": 1,
+          "blocking": true
+        },
+        "blocking": true,
+        "text": "Ảnh có ít nhất một box nháp bus.",
+        "reason": "Xe buýt hiếm, lớn và hay bị nhầm với xe tải; sai là sai nghiêm trọng.",
+        "measured": {
+          "images": 952,
+          "images_share": 0.119,
+          "share_with_a_missed_vehicle": 0.778,
+          "share_with_a_missed_vehicle_all_images": 0.7779
+        },
+        "evidence": "Luật bật ở 952 trong 8.000 ảnh (11,90%). 77,8% số ảnh đó có ít nhất một xe bị sót, so với 77,8% trên mọi ảnh. 60,6% số ảnh đó có ít nhất một box bus sai.",
+        "source": "label_policy"
+      },
+      {
+        "id": "coverage.grey_vehicles",
+        "status": "active",
+        "check": "coverage.grey_vehicles",
+        "template": "frame_count",
+        "params": {
+          "state": "grey",
+          "min_confidence": 0.2,
+          "min_long_side_px": 32,
+          "max_overlap_with_any_draft": 0.5,
+          "labels": ["car", "truck", "bus", "two_wheeler"],
+          "op": ">=",
+          "value": 3,
+          "blocking": true
+        },
+        "blocking": true,
+        "text": "Từ 3 box vùng xám thuộc lớp xe (confidence 0,2–0,3, cạnh từ 32 px, không chồng box nháp nào từ 0,5): nghi sót nhiều xe.",
+        "reason": "Một box xám lẻ là chuyện thường; nhiều box xám lớn cùng lúc là dấu hiệu mô hình gặp khó với cả ảnh.",
+        "measured": {
+          "images": 893,
+          "images_share": 0.1116,
+          "share_with_a_missed_vehicle": 0.988,
+          "share_with_a_missed_vehicle_all_images": 0.7779
+        },
+        "evidence": "Luật bật ở 893 trong 8.000 ảnh (11,16%). 98,8% số ảnh đó có ít nhất một xe bị sót, so với 77,8% trên mọi ảnh. Trong 7.630 box xám lớp xe loại này, 43,7% trùng với một vật core bị sót.",
+        "source": "label_policy"
+      },
+      {
+        "id": "coverage.dense_traffic",
+        "status": "active",
+        "check": "coverage.dense_traffic",
+        "template": "frame_count",
+        "params": {
+          "labels": ["car", "truck", "bus", "two_wheeler"],
+          "state": "draft",
+          "op": ">=",
+          "value": 25,
+          "blocking": true
+        },
+        "blocking": true,
+        "text": "Từ 25 box nháp thuộc lớp xe trong một ảnh.",
+        "reason": "Xe che nhau thành chuỗi; box dễ gộp, sót hoặc trùng.",
+        "measured": {
+          "images": 12,
+          "images_share": 0.0015,
+          "share_with_a_missed_vehicle": 0.833,
+          "share_with_a_missed_vehicle_all_images": 0.7779
+        },
+        "evidence": "Luật bật ở 12 trong 8.000 ảnh (0,15%). 83,3% số ảnh đó có ít nhất một xe bị sót, so với 77,8% trên mọi ảnh. Mẫu quá nhỏ để kết luận.",
+        "source": "label_policy"
+      },
+      {
+        "id": "coverage.grey_person",
+        "status": "active",
+        "check": "coverage.grey_person",
+        "template": "frame_count",
+        "params": {
+          "state": "grey",
+          "min_confidence": 0.2,
+          "min_long_side_px": 32,
+          "max_overlap_with_any_draft": 0.5,
+          "labels": ["person"],
+          "op": ">=",
+          "value": 1,
+          "blocking": true
+        },
+        "blocking": true,
+        "text": "Có ít nhất một box vùng xám person (confidence 0,2–0,3, cạnh từ 32 px, không chồng box nháp nào từ 0,5): nghi sót người.",
+        "reason": "Bỏ sót người nặng hơn bỏ sót vật khác, nên một box xám là đủ.",
+        "principle": "N7",
+        "measured": {
+          "images": 966,
+          "images_share": 0.1207,
+          "share_with_a_missed_person": 0.699,
+          "share_with_a_missed_person_all_images": 0.2029
+        },
+        "evidence": "Luật bật ở 966 trong 8.000 ảnh (12,07%). 69,9% số ảnh đó có ít nhất một người bị sót, so với 20,3% trên mọi ảnh. Trong 1.429 box xám person loại này, 39,6% trùng với một người bị sót.",
+        "source": "label_policy"
+      },
+      {
+        "id": "coverage.crowd",
+        "status": "active",
+        "check": "coverage.crowd",
+        "template": "frame_count",
+        "params": {
+          "labels": ["person"],
+          "state": "draft",
+          "op": ">=",
+          "value": 10,
+          "blocking": true
+        },
+        "blocking": true,
+        "text": "Từ 10 box nháp person trong một ảnh.",
+        "reason": "Người đứng sát che nhau; box dễ gộp hoặc sót.",
+        "measured": {
+          "images": 106,
+          "images_share": 0.0132,
+          "share_with_a_missed_person": 0.925,
+          "share_with_a_missed_person_all_images": 0.2029
+        },
+        "evidence": "Luật bật ở 106 trong 8.000 ảnh (1,32%). 92,5% số ảnh đó có ít nhất một người bị sót, so với 20,3% trên mọi ảnh.",
+        "source": "label_policy"
+      },
+      {
+        "id": "coverage.many_lights",
+        "status": "active",
+        "check": "coverage.many_lights",
+        "template": "frame_count",
+        "params": {
+          "labels": ["traffic_light"],
+          "state": "draft",
+          "op": ">",
+          "value": 12,
+          "blocking": false
+        },
+        "blocking": false,
+        "text": "Hơn 12 box nháp traffic_light trong một ảnh.",
+        "reason": "Vượt số đèn của một giao lộ thường gặp; có box trùng hoặc đốm sáng bị nhận nhầm.",
+        "measured": {
+          "images": 2,
+          "images_share": 0.0003
+        },
+        "evidence": "Luật bật ở 2 trong 8.000 ảnh (0,03%). Mẫu quá nhỏ để kết luận.",
+        "source": "label_policy"
+      },
+      {
+        "id": "coverage.many_stop_signs",
+        "status": "active",
+        "check": "coverage.many_stop_signs",
+        "template": "frame_count",
+        "params": {
+          "labels": ["traffic_sign"],
+          "state": "draft",
+          "op": ">",
+          "value": 3,
+          "blocking": false
+        },
+        "blocking": false,
+        "text": "Hơn 3 box nháp traffic_sign trong một ảnh.",
+        "reason": "Mô hình chỉ sinh box cho biển stop, và một ảnh hiếm khi thấy hơn vài biển stop.",
+        "measured": {
+          "images": 0,
+          "images_share": 0
+        },
+        "evidence": "Luật chưa từng bật trên 8.000 ảnh đã đo.",
+        "source": "label_policy"
+      }
+    ],
+    "calibration": {
+      "what": "Đếm số ảnh mỗi quy tắc bật, và trong số đó bao nhiêu ảnh có vật bị mô hình sót.",
+      "images": 8000,
+      "missed_object_definition": "Vật trong nhãn đúng có cạnh dài từ 32 px mà không box nháp nào khớp ở mức chồng từ 0,5.",
+      "share_of_all_images_with_a_missed": {
+        "core_object": 0.8149,
+        "vehicle": 0.7779,
+        "person": 0.2029
+      },
+      "how_to_read": "Một quy tắc có ích khi tỉ lệ ảnh có vật sót trong nhóm nó bật cao hơn hẳn mức trên mọi ảnh.",
+      "limits": [
+        "Chỉ một mô hình và một bộ ảnh; mô hình hoặc camera khác sẽ cho con số khác.",
+        "Nhãn đúng cũng có chỗ sót, nên một phần box bị tính là sai thật ra đúng.",
+        "Mức chung đã cao: 81,5% số ảnh có ít nhất một vật core bị sót, nên các quy tắc về xe khó vượt xa mức này."
+      ]
+    },
+    "open_questions": [
+      "coverage.night_grey bật ở 49,3% số ảnh; ngưỡng 3 box xám là giá trị tạm và cần đặt lại.",
+      "81,5% số ảnh có ít nhất một vật core (cạnh từ 32 px) bị mô hình sót. Các quy tắc mức ảnh hiện không đủ để coi một ảnh tự chấp nhận là đã đủ nhãn.",
+      "coverage.many_stop_signs chưa từng bật; coverage.many_lights và coverage.dense_traffic bật ở dưới 0,2% số ảnh.",
+      "Chưa có quy tắc mức ảnh nào cho barrier và pole.",
+      "Số đo đến từ một mô hình và một bộ ảnh. Nên đo lại khi đổi mô hình hoặc nguồn ảnh."
+    ]
+  }
+}

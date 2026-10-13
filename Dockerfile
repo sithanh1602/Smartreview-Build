@@ -13,6 +13,7 @@ RUN npm ci --omit=dev && npm cache clean --force
 COPY --from=build /app/web/dist ./dist
 COPY web/server ./server
 COPY web/core ./core
+COPY web/policy ./policy
 COPY web/shared ./shared
 COPY web/scripts ./scripts
 COPY docker/entrypoint.sh /app/entrypoint.sh
@@ -22,4 +23,4 @@ EXPOSE 3100
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
   CMD node -e "fetch('http://127.0.0.1:3100/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 ENTRYPOINT ["sh", "/app/entrypoint.sh"]
-CMD ["node", "server/index.mjs"]
+CMD ["node", "server/index.ts"]

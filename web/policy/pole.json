@@ -1,0 +1,312 @@
+{
+  "pole_policy": {
+    "schema_version": "1.0.0",
+    "label": "pole",
+    "group": "bonus",
+    "model_drafts": false,
+    "sources": [
+      {
+        "id": "label_policy",
+        "ref": "Build/Policy/label_policy/pole.md, 00_chung.md"
+      },
+      {
+        "id": "engine",
+        "ref": "SmartReview web/core/risk, engine 4.0.0, policy 2.0.0"
+      }
+    ],
+    "definition": {
+      "summary": "Cột đứng độc lập bên đường.",
+      "includes": [
+        "cột đèn chiếu sáng",
+        "cột điện",
+        "cột đỡ đèn tín hiệu",
+        "cột đỡ biển báo",
+        "hai trụ đứng của giá long môn"
+      ],
+      "excludes": [
+        "thân cây",
+        "cột nhà, cột hiên",
+        "cột cờ trong sân",
+        "cọc tiêu thấp",
+        "dây điện, dây cáp",
+        "xà ngang của giá long môn"
+      ],
+      "appearance": "Thân thẳng đứng, mảnh, cao hơn rộng nhiều lần, chân cắm xuống vỉa hè hoặc dải phân cách.",
+      "box": "Chỉ bao thân cột đứng. Không bao tay vươn, bóng đèn, đèn tín hiệu hay biển báo gắn trên cột; những thứ đó có box riêng.",
+      "special": "Nhãn này không có nhãn nháp và không có confidence. Cỡ tối thiểu tính theo chiều cao box, không theo cạnh dài."
+    },
+    "defaults": [
+      {
+        "case": "Cột có chân bị che",
+        "decision": "gán phần thấy được"
+      },
+      {
+        "case": "Cột nghiêng",
+        "decision": "box bao sát thân, chấp nhận box bè ra"
+      },
+      {
+        "case": "Giá long môn bắc ngang đường",
+        "decision": "chỉ gán hai trụ đứng, không gán xà ngang"
+      },
+      {
+        "case": "Dãy cột ở xa",
+        "decision": "chỉ gán cột cao từ 32 px"
+      },
+      {
+        "case": "Dây điện, dây cáp",
+        "decision": "không gán"
+      }
+    ],
+    "confusable_with": [
+      {
+        "label": "person",
+        "when": "người đứng yên ở xa"
+      },
+      {
+        "label": "barrier",
+        "when": "cọc tiêu thấp"
+      },
+      {
+        "label": null,
+        "when": "thân cây, mép tường, khung cửa"
+      }
+    ],
+    "attributes": [
+      {
+        "name": "occluded",
+        "required": false,
+        "values": [true, false],
+        "when_absent": "skip",
+        "note": "Chưa có số đo cho nhãn này."
+      },
+      {
+        "name": "truncated",
+        "required": false,
+        "values": [true, false],
+        "when_absent": "skip",
+        "note": "Chưa có số đo cho nhãn này."
+      },
+      {
+        "name": "occlusion_pct",
+        "required": false,
+        "values": "0–100",
+        "when_absent": "skip",
+        "note": "Một số bộ dữ liệu ghi phần trăm bị che thay cho giá trị đúng/sai. Khi có, đây là nguồn tốt nhất cho visibility."
+      }
+    ],
+    "levels": [
+      {
+        "id": "ignore",
+        "meaning": "Box không được đánh giá: không đúng, không sai, không vào danh sách nào."
+      },
+      {
+        "id": "warning",
+        "meaning": "Cảnh báo: có trong danh sách xem thêm, người duyệt có thể xem hoặc bỏ qua. Không chặn ảnh khỏi tự chấp nhận và không tính vào hàng đợi chính."
+      },
+      {
+        "id": "queue",
+        "meaning": "Vào hàng đợi review khi tổng điểm từ 30."
+      },
+      {
+        "id": "high",
+        "meaning": "Mức cao khi tổng điểm từ 70."
+      }
+    ],
+    "rules": [
+      {
+        "id": "pole.min_side",
+        "status": "active",
+        "check": null,
+        "engine_note": "Không phải một check: engine xếp box vào trạng thái ignored (lý do bỏ qua below_minimum). label_policy gọi là size.below_minimum.",
+        "template": "min_size",
+        "params": {
+          "side": "height",
+          "px": 32,
+          "action": "ignore"
+        },
+        "text": "Box pole có chiều cao dưới 32 px không được đánh giá: không đúng, không sai.",
+        "principle": "N8",
+        "source": "label_policy",
+        "examples": ["POLE-5"]
+      },
+      {
+        "id": "pole.box_not_positive",
+        "status": "active",
+        "check": "geometry.bbox_validity",
+        "template": "valid_box",
+        "params": {
+          "require": "positive_size"
+        },
+        "applies_to": "any",
+        "score": 70,
+        "error_type": "BBOX",
+        "text": "Box có chiều rộng hoặc chiều cao không dương.",
+        "principle": null,
+        "source": "engine"
+      },
+      {
+        "id": "pole.box_outside_image",
+        "status": "active",
+        "check": "geometry.bbox_validity",
+        "template": "valid_box",
+        "params": {
+          "require": "inside_image",
+          "tolerance_px": 0.1
+        },
+        "applies_to": "any",
+        "score": 40,
+        "error_type": "BBOX",
+        "text": "Box vượt ra ngoài giới hạn ảnh.",
+        "principle": null,
+        "source": "engine"
+      },
+      {
+        "id": "pole.duplicate_hand_drawn",
+        "status": "active",
+        "check": "geometry.manual_overlap",
+        "template": "forbidden_overlap",
+        "params": {
+          "with": "same",
+          "iou": 0.5,
+          "flag": "later"
+        },
+        "applies_to": "human",
+        "score": 30,
+        "error_type": "EXTRA_OBJECT",
+        "text": "Hai box pole vẽ tay chồng nhau quá nửa: box vẽ sau bị gắn cờ.",
+        "principle": "N3",
+        "source": "label_policy",
+        "examples": []
+      },
+      {
+        "id": "pole.not_slender",
+        "status": "active",
+        "check": "geometry.pole_aspect",
+        "template": "aspect_ratio",
+        "params": {
+          "min": 2
+        },
+        "applies_to": "any",
+        "score": 30,
+        "error_type": "BBOX",
+        "text": "Box cột không cao hơn rộng rõ rệt (tỉ lệ cao/rộng dưới 2): thường do người vẽ bao cả tay vươn.",
+        "exceptions": ["Cột nghiêng cho box bè ra."],
+        "principle": "N2",
+        "examples": ["POLE-2", "POLE-4", "POLE-6"],
+        "note": "POLE-4 là báo động giả mà người duyệt sẽ xác nhận.",
+        "source": "label_policy"
+      },
+      {
+        "id": "pole.covers_lights_or_signs",
+        "status": "active",
+        "check": "context.pole_covers_objects",
+        "template": "must_not_cover",
+        "params": {
+          "objects": ["traffic_light", "traffic_sign"],
+          "containment": 0.9,
+          "min_objects": 2
+        },
+        "applies_to": "any",
+        "score": 30,
+        "error_type": "BBOX",
+        "text": "Box cột chứa trọn từ hai box đèn tín hiệu hoặc biển báo: box đã bao cả cụm gắn trên cột thay vì chỉ thân cột.",
+        "principle": "N3",
+        "examples": ["POLE-3", "POLE-6"],
+        "note": "Một box đèn hoặc biển nằm trong box cột chưa đủ để gắn cờ.",
+        "source": "label_policy"
+      },
+      {
+        "id": "pole.shaft_only",
+        "status": "manual",
+        "template": "manual",
+        "text": "Box chỉ bao thân cột đứng; không bao tay vươn, bóng đèn, đèn tín hiệu hay biển báo gắn trên cột.",
+        "examples": ["POLE-1", "POLE-2"],
+        "note": "Phần bắt được bằng số: pole.not_slender và pole.covers_lights_or_signs.",
+        "source": "label_policy"
+      },
+      {
+        "id": "pole.tree_trunk_not_labelled",
+        "status": "manual",
+        "template": "manual",
+        "text": "Không gán thân cây.",
+        "examples": ["POLE-7"],
+        "note": "POLE-7 là trường hợp lọt lưới: thân cây đứng, mảnh như cột nên không tín hiệu số nào bật.",
+        "source": "label_policy"
+      },
+      {
+        "id": "pole.building_column_or_flagpole_not_labelled",
+        "status": "manual",
+        "template": "manual",
+        "text": "Không gán cột nhà, cột hiên, cột cờ trong sân, cọc tiêu thấp.",
+        "source": "label_policy"
+      },
+      {
+        "id": "pole.gantry_uprights_only",
+        "status": "manual",
+        "template": "manual",
+        "text": "Giá long môn bắc ngang đường: chỉ gán hai trụ đứng, không gán xà ngang.",
+        "examples": ["POLE-6"],
+        "source": "label_policy"
+      },
+      {
+        "id": "pole.hidden_base_or_leaning",
+        "status": "manual",
+        "template": "manual",
+        "text": "Cột có chân bị che thì gán phần thấy được; cột nghiêng thì box bao sát thân, chấp nhận box bè ra.",
+        "examples": ["POLE-4"],
+        "source": "label_policy"
+      },
+      {
+        "id": "pole.wires_not_labelled",
+        "status": "manual",
+        "template": "manual",
+        "text": "Không gán dây điện, dây cáp.",
+        "source": "label_policy"
+      },
+      {
+        "id": "pole.occlusion_attributes_valid",
+        "status": "active",
+        "check": "attribute.required",
+        "template": "required_attribute",
+        "params": {
+          "names": ["occluded", "truncated"],
+          "values": [true, false],
+          "only_when_dataset_has_them": true
+        },
+        "applies_to": "any",
+        "score": 30,
+        "error_type": "ATTRIBUTE",
+        "text": "Bộ dữ liệu có attribute occluded hoặc truncated thì mọi box pole phải mang giá trị đúng/sai cho attribute đó.",
+        "source": "yêu cầu của chủ dự án, 2026-10-10",
+        "note": "Bộ dữ liệu không có attribute này thì luật không chạy. Điểm 30 là đánh giá, chưa có số đo."
+      },
+      {
+        "id": "pole.truncated_matches_edge",
+        "status": "active",
+        "check": "attribute.truncated_edge",
+        "template": "attribute_matches_edge",
+        "text": "Box chạm mép ảnh thì truncated phải là true; box không chạm mép thì truncated phải là false.",
+        "source": "số đo",
+        "note": "Chỉ chạy trên box mang attribute truncated dạng đúng/sai. Điểm 10 là đánh giá, chưa có số đo: một mình nó không đưa box vào hàng đợi.",
+        "params": {
+          "attribute": "truncated",
+          "edge_px": 2
+        },
+        "applies_to": "any",
+        "score": 10,
+        "error_type": "ATTRIBUTE"
+      }
+    ],
+    "scoring": {
+      "weak_family": "Các luật có family = weak (low_confidence, edge_sliver, weak_in_poor_image) cùng mô tả một box yếu: chỉ tính một lần, lấy điểm cao nhất. Các luật khác cộng dồn, tối đa 100.",
+      "queue_from": 30,
+      "severe_from_side_px": 32
+    },
+    "frame_rules": [],
+    "open_questions": [
+      "Chưa có số đo nào cho nhãn này: bộ ảnh đã đo không có nhãn đúng và mô hình không sinh box nháp. Mọi ngưỡng lấy từ engine và label_policy, nơi chúng được ghi là giá trị minh hoạ.",
+      "Nhãn này không có confidence, nên các luật về độ tin cậy và ảnh xấu không chạy. Chất lượng chỉ kiểm được bằng luật hình học và bằng cách cho hai người vẽ độc lập rồi so.",
+      "Mô hình không vẽ gì không có nghĩa là không có vật; file này không có luật nào bắt vật bị sót."
+    ]
+  }
+}

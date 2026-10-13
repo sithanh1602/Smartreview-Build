@@ -1,0 +1,832 @@
+{
+  "motorcycle_policy": {
+    "schema_version": "1.0.0",
+    "label": "motorcycle",
+    "group": "core",
+    "model_drafts": true,
+    "sources": [
+      {
+        "id": "label_policy",
+        "ref": "Build/Policy/label_policy/motorcycle.md, 00_chung.md"
+      },
+      {
+        "id": "engine",
+        "ref": "SmartReview web/core/risk, engine 4.0.0, policy 2.0.0"
+      }
+    ],
+    "definition": {
+      "summary": "Xe hai bánh gắn động cơ.",
+      "includes": ["xe máy", "xe tay ga", "mô-tô"],
+      "excludes": ["xe đạp (là bicycle)", "xe ba bánh", "xe lăn, xe đẩy"],
+      "appearance": "Hai bánh thẳng hàng, thân đặc ở giữa (động cơ, bình xăng, yếm), bánh dày. Thường có người ngồi trên; khi đó phần thấy rõ nhất là người.",
+      "box": "Chỉ bao xe, không bao người ngồi trên. Người ngồi trên xe có box person riêng."
+    },
+    "defaults": [
+      {
+        "case": "Xe đạp điện dáng xe máy (thân đặc, không bàn đạp)",
+        "decision": "motorcycle"
+      },
+      {
+        "case": "Xe đạp điện dáng xe đạp (có bàn đạp)",
+        "decision": "bicycle"
+      },
+      {
+        "case": "Xe máy dựng không người",
+        "decision": "có gán"
+      },
+      {
+        "case": "Xe máy chở trên thùng xe tải",
+        "decision": "có gán"
+      }
+    ],
+    "confusable_with": [
+      {
+        "label": "bicycle",
+        "when": "xe mảnh, ảnh tối hoặc ở xa"
+      },
+      {
+        "label": "person",
+        "when": "người lái bị gộp vào box xe"
+      }
+    ],
+    "attributes": [
+      {
+        "name": "occluded",
+        "required": false,
+        "values": [true, false],
+        "when_absent": "skip",
+        "note": "Theo số đo, 78,9% box motorcycle mang occluded = true, nên giá trị true chỉ nói là có bị che, không nói bị che bao nhiêu."
+      },
+      {
+        "name": "truncated",
+        "required": false,
+        "values": [true, false],
+        "when_absent": "skip",
+        "note": "Theo số đo, 7,8% box motorcycle mang truncated = true; 63,9% trong số đó chạm mép ảnh."
+      },
+      {
+        "name": "occlusion_pct",
+        "required": false,
+        "values": "0–100",
+        "when_absent": "skip",
+        "note": "Một số bộ dữ liệu ghi phần trăm bị che thay cho giá trị đúng/sai. Khi có, đây là nguồn tốt nhất cho visibility."
+      }
+    ],
+    "statistics": {
+      "boxes": 460,
+      "images": 10000,
+      "image_size": [1280, 720],
+      "per_image": {
+        "images_with_motorcycle": 0.035,
+        "note": "Tính trên các ảnh có ít nhất một motorcycle.",
+        "median": 1,
+        "p95": 3,
+        "p99": 7,
+        "max": 15
+      },
+      "long_side_px": {
+        "p1": 11,
+        "p5": 17,
+        "p25": 35,
+        "p50": 62,
+        "p95": 224,
+        "p99": 313
+      },
+      "share_long_side_below": {
+        "10": 0.0087,
+        "16": 0.0457,
+        "20": 0.0783,
+        "32": 0.2065
+      },
+      "aspect_ratio": {
+        "all": {
+          "p1": 0.4,
+          "p5": 0.53,
+          "p50": 1.09,
+          "p95": 2.04,
+          "p99": 2.85
+        },
+        "not_occluded_not_truncated": {
+          "boxes": 78,
+          "p1": 0.49,
+          "p5": 0.55,
+          "p50": 0.91,
+          "p95": 1.82,
+          "p99": 1.98
+        }
+      },
+      "bottom_edge_over_height": {
+        "p1": 0.347,
+        "p5": 0.417,
+        "p50": 0.579
+      },
+      "touches_image_edge": 0.0543,
+      "largest_box": {
+        "width_over_image": 0.32,
+        "area_over_image": 0.201
+      },
+      "time_of_day": {
+        "daytime": 0.7217,
+        "night": 0.2152,
+        "dawn_dusk": 0.0609
+      },
+      "rider": {
+        "share_with_a_rider_box": 0.383,
+        "overlap_with_rider_box": {
+          "p50": 0.343,
+          "p95": 0.55
+        },
+        "note": "Mức chồng (IoU) giữa box xe và box người lái trong nhãn đúng. Người lái chồng lên xe khoảng một phần ba, hiếm khi quá một nửa."
+      }
+    },
+    "visibility": {
+      "meaning": "Phần của chiếc xe còn thấy được trong ảnh, từ 0 đến 1. Dùng để quyết định một box có đủ căn cứ để tin là xe hay không.",
+      "sources_in_order": [
+        {
+          "from": "attribute occlusion_pct hoặc truncation_pct",
+          "use": "1 − phần trăm bị che hoặc bị cắt",
+          "trust": "high"
+        },
+        {
+          "from": "attribute occluded / truncated (đúng/sai)",
+          "use": "Chỉ biết là có bị che hoặc bị cắt; kết hợp với ước lượng từ box bên dưới",
+          "trust": "medium"
+        },
+        {
+          "from": "ước lượng từ box",
+          "use": "visibility = phần còn trong khung hình × (1 − phần bị box đứng gần camera hơn che)",
+          "trust": "low"
+        }
+      ],
+      "estimate_from_boxes": {
+        "frame_cut": "Box chạm mép trái/phải: rộng ÷ (cao ÷ 0,93). Box chạm mép trên/dưới: cao ÷ (rộng × 0,93). 0,93 là tỉ lệ cao/rộng trung vị của motorcycle không bị che, không bị cắt.",
+        "covered_by_nearer_boxes": "Phần diện tích box nằm dưới các box xe có đáy thấp hơn (đứng gần camera hơn). Box person không được tính: người lái luôn chồng lên xe. Mỗi box che được thu nhỏ còn 80% quanh tâm trước khi tính.",
+        "caveat": "Ước lượng này không đo đúng mức che khuất: trên các box đúng, nó xếp 5,8% xe có occluded = true và 4,1% xe có occluded = false vào nhóm thấy dưới 50%. Không được dùng để loại box.",
+        "occluder_shrink": 0.8,
+        "typical_ratio": 0.93,
+        "edge_px": 2,
+        "occluders": ["car", "truck", "bus", "motorcycle", "bicycle"]
+      },
+      "thresholds": {
+        "mostly_hidden": 0.5,
+        "barely_visible": 0.05
+      },
+      "measured": {
+        "note": "Tính bằng ước lượng từ box.",
+        "on_correct_boxes": {
+          "share_below_0_5": 0.0543,
+          "share_below_0_05": 0.0043,
+          "occluded_true_below_0_5": 0.058,
+          "occluded_false_below_0_5": 0.041
+        },
+        "on_model_boxes": {
+          "share_below_0_5": 0.0612,
+          "error_rate_below_0_5": 0.889,
+          "boxes_below_0_5": 9
+        }
+      },
+      "percent_attributes": ["occlusion_pct", "truncation_pct"]
+    },
+    "confirmability": {
+      "meaning": "Có bao nhiêu dấu hiệu độc lập cho thấy khó xác nhận box này là xe.",
+      "weak_signals": [
+        {
+          "id": "low_confidence",
+          "when": "confidence < 0,5",
+          "requires": ["confidence"],
+          "confidence_below": 0.5
+        },
+        {
+          "id": "poor_image",
+          "when": "env_risk ≥ 0,5 (ảnh tối, mưa, mờ)",
+          "requires": ["env_risk"],
+          "env_risk_min": 0.5
+        },
+        {
+          "id": "small",
+          "when": "cạnh dài < 32 px",
+          "long_side_below_px": 32
+        },
+        {
+          "id": "second_label_close",
+          "when": "nhãn thứ hai cách dưới 0,15",
+          "requires": ["label_top2", "score_top2"],
+          "top2_margin_below": 0.15
+        }
+      ],
+      "unconfirmed_when": "từ 2 dấu hiệu trở lên",
+      "missing_data": "Dấu hiệu thiếu dữ liệu thì không tính, không coi là có.",
+      "measured": {
+        "note": "Đo trên box của mô hình, đối chiếu với nhãn đúng.",
+        "error_rate": {
+          "confidence_below_0_5": 0.649,
+          "confidence_from_0_5": 0.301,
+          "long_side_below_32": 0.857,
+          "low_confidence_in_poor_image": 0.659,
+          "low_confidence_in_good_image": 0.636
+        },
+        "boxes": {
+          "long_side_below_32": 7
+        },
+        "reading": "Confidence là dấu hiệu mạnh: box motorcycle từ 0,7 đúng 90,3%, dưới 0,5 chỉ đúng 35,1%. Các dấu hiệu khác có quá ít box để kết luận."
+      }
+    },
+    "levels": [
+      {
+        "id": "ignore",
+        "meaning": "Box không được đánh giá: không đúng, không sai, không vào danh sách nào."
+      },
+      {
+        "id": "warning",
+        "meaning": "Cảnh báo: có trong danh sách xem thêm, người duyệt có thể xem hoặc bỏ qua. Không chặn ảnh khỏi tự chấp nhận và không tính vào hàng đợi chính."
+      },
+      {
+        "id": "queue",
+        "meaning": "Vào hàng đợi review khi tổng điểm từ 30."
+      },
+      {
+        "id": "high",
+        "meaning": "Mức cao khi tổng điểm từ 70."
+      }
+    ],
+    "rules": [
+      {
+        "id": "motorcycle.min_side",
+        "status": "active",
+        "check": null,
+        "engine_note": "Không phải một check: engine xếp box vào trạng thái ignored (lý do bỏ qua below_minimum). label_policy gọi là size.below_minimum.",
+        "template": "min_size",
+        "params": {
+          "side": "long",
+          "px": 10,
+          "action": "ignore"
+        },
+        "text": "Box motorcycle có cạnh dài dưới 10 px không được đánh giá: không đúng, không sai.",
+        "principle": null,
+        "source": "label_policy",
+        "examples": [],
+        "evidence": "0,87% box motorcycle đúng có cạnh dài dưới 10 px; 7,8% dưới 20 px; 20,6% dưới 32 px."
+      },
+      {
+        "id": "motorcycle.mostly_hidden_unconfirmed",
+        "status": "active",
+        "check": "visibility.mostly_hidden",
+        "template": "visibility_risk",
+        "params": {
+          "visibility_below": 0.5,
+          "weak_signals_at_least": 2
+        },
+        "applies_to": "any",
+        "level": "queue",
+        "score": 30,
+        "error_type": "EXTRA_OBJECT",
+        "text": "Xe máy bị che hoặc nằm ngoài khung hình quá nửa, và có từ hai dấu hiệu khó xác nhận: không đủ căn cứ để tin đây là motorcycle.",
+        "principle": "N5, N6",
+        "note": "Người ngồi trên xe không được tính là vật che. Điểm 30 theo truck: với motorcycle chưa thấy việc bị che làm tăng thêm khả năng sai. Mẫu quá nhỏ để kết luận.",
+        "evidence": "Trên box của mô hình: 4 box bị gắn cờ, 75,0% sai. Box có từ hai dấu hiệu mà không bị che: 40 box, 65,0% sai.",
+        "measured": {
+          "flagged_share": 0.0272,
+          "error_rate": 0.75,
+          "boxes": 4,
+          "error_rate_not_hidden_with_two_signals": 0.65
+        },
+        "source": "yêu cầu của chủ dự án, 2026-10-10"
+      },
+      {
+        "id": "motorcycle.barely_visible",
+        "status": "active",
+        "check": "visibility.barely_visible",
+        "template": "min_visibility",
+        "params": {
+          "visibility_below": 0.05,
+          "action_when_measured": "ignore",
+          "action_when_estimated": "queue"
+        },
+        "applies_to": "any",
+        "level": "queue",
+        "score": 30,
+        "error_type": "EXTRA_OBJECT",
+        "text": "Xe máy chỉ còn thấy dưới 5%: không đủ để đánh giá. Có attribute phần trăm thì coi như không tồn tại; chỉ có ước lượng từ box thì đưa vào hàng đợi.",
+        "principle": "N5",
+        "note": "Theo quyết định đã chốt cho car. Với motorcycle không có số đo riêng: chỉ 1 box rơi vào trường hợp này.",
+        "measured": {
+          "flagged_share": 0.0068,
+          "error_rate": 1,
+          "boxes": 1
+        },
+        "source": "yêu cầu của chủ dự án, 2026-10-10"
+      },
+      {
+        "id": "motorcycle.box_not_positive",
+        "status": "active",
+        "check": "geometry.bbox_validity",
+        "template": "valid_box",
+        "params": {
+          "require": "positive_size"
+        },
+        "applies_to": "any",
+        "score": 70,
+        "error_type": "BBOX",
+        "text": "Box có chiều rộng hoặc chiều cao không dương.",
+        "principle": null,
+        "source": "engine"
+      },
+      {
+        "id": "motorcycle.box_outside_image",
+        "status": "active",
+        "check": "geometry.bbox_validity",
+        "template": "valid_box",
+        "params": {
+          "require": "inside_image",
+          "tolerance_px": 0.1
+        },
+        "applies_to": "any",
+        "score": 40,
+        "error_type": "BBOX",
+        "text": "Box vượt ra ngoài giới hạn ảnh.",
+        "principle": null,
+        "source": "engine"
+      },
+      {
+        "id": "motorcycle.low_confidence",
+        "status": "active",
+        "check": "confidence.low_score",
+        "template": "low_confidence",
+        "params": {
+          "below": 0.5
+        },
+        "applies_to": "model",
+        "family": "weak",
+        "score": 20,
+        "text": "Mô hình kém tự tin với box này (confidence dưới 0,5).",
+        "principle": "N5",
+        "source": "label_policy",
+        "examples": ["MOTO-3", "MOTO-6"],
+        "note": "Điểm cố ý đặt dưới ngưỡng vào hàng đợi (30).",
+        "evidence": "Box motorcycle dưới 0,5 sai 64,9%; từ 0,5 trở lên sai 30,1%. Theo khoảng confidence, tỉ lệ đúng là 35,1% (0,3–0,5), 54,8% (0,5–0,7) và 90,3% (từ 0,7).",
+        "measured": {
+          "flagged_share": 0.5034,
+          "error_rate": 0.649,
+          "boxes": 74,
+          "share_of_all_errors": 0.686,
+          "error_rate_from_0_5": 0.301
+        }
+      },
+      {
+        "id": "motorcycle.class_margin",
+        "status": "active",
+        "check": "confidence.class_margin",
+        "template": "class_margin",
+        "params": {
+          "margin": 0.15
+        },
+        "applies_to": "model",
+        "requires": ["label_top2", "score_top2"],
+        "score": 30,
+        "error_type": "CLASS",
+        "suggests": "label_top2",
+        "text": "Mô hình phân vân giữa motorcycle và một nhãn khác: hai điểm cách nhau dưới 0,15.",
+        "principle": "N11",
+        "source": "label_policy",
+        "examples": ["MOTO-3"]
+      },
+      {
+        "id": "motorcycle.confused_with_bicycle",
+        "status": "active",
+        "check": "confidence.vehicle_confusion",
+        "template": "class_margin",
+        "params": {
+          "margin": 0.25,
+          "confusable_with": ["bicycle"]
+        },
+        "applies_to": "model",
+        "requires": ["label_top2", "score_top2"],
+        "score": 20,
+        "error_type": "CLASS",
+        "suggests": "label_top2",
+        "text": "Nhãn thứ hai là bicycle và cách nhãn motorcycle dưới 0,25.",
+        "principle": "N11",
+        "source": "label_policy",
+        "examples": ["MOTO-4"],
+        "note": "Cộng dồn với motorcycle.class_margin khi cả hai cùng bật. Chưa đo được vì cần nhãn thứ hai của mô hình."
+      },
+      {
+        "id": "motorcycle.confused_with_rider",
+        "status": "active",
+        "check": "confidence.person_vs_two_wheeler",
+        "template": "class_margin",
+        "params": {
+          "margin": 0.25,
+          "confusable_with": ["person"]
+        },
+        "applies_to": "model",
+        "requires": ["label_top2", "score_top2"],
+        "score": 20,
+        "error_type": "CLASS",
+        "text": "Nhãn thứ hai là person và cách nhãn motorcycle dưới 0,25: mô hình dao động giữa xe và người lái.",
+        "principle": "N11",
+        "examples": ["MOTO-3"],
+        "note": "Lỗi nghi ngờ là CLASS hoặc BBOX: người lái và xe dính liền nhau, nên box có thể đã bao cả hai. Chưa đo được vì cần nhãn thứ hai của mô hình.",
+        "source": "label_policy"
+      },
+      {
+        "id": "motorcycle.duplicate_other_label",
+        "status": "active",
+        "check": "geometry.cross_class_overlap",
+        "template": "forbidden_overlap",
+        "params": {
+          "with": "other_labels",
+          "except_with": ["person"],
+          "iou": 0.8,
+          "flag": "weaker",
+          "class_error_within_margin": 0.15
+        },
+        "applies_to": "model",
+        "score": 40,
+        "error_type": "EXTRA_OBJECT",
+        "text": "Box motorcycle gần trùng với một box mang nhãn khác có confidence cao hơn: một vật bị vẽ hai lần dưới hai tên.",
+        "principle": "N3",
+        "source": "label_policy",
+        "examples": ["MOTO-1"],
+        "note": "Cặp xe hai bánh và person được loại trừ: người lái chồng lên xe là bình thường. Điểm gắn vào box có confidence thấp hơn. Mẫu quá nhỏ để kết luận.",
+        "evidence": "6 box motorcycle (4,1%) bị gắn cờ; 100,0% sai, chiếm 8,6% tổng số lỗi của motorcycle.",
+        "measured": {
+          "flagged_share": 0.0408,
+          "error_rate": 1,
+          "boxes": 6,
+          "share_of_all_errors": 0.086
+        }
+      },
+      {
+        "id": "motorcycle.duplicate_hand_drawn",
+        "status": "active",
+        "check": "geometry.manual_overlap",
+        "template": "forbidden_overlap",
+        "params": {
+          "with": "same",
+          "iou": 0.5,
+          "flag": "later"
+        },
+        "applies_to": "human",
+        "score": 30,
+        "error_type": "EXTRA_OBJECT",
+        "text": "Hai box motorcycle vẽ tay chồng nhau quá nửa: box vẽ sau bị gắn cờ.",
+        "principle": "N3",
+        "source": "label_policy",
+        "examples": [],
+        "evidence": "Trong 460 box motorcycle đúng có 0 cặp cùng nhãn chồng nhau từ 0,8. Xe dựng thành hàng chồng lên nhau là có thật, nên luật này cần người xem."
+      },
+      {
+        "id": "motorcycle.inside_large_vehicle",
+        "status": "active",
+        "check": "context.vehicle_in_large_vehicle",
+        "template": "forbidden_inside",
+        "params": {
+          "container": ["truck", "bus"],
+          "containment": 0.9,
+          "not_duplicate_iou": 0.8
+        },
+        "applies_to": "any",
+        "score": 30,
+        "error_type": "EXTRA_OBJECT",
+        "text": "Box motorcycle nằm trọn trong box của một truck hoặc bus: thường là một chi tiết của xe lớn (bánh dự phòng, thang, giá đỡ) bị nhận nhầm.",
+        "principle": "N4",
+        "source": "label_policy",
+        "exceptions": [
+          "Xe máy đứng trên thùng xe tải hoặc trên xe cứu hộ.",
+          "Xe ở xa nhìn thấy qua khoảng hở của xe lớn."
+        ],
+        "examples": ["MOTO-5"],
+        "evidence": "Trên nhãn đúng, 1 box motorcycle (0,22%) nằm trọn trong một truck hoặc bus. Trên box của mô hình: 1 box bị gắn cờ, 100,0% sai. Mẫu quá nhỏ để kết luận.",
+        "measured": {
+          "flagged_share": 0.0068,
+          "error_rate": 1,
+          "boxes": 1
+        }
+      },
+      {
+        "id": "motorcycle.above_road",
+        "status": "active",
+        "check": "geometry.vehicle_position",
+        "template": "builtin",
+        "params": {
+          "check": "geometry.vehicle_position",
+          "max_bottom_over_height": 0.3,
+          "horizon_from_other_vehicles": 3,
+          "horizon_slack_over_box_height": 0.25
+        },
+        "applies_to": "any",
+        "score": 30,
+        "error_type": "EXTRA_OBJECT",
+        "text": "Cả box nằm ở phần trên cùng của ảnh, phía trên mặt đường: thường là hình trên biển quảng cáo hoặc bóng trên kính.",
+        "principle": "N1",
+        "source": "label_policy",
+        "exceptions": [
+          "Xe trên cầu vượt hoặc trên dốc cao.",
+          "Xe được chở trên giá của xe khác.",
+          "Camera chúi xuống: khi ảnh có từ 3 xe khác, đường chân trời của chính ảnh đó quyết định."
+        ],
+        "examples": [],
+        "evidence": "0,4% box motorcycle đúng có đáy cao hơn 30% chiều cao ảnh. Trên box của mô hình, sau khi tính đường chân trời còn 0 box bị gắn cờ (trước đó 1). Mẫu quá nhỏ để kết luận.",
+        "measured": {
+          "flagged_share": 0,
+          "error_rate": null,
+          "boxes": 0,
+          "boxes_without_horizon": 1
+        }
+      },
+      {
+        "id": "motorcycle.too_tall",
+        "status": "active",
+        "check": "geometry.two_wheeler_aspect",
+        "template": "aspect_ratio",
+        "params": {
+          "max": 3
+        },
+        "applies_to": "any",
+        "score": 15,
+        "error_type": "BBOX",
+        "unless": [
+          {
+            "attribute": "occluded",
+            "equals": true
+          },
+          {
+            "visibility_below": 0.5
+          }
+        ],
+        "text": "Box cao gấp hơn ba lần chiều rộng: xe hai bánh nhìn từ trước hoặc sau thì hẹp nhưng không cao; box cao thường đã bao cả người lái.",
+        "principle": "N2",
+        "examples": ["MOTO-2"],
+        "note": "Điều kiện bỏ qua xe bị che là đề xuất theo car; engine hiện chưa có. Mẫu quá nhỏ để kết luận.",
+        "evidence": "Trên nhãn đúng: 1,09% box motorcycle có tỉ lệ cao/rộng trên 3 (5 box; 40% bị che, 80% bị cắt), và 5,7% trên 2. Với xe không bị che, không bị cắt, khoảng p1–p99 là 0,49–1,98. Trên box của mô hình: 3 box bị gắn cờ.",
+        "measured": {
+          "flagged_share": 0.0204,
+          "error_rate": 0.667,
+          "boxes": 3
+        },
+        "source": "label_policy"
+      },
+      {
+        "id": "motorcycle.edge_sliver",
+        "status": "active",
+        "check": "geometry.edge_truncated",
+        "template": "edge_sliver",
+        "params": {
+          "edge_px": 2,
+          "max_confidence": 0.5,
+          "normal_ratio": [0.7, 2.5],
+          "side_cut_ratio_over": 5,
+          "vertical_cut_ratio_under": 0.35
+        },
+        "applies_to": "model",
+        "family": "weak",
+        "score": 10,
+        "error_type": "BBOX",
+        "text": "Xe máy bị khung hình cắt quá nửa và mô hình kém tự tin.",
+        "principle": "N5",
+        "source": "label_policy",
+        "evidence": "5,4% box motorcycle đúng chạm mép ảnh; 92,0% trong số đó được gán truncated = true. Khoảng tỉ lệ bình thường 0,7–2,5 so với xe không bị che, không bị cắt: p1 0,49, p95 1,82. Trên box của mô hình: 1 box bị gắn cờ. Mẫu quá nhỏ để kết luận.",
+        "measured": {
+          "flagged_share": 0.0068,
+          "error_rate": 0,
+          "boxes": 1
+        }
+      },
+      {
+        "id": "motorcycle.weak_in_poor_image",
+        "status": "active",
+        "check": "env.poor_condition",
+        "template": "builtin",
+        "params": {
+          "check": "env.poor_condition",
+          "min_env_risk": 0.5,
+          "max_confidence": 0.5
+        },
+        "applies_to": "model",
+        "family": "weak",
+        "requires": ["env_risk"],
+        "score": 10,
+        "text": "Box yếu trong ảnh điều kiện xấu (tối, mưa, mờ).",
+        "principle": "N6",
+        "source": "label_policy",
+        "note": "Box motorcycle kém tự tin sai 65,9% trong ảnh xấu và 63,6% trong ảnh tốt.",
+        "measured": {
+          "flagged_share": 0.2789,
+          "error_rate": 0.659,
+          "boxes": 41,
+          "error_rate_low_confidence_in_good_image": 0.636
+        }
+      },
+      {
+        "id": "motorcycle.box_excludes_rider",
+        "status": "manual",
+        "template": "manual",
+        "text": "Box chỉ bao xe, không bao người ngồi trên; người lái có box person riêng.",
+        "examples": ["MOTO-1", "MOTO-2"],
+        "note": "Phần bắt được bằng số: motorcycle.too_tall (box quá cao) và, ở phía box người, context.person_two_wheeler (box person gần trùng box xe, chồng từ 0,5, 20 điểm).",
+        "source": "label_policy"
+      },
+      {
+        "id": "motorcycle.electric_bike_by_shape",
+        "status": "manual",
+        "template": "manual",
+        "text": "Xe đạp điện dáng xe máy (thân đặc, không bàn đạp) gán motorcycle; dáng xe đạp (có bàn đạp) gán bicycle.",
+        "source": "label_policy"
+      },
+      {
+        "id": "motorcycle.parked_is_labelled",
+        "status": "manual",
+        "template": "manual",
+        "text": "Xe máy dựng không người vẫn gán. Xe dựng sát chồng lên nhau là bình thường.",
+        "examples": ["MOTO-6"],
+        "source": "label_policy"
+      },
+      {
+        "id": "motorcycle.carried_is_labelled",
+        "status": "manual",
+        "template": "manual",
+        "text": "Xe máy chở trên thùng xe tải hoặc xe cứu hộ vẫn gán.",
+        "examples": ["MOTO-5"],
+        "note": "MOTO-5 là báo động giả của motorcycle.inside_large_vehicle.",
+        "source": "label_policy"
+      },
+      {
+        "id": "motorcycle.three_wheeler_not_labelled",
+        "status": "manual",
+        "template": "manual",
+        "text": "Không gán xe ba bánh, xe lăn, xe đẩy.",
+        "source": "label_policy"
+      },
+      {
+        "id": "motorcycle.picture_or_reflection",
+        "status": "manual",
+        "template": "manual",
+        "text": "Không gán hình xe trên biển quảng cáo hay bóng phản chiếu.",
+        "principle": "N12",
+        "source": "label_policy"
+      },
+      {
+        "id": "motorcycle.occlusion_attributes_valid",
+        "status": "active",
+        "check": "attribute.required",
+        "template": "required_attribute",
+        "params": {
+          "names": ["occluded", "truncated"],
+          "values": [true, false],
+          "only_when_dataset_has_them": true
+        },
+        "applies_to": "any",
+        "score": 30,
+        "error_type": "ATTRIBUTE",
+        "text": "Bộ dữ liệu có attribute occluded hoặc truncated thì mọi box motorcycle phải mang giá trị đúng/sai cho attribute đó.",
+        "source": "yêu cầu của chủ dự án, 2026-10-10",
+        "note": "Bộ dữ liệu không có attribute này thì luật không chạy. Điểm 30 là đánh giá, chưa có số đo."
+      },
+      {
+        "id": "motorcycle.truncated_matches_edge",
+        "status": "active",
+        "check": "attribute.truncated_edge",
+        "template": "attribute_matches_edge",
+        "text": "Box chạm mép ảnh thì truncated phải là true; box không chạm mép thì truncated phải là false.",
+        "source": "số đo",
+        "note": "Chỉ chạy trên box mang attribute truncated dạng đúng/sai. Điểm 10 là đánh giá, chưa có số đo: một mình nó không đưa box vào hàng đợi.",
+        "evidence": "Số đo: 92,0% box motorcycle chạm mép ảnh có truncated = true, nhưng chỉ 63,9% box truncated = true chạm mép ảnh.",
+        "params": {
+          "attribute": "truncated",
+          "edge_px": 2
+        },
+        "applies_to": "any",
+        "score": 10,
+        "error_type": "ATTRIBUTE"
+      },
+      {
+        "id": "motorcycle.duplicate_same_label",
+        "status": "active",
+        "check": "geometry.duplicate_draft",
+        "template": "forbidden_overlap",
+        "params": {
+          "with": "same",
+          "iou": 0.6,
+          "flag": "weaker"
+        },
+        "applies_to": "model",
+        "score": 50,
+        "error_type": "EXTRA_OBJECT",
+        "text": "Hai box motorcycle do mô hình sinh ra chồng nhau từ 60%: box có confidence thấp hơn là box thừa.",
+        "principle": "N3",
+        "source": "số đo",
+        "note": "Ngưỡng 0,8 không bao giờ bật vì bước lọc trùng của mô hình đã bỏ các cặp cùng nhãn chồng nhau trên 0,7. Mẫu quá nhỏ để kết luận.",
+        "evidence": "5 box bị gắn cờ, 100,0% sai.",
+        "measured": {
+          "flagged_share": 0.034,
+          "error_rate": 1,
+          "boxes": 5
+        }
+      }
+    ],
+    "scoring": {
+      "weak_family": "Các luật có family = weak (low_confidence, edge_sliver, weak_in_poor_image) cùng mô tả một box yếu: chỉ tính một lần, lấy điểm cao nhất. Các luật khác cộng dồn, tối đa 100.",
+      "queue_from": 30,
+      "severe_from_side_px": 32,
+      "severe_note": "20,6% box motorcycle có cạnh dài dưới 32 px."
+    },
+    "frame_rules": [
+      {
+        "id": "coverage.grey_vehicles",
+        "text": "Từ 3 box vùng xám thuộc lớp xe (confidence 0,2–0,3, cạnh từ 32 px, không chồng box nháp nào): nghi sót nhiều xe.",
+        "blocking": true,
+        "evidence": "Quan trọng nhất với motorcycle: trong 309 xe của nhãn đúng, mô hình bỏ sót 67,6% và chỉ gán đúng 24,9%. Lỗi chính của nhãn này là xe sót, không phải box sai."
+      },
+      {
+        "id": "coverage.dense_traffic",
+        "text": "Từ 25 box nháp thuộc lớp xe trong một ảnh.",
+        "blocking": true
+      }
+    ],
+    "calibration": {
+      "what": "Đối chiếu box motorcycle của mô hình với nhãn đúng để biết luật nào thật sự chỉ ra lỗi.",
+      "model_boxes": 147,
+      "images": 8000,
+      "min_confidence": 0.3,
+      "min_long_side_px": 10,
+      "error_definition": "Box sai khi không khớp với box motorcycle nào trong nhãn đúng ở mức chồng từ 0,5.",
+      "baseline_error_rate": 0.476,
+      "errors_extra_object": 0.286,
+      "errors_wrong_class": 0.19,
+      "wrong_class_breakdown": {
+        "bicycle": 0.129,
+        "car": 0.027,
+        "person": 0.027,
+        "truck": 0.007
+      },
+      "by_confidence": [
+        {
+          "range": "0,3–0,5",
+          "boxes": 74,
+          "correct": 0.351,
+          "extra": 0.459,
+          "wrong_class": 0.189
+        },
+        {
+          "range": "0,5–0,7",
+          "boxes": 42,
+          "correct": 0.548,
+          "extra": 0.167,
+          "wrong_class": 0.286
+        },
+        {
+          "range": "từ 0,7",
+          "boxes": 31,
+          "correct": 0.903,
+          "extra": 0.032,
+          "wrong_class": 0.065
+        }
+      ],
+      "ground_truth_objects": {
+        "boxes": 309,
+        "found_as_motorcycle": 0.249,
+        "missed": 0.676,
+        "found_as_car": 0.045,
+        "found_as_bicycle": 0.016,
+        "found_as_person": 0.013
+      },
+      "how_to_read": "measured.error_rate của một luật là tỉ lệ box sai trong số box luật đó gắn cờ. Mức chung của motorcycle là 47,6%.",
+      "limits": [
+        "Mẫu nhỏ: chỉ 147 box motorcycle của mô hình. Hầu hết luật gắn cờ dưới 10 box, nên các tỉ lệ sai theo từng luật chưa dùng được để hiệu chỉnh.",
+        "Chỉ một mô hình và một bộ ảnh; mô hình hoặc camera khác sẽ cho con số khác.",
+        "Nhãn đúng cũng có chỗ sót, nên một phần box bị tính là sai thật ra đúng.",
+        "Ba luật cần nhãn thứ hai của mô hình chưa đo được.",
+        "Bộ ảnh đã đo có ít xe hai bánh; dữ liệu đường phố Việt Nam sẽ có phân bố khác hẳn, nhất là số xe mỗi ảnh và tỉ lệ xe có người lái."
+      ]
+    },
+    "decisions": [
+      {
+        "question": "Điểm của motorcycle.duplicate_same_label.",
+        "decision": "50 điểm, ngưỡng chồng 0,6.",
+        "basis": "5 box bị gắn cờ, 100,0% sai. Trên nhãn đúng có 0 cặp cùng nhãn chồng nhau từ 0,8."
+      },
+      {
+        "question": "Các ngưỡng chưa được hiệu chỉnh trên tỉ lệ lỗi thật.",
+        "decision": "Giữ nguyên điểm của engine; không điều chỉnh gì theo số đo.",
+        "basis": "Chỉ luật kém tự tin có đủ box để tin: 74 box, 64,9% sai, so với mức chung 47,6%."
+      },
+      {
+        "question": "Điểm của motorcycle.mostly_hidden_unconfirmed và motorcycle.barely_visible.",
+        "decision": "30 điểm cho cả hai, theo truck và car.",
+        "basis": "Chỉ 4 và 1 box rơi vào hai trường hợp này; không có số đo riêng."
+      },
+      {
+        "question": "Ngưỡng chồng của luật người lái gần trùng với xe (context.person_two_wheeler, 0,5).",
+        "decision": "Giữ 0,5.",
+        "basis": "Trong nhãn đúng, box người lái chồng lên box xe ở mức trung vị 0,343 và chỉ 5% vượt 0,55. Ngưỡng 0,5 nằm sát mép trên của mức bình thường, nên luật sẽ báo động giả ở khoảng 5–10% cặp xe và người lái đúng."
+      }
+    ],
+    "open_questions": [
+      "Mô hình hay gọi xe đạp là motorcycle: 12,9% box motorcycle là bicycle trong nhãn đúng, trong khi chiều ngược lại chỉ 1,4%. Chỉ có 147 box, cần xem ảnh để xác nhận.",
+      "Mô hình bỏ sót 67,6% xe motorcycle của nhãn đúng. Các luật trong file này chỉ chấm box đã có.",
+      "Cần đo lại trên dữ liệu có nhiều xe hai bánh trước khi tin bất kỳ ngưỡng nào ở đây.",
+      "motorcycle.class_margin, motorcycle.confused_with_bicycle và motorcycle.confused_with_rider chưa đo được: cần dự đoán có nhãn thứ hai."
+    ]
+  }
+}

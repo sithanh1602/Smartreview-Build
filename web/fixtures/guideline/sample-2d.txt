@@ -1,0 +1,56 @@
+Hướng dẫn gán nhãn 2D cho ảnh camera giao thông (bản thử nghiệm)
+
+1. Giới thiệu
+Tài liệu này hướng dẫn gán bounding box 2D cho ảnh trích từ video camera hành trình tại Việt Nam.
+Mỗi vật thể được gán một box chữ nhật và một class. Một số class có thêm attribute.
+
+2. Danh sách class
+2.1. Phương tiện
+car: ô tô con, taxi, bán tải.
+truck: xe tải, xe đầu kéo, xe công trình.
+bus: xe buýt, xe khách.
+motorcycle: xe máy, xe máy điện.
+bicycle: xe đạp, xe đạp điện.
+tricycle: xe ba bánh, xe ba gác.
+
+2.2. Con người
+person: người đi bộ và người đang ngồi trên xe hai bánh.
+Attribute bắt buộc của person là occluded, nhận giá trị yes hoặc no.
+
+2.3. Hạ tầng
+traffic_light: đèn tín hiệu giao thông.
+traffic_sign: biển báo giao thông.
+barrier: rào chắn, dải phân cách cứng.
+pole: cột đèn, cột điện.
+
+3. Nguyên tắc chung
+3.1. Box phải ôm sát phần nhìn thấy của vật thể, không dư thừa quá mức.
+3.2. Không gán box có cạnh dài nhỏ hơn 20 px.
+3.3. Vật thể bị che khuất quá nhiều thì không gán.
+3.4. Ảnh trích từ video thì mọi box phải có track_id.
+3.5. Trong cùng một track, class của vật thể không được thay đổi giữa các frame.
+3.6. Không gán hai box cùng class cho một vật thể.
+
+4. Quy tắc theo class
+4.1. Phương tiện
+Xe con được chở trên xe chuyên chở vẫn gán từng xe một box car riêng, nằm trong box truck.
+Xe bị mép ảnh cắt vẫn gán theo phần nhìn thấy.
+Không gán nắp ca-pô của chính xe gắn camera.
+Xe ba bánh, xe ba gác gán class motorcycle.
+
+4.2. Con người
+Người ngồi trên xe máy hoặc xe đạp được gán box person riêng; box person được phép chồng lấn với box xe.
+Không gán người ngồi bên trong ô tô, xe tải, xe buýt. Ngoại lệ: người đứng trên thùng xe tải hở vẫn gán.
+Không gán người trên biển quảng cáo, tượng, ma-nơ-canh và hình phản chiếu trong kính.
+Nhóm người đứng sát nhau vẫn gán từng người; các box được phép chồng lấn.
+Người ở xa có chiều cao box từ 16 px trở lên vẫn phải gán.
+
+4.3. Hạ tầng
+Mỗi đèn tín hiệu gán một box riêng; không vẽ một box bao cả cụm đèn.
+Không gán đèn hậu, đèn xi-nhan của xe là traffic_light.
+Box pole chỉ bao thân cột, không bao đèn hoặc biển gắn trên cột.
+Rào chắn bị xe che ngang thì tách thành hai box barrier ở hai phía của xe.
+
+5. Ghi chú trên công cụ
+Dùng phím N để tạo box mới và phím F để chuyển sang frame kế tiếp.
+Lưu công việc sau mỗi 50 frame.

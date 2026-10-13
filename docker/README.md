@@ -5,7 +5,7 @@ Chạy lệnh từ thư mục gốc `/home/thanh/data/smartreview`. Cần Docker
 ## Chạy trên máy local
 
 ```bash
-node docker/setup.mjs
+node docker/setup.ts
 docker compose --env-file .env.docker up -d --build
 docker compose --env-file .env.docker ps
 ```
@@ -18,16 +18,16 @@ MySQL chờ sẵn sàng trước khi API khởi động; API tự chạy migrati
 
 ## Tài khoản
 
-Tạo reviewer đầu tiên (terminal hỏi mật khẩu ẩn):
+Tạo Leader đầu tiên (terminal hỏi mật khẩu ẩn):
 
 ```bash
-docker compose --env-file .env.docker exec web npm run user:create -- --username thanhdev --role reviewer
+docker compose --env-file .env.docker exec web npm run user:create -- --username thanhdev --role leader
 ```
 
 Hoặc đăng ký qua giao diện rồi đổi quyền:
 
 ```bash
-docker compose --env-file .env.docker exec web npm run user:update -- --username thanhdev --role reviewer
+docker compose --env-file .env.docker exec web npm run user:update -- --username thanhdev --role leader
 ```
 
 ## Dữ liệu và phạm vi
@@ -57,7 +57,7 @@ docker save -o smartreview-image.tar smartreview:local
 
 Không thêm `-v` vào lệnh `down` nếu muốn giữ dữ liệu. Đổi mật khẩu trong `.env.docker` không tự đổi mật khẩu của MySQL đã có volume; phải cập nhật tài khoản MySQL đồng bộ.
 
-Máy nhận chạy `docker load -i smartreview-image.tar`, mang theo `compose.yaml` và `docker/setup.mjs`, sinh `.env.docker` riêng, rồi chạy `docker compose --env-file .env.docker up -d --no-build`. MySQL image cần có sẵn hoặc có mạng để pull. Dữ liệu cũ cần backup/restore riêng.
+Máy nhận chạy `docker load -i smartreview-image.tar`, mang theo `compose.yaml` và `docker/setup.ts`, sinh `.env.docker` riêng, rồi chạy `docker compose --env-file .env.docker up -d --no-build`. MySQL image cần có sẵn hoặc có mạng để pull. Dữ liệu cũ cần backup/restore riêng.
 
 ## HTTPS production
 

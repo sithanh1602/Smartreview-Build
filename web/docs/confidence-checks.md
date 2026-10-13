@@ -1,12 +1,12 @@
 # Confidence checks — engine 2.2.0
 
-Thay đổi trong `core/risk/checks/confidence.mjs` và `core/risk/engine.mjs`: đưa confidence của prediction thành tín hiệu độc lập trong Risk Engine, đúng yêu cầu của đề tài: _"bắt reviewer xem prediction có confidence **thấp** hoặc **bất thường**"_.
+Thay đổi trong `core/risk_v1/checks/confidence.ts` và `core/risk_v1/engine.ts`: đưa confidence của prediction thành tín hiệu độc lập trong Risk Engine, đúng yêu cầu của đề tài: _"bắt reviewer xem prediction có confidence **thấp** hoặc **bất thường**"_.
 
 ## Vấn đề trước khi sửa
 
 Trước 2.2.0, confidence chỉ được đọc ở đúng một chỗ: check `confidence.neighbor_drop`. Check này có hai hạn chế:
 
-1. **Không bao giờ tự tạo được case.** Check cho 20 điểm, trong khi queue chỉ nhận case có score ≥ 30 (`minScore` trong `engine.mjs`). Confidence chỉ cộng thêm điểm vào case mà check hình học đã tìm ra.
+1. **Không bao giờ tự tạo được case.** Check cho 20 điểm, trong khi queue chỉ nhận case có score ≥ 30 (`minScore` trong `core/risk_v1/engine.ts`). Confidence chỉ cộng thêm điểm vào case mà check hình học đã tìm ra.
 2. **Chỉ xét "bất thường", không xét "thấp".** Check so confidence của frame hiện tại với trung bình 2 frame bên cạnh. Một box confidence 0.27 ở cả 3 frame có độ sụt bằng 0, nên được chấm **0 điểm — "sạch"**, dù model gần như đang đoán. Ngoài ra check cần `track_id` và 2 frame láng giềng, nên dataset ảnh rời (BDD100K detection, COCO, CVAT images) luôn bị skip.
 
 ## Thay đổi
@@ -36,15 +36,15 @@ Cùng điều kiện như v1 (trung bình confidence 2 frame bên cạnh − fra
 
 v1.0.0 (20 điểm cố định) **vẫn còn trong code** và vẫn là check được dùng ở profile 2.0.0 / 2.1.0.
 
-### Profile `2.2.0` trong `engine.mjs`
+### Profile `2.2.0` trong `core/risk_v1/engine.ts`
 
-| Profile                                      | Check                                                                              | Dùng cho                                                  |
-| -------------------------------------------- | ---------------------------------------------------------------------------------- | --------------------------------------------------------- |
-| `2.0.0` (`ENGINE_VERSION`)                   | 5 check gốc, `neighbor_drop` v1                                                    | Project cũ — **không đổi điểm**                           |
-| `2.1.0` (`IMAGE_ENGINE_VERSION`, export mới) | + 4 check ảnh đơn                                                                  | Project đã import trước thay đổi này — **không đổi điểm** |
-| `2.2.0` (`LATEST_ENGINE_VERSION`)            | `neighbor_drop` **v2** + `confidence.low` + các check còn lại của 2.1.0 = 10 check | **Import mới**                                            |
+| Profile                                      | Check                                                                              | Dùng cho                                                    |
+| -------------------------------------------- | ---------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| `2.0.0` (`ENGINE_VERSION`)                   | 5 check gốc, `neighbor_drop` v1                                                    | Project cũ — **không đổi điểm**                             |
+| `2.1.0` (`IMAGE_ENGINE_VERSION`, export mới) | + 4 check ảnh đơn                                                                  | Project đã import trước thay đổi này — **không đổi điểm**   |
+| `2.2.0` (`LATEST_ENGINE_VERSION`)            | `neighbor_drop` **v2** + `confidence.low` + các check còn lại của 2.1.0 = 10 check | Project đã import bằng 2.2.0 (import mới dùng engine 6.0.0) |
 
-Engine version được ghim theo từng project (`server/projects/service.mjs`), nên project cũ giữ nguyên kết quả. **Muốn thấy check mới trong app phải tạo project mới hoặc import lại dataset.**
+Engine version được ghim theo từng project (`server/projects/service.ts`), nên project cũ giữ nguyên kết quả. **Muốn thấy check mới trong app phải tạo project mới hoặc import lại dataset.**
 
 ## Trước và sau
 
@@ -64,12 +64,12 @@ Trên benchmark BDD100K (`ai-service/risk/results/`), độ tương quan giữa 
 ## Lưu ý
 
 - **Hai check có thể cùng bắn** trên một box (confidence vừa thấp vừa sụt). Điểm cộng dồn rồi cap ở 100 như mọi check khác, nên case tệ nhất bão hoà ở 100.
-- **Ngưỡng 0.5 chưa được hiệu chỉnh** bằng ground truth — đang chọn theo điểm vận hành của detector hiện tại. Các hằng số `LOW_CONFIDENCE`, `LOW_SCORE_RANGE`, `DROP_THRESHOLD`, `DROP_SCORE_RANGE` được export ở đầu `confidence.mjs`, chỉnh ở một chỗ.
-- **Check chỉ chạy khi annotation có trường `confidence`.** Dataset từ pre-label của model (`prelabel_tracking.py`, demo `tracks.json`) có trường này. Annotation import từ CVAT hiện **không** mang confidence (`core/importers/cvat-images.mjs`), nên trên dữ liệu đó cả hai check đều skip.
+- **Ngưỡng 0.5 chưa được hiệu chỉnh** bằng ground truth — đang chọn theo điểm vận hành của detector hiện tại. Các hằng số `LOW_CONFIDENCE`, `LOW_SCORE_RANGE`, `DROP_THRESHOLD`, `DROP_SCORE_RANGE` được export ở đầu `confidence.ts`, chỉnh ở một chỗ.
+- **Check chỉ chạy khi annotation có trường `confidence`.** Dataset từ pre-label của model (`prelabel_tracking.py`, demo `tracks.json`) có trường này. Annotation import từ CVAT hiện **không** mang confidence (`core/importers/cvat-images.ts`), nên trên dữ liệu đó cả hai check đều skip.
 
 ## Test
 
-`tests/confidence.test.mjs` (6 test):
+`tests/confidence.test.ts` (6 test):
 
 - box confidence thấp ổn định tự tạo case ở 2.2.0, và không tạo case ở 2.0.0;
 - điểm tăng dần khi confidence giảm, có sàn và trần;
@@ -78,6 +78,6 @@ Trên benchmark BDD100K (`ai-service/risk/results/`), độ tương quan giữa 
 - `neighbor_drop` v2 tự vào được queue và tăng theo mức sụt;
 - profile 2.0.0 vẫn giữ đúng 20 điểm.
 
-`tests/image-quality.test.mjs` và `tests/projects.test.mjs` cập nhật phiên bản mới nhất từ `2.1.0` thành `2.2.0`.
+`tests/image-quality.test.ts` và `tests/projects.test.ts` cập nhật phiên bản mới nhất từ `2.1.0` thành `2.2.0`.
 
-Chạy: `node --test tests/confidence.test.mjs tests/core.test.mjs tests/image-quality.test.mjs tests/coco.test.mjs` — 22/22 pass, không cần MySQL.
+Chạy: `node --test tests/confidence.test.ts tests/core.test.ts tests/image-quality.test.ts tests/coco.test.ts` — 22/22 pass, không cần MySQL.

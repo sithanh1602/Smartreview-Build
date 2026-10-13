@@ -39,7 +39,7 @@ BBox trong ví dụ vượt cạnh phải ảnh; vẫn normalize được để 
 
 ## Import boundary
 
-**Importer** hiểu format nguồn và trả schema chuẩn; **normalizer** validate cấu trúc và liên kết; **risk engine** chỉ nhận schema. `server/repository.mjs` cũng chỉ đọc dataset chuẩn. Không có import YOLO, ByteTrack, cv2 trong lõi/server/frontend.
+**Importer** hiểu format nguồn và trả schema chuẩn; **normalizer** validate cấu trúc và liên kết; **risk engine** chỉ nhận schema. `server/repository.ts` cũng chỉ đọc dataset chuẩn. Không có import YOLO, ByteTrack, cv2 trong lõi/server/frontend.
 
 Adapter demo đọc tracks.json, giữ ID `<track>-<frame>` để URL case cũ tiếp tục dùng. Script chuẩn bị demo dùng OpenCV lấy metadata và trích ảnh theo danh sách frame engine yêu cầu. Risk Engine mới không đọc `risk_cases_v1.json`; file đó chỉ được đọc trong test compatibility.
 
@@ -64,7 +64,7 @@ Engine tạo lịch sử theo `(media_id, track_id)` và sort frame index. Tempo
 | `geometry.bbox_aspect`         | Ảnh đơn (profile 2.1.0+)            | Tỷ lệ cạnh bất thường (tỷ lệ dài/rộng ≥ 20:1)                         | 25                   |
 | `geometry.bbox_size_outlier`   | Ảnh đơn (profile 2.1.0+)            | Diện tích lệch bất thường theo phân phối lớp (z ≥ 4, n ≥ 20 mẫu)      | 30                   |
 
-Mỗi check có `id`, `version`, `run(context)` và trả `passed`, `flagged`, hoặc `skipped` kèm reason. Không catch rồi giấu lỗi lập trình; thiếu tín hiệu được xử lý explicit trong check. Tổng điểm = min(100, tổng điểm flag). Suspicious queue mặc định score ≥ 30; High ≥ 70, Medium 40–69, Low < 40. Chế độ All có cả score 0; score 0 không chứng minh annotation đúng vì có thể nhiều check đã skip. Profile 2.0.0 (mặc định cho các dự án cũ) giữ nguyên 5 check gốc; profile 2.1.0 bổ sung 4 check ảnh đơn; profile 2.2.0 (mặc định cho import mới) đưa confidence thành tín hiệu độc lập.
+Mỗi check có `id`, `version`, `run(context)` và trả `passed`, `flagged`, hoặc `skipped` kèm reason. Không catch rồi giấu lỗi lập trình; thiếu tín hiệu được xử lý explicit trong check. Tổng điểm = min(100, tổng điểm flag). Suspicious queue mặc định score ≥ 30; High ≥ 70, Medium 40–69, Low < 40. Chế độ All có cả score 0; score 0 không chứng minh annotation đúng vì có thể nhiều check đã skip. Profile 2.0.0 (mặc định cho các dự án cũ) giữ nguyên 5 check gốc; profile 2.1.0 bổ sung 4 check ảnh đơn; profile 2.2.0 đưa confidence thành tín hiệu độc lập. Cả ba profile 2.x nằm trong `core/risk_v1` và chỉ chạy cho project đã import bằng chúng; engine 3.0.0 nằm trong `core/risk_v3`, engine 4.0.0 (policy viết trong code) trong `core/risk_v4`, engine 5.0.0 trong `core/risk_v5` cùng bản policy của nó; project mới dùng engine 6.0.0 (`core/risk`), chấm theo các file trong `policy/` (xem [Khuôn dạng Policy](policy-format.md)).
 
 Trước 2.2.0, confidence chỉ được đọc qua `confidence.neighbor_drop` với 20 điểm — dưới ngưỡng queue 30 — nên nó không bao giờ tự tạo được case, chỉ cộng thêm vào case mà check hình học đã tìm ra. Và vì check đó cần `track_id` cùng hai láng giềng, mọi dataset ảnh rời (BDD100K detection, COCO, CVAT images) đều skip nó, tức confidence không đóng góp gì. Profile 2.2.0 sửa hai điểm đó:
 

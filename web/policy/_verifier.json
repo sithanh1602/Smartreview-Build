@@ -1,0 +1,183 @@
+{
+  "verifier_policy": {
+    "schema_version": "1.0.0",
+    "purpose": "Kiểm lại nhãn của từng box bằng chính phần ảnh nằm trong box. Một mô hình so ảnh với các câu mô tả của từng nhãn; file này quy định câu mô tả, cách cắt ảnh và số điểm cho từng mức bất đồng. Mô hình không tự cho điểm.",
+    "model": "google/siglip2-base-patch16-224",
+    "crop": {
+      "margin": 0.15,
+      "shape": "pad",
+      "min_side_px": 24,
+      "note": "margin: phần lề giữ thêm quanh box, tính theo cạnh của box. shape: mô hình nhìn một ảnh vuông; pad đặt ảnh cắt vào giữa một nền xám vuông thay vì kéo méo nó. Box có cạnh dài dưới min_side_px không được kiểm: ảnh cắt quá nhỏ để mô hình nhận ra vật."
+    },
+    "pool": "mean",
+    "pool_note": "Mỗi nhãn được đại diện bằng trung bình các câu mô tả của nó, để nhãn có nhiều câu không được lợi hơn nhãn có ít câu.",
+    "captions": {
+      "note": "Câu mô tả theo bảng đặt tên của policy: SUV và minivan là car; xe bán tải và xe van chở hàng là truck; minibus là bus. Viết bằng tiếng Anh vì mô hình khớp câu tiếng Anh chắc hơn.",
+      "car": [
+        "a photo of a car",
+        "a photo of a sedan",
+        "a photo of a hatchback",
+        "a photo of a taxi",
+        "a photo of an SUV",
+        "a photo of a minivan"
+      ],
+      "truck": [
+        "a photo of a truck",
+        "a photo of a pickup truck",
+        "a photo of a box truck",
+        "a photo of a cargo van",
+        "a photo of a dump truck",
+        "a photo of a tanker truck",
+        "a photo of a semi-trailer truck"
+      ],
+      "bus": [
+        "a photo of a bus",
+        "a photo of a city bus",
+        "a photo of a coach bus",
+        "a photo of a minibus"
+      ],
+      "two_wheeler": [
+        "a photo of a motorcycle",
+        "a photo of a motor scooter",
+        "a photo of a bicycle"
+      ],
+      "person": [
+        "a photo of a person",
+        "a photo of a pedestrian",
+        "a photo of a person standing on the street"
+      ],
+      "traffic_light": ["a photo of a traffic light", "a photo of a traffic signal"],
+      "traffic_sign": [
+        "a photo of a traffic sign",
+        "a photo of a road sign",
+        "a photo of a stop sign"
+      ],
+      "barrier": [
+        "a photo of a road barrier",
+        "a photo of a traffic barricade",
+        "a photo of a guardrail"
+      ],
+      "pole": ["a photo of a utility pole", "a photo of a street lamp post"]
+    },
+    "not_distinguished": {
+      "pairs": [["person", "two_wheeler"]],
+      "note": "Mô hình không được dùng để phân xử giữa hai nhãn của một cặp ở đây: box người lái luôn chứa một phần xe và box xe luôn chứa một phần người. Khi so với nhãn khác, điểm của hai nhãn trong cặp được cộng lại."
+    },
+    "findings": [
+      {
+        "id": "verifier.wrong_label",
+        "error_type": "CLASS",
+        "text": "Phần ảnh trong box giống một nhãn khác hơn nhãn đang gán.",
+        "lead": "Điểm mô hình cho nhãn nó chọn trừ điểm nó cho nhãn đang gán (0–1). Hai nhãn của một cặp trong not_distinguished tính chung một điểm.",
+        "score_by_lead": [
+          {
+            "lead_at_least": 0.8,
+            "score": 50
+          },
+          {
+            "lead_at_least": 0.6,
+            "score": 30
+          },
+          {
+            "lead_at_least": 0.3,
+            "level": "warning"
+          }
+        ],
+        "measured": {
+          "note": "Đo trên 4.900 box có nhãn đúng (700 box mỗi nhãn, cạnh dài từ 24 px, ảnh 1280×720). Báo nhầm: tỉ lệ box đúng nhãn bị gắn ở mức đó. Bắt được: tỉ lệ box bị đổi sang nhãn sai mà mô hình gắn ở mức đó. Con số là phần trăm; mức 30 điểm gồm cả các box đạt 50 điểm.",
+          "false_alarm_percent": {
+            "car": {
+              "warning": 14.4,
+              "score_30": 4.4,
+              "score_50": 1.6
+            },
+            "truck": {
+              "warning": 21.7,
+              "score_30": 7.0,
+              "score_50": 2.1
+            },
+            "bus": {
+              "warning": 24.0,
+              "score_30": 6.9,
+              "score_50": 1.3
+            },
+            "two_wheeler": {
+              "warning": 5.3,
+              "score_30": 2.1,
+              "score_50": 0.9
+            },
+            "person": {
+              "warning": 1.9,
+              "score_30": 0.3,
+              "score_50": 0.0
+            },
+            "traffic_light": {
+              "warning": 31.1,
+              "score_30": 9.4,
+              "score_50": 3.1
+            },
+            "traffic_sign": {
+              "warning": 24.1,
+              "score_30": 6.9,
+              "score_50": 2.1
+            }
+          },
+          "caught_percent": {
+            "person gán thành car": {
+              "warning": 92.6,
+              "score_30": 74.4,
+              "score_50": 58.6
+            },
+            "two_wheeler gán thành car": {
+              "warning": 78.6,
+              "score_30": 59.4,
+              "score_50": 42.6
+            },
+            "car gán thành person": {
+              "warning": 63.4,
+              "score_30": 46.9,
+              "score_50": 30.4
+            },
+            "car gán thành truck": {
+              "warning": 79.6,
+              "score_30": 52.3,
+              "score_50": 32.3
+            },
+            "truck gán thành car": {
+              "warning": 65.1,
+              "score_30": 40.0,
+              "score_50": 22.7
+            },
+            "car gán thành bus": {
+              "warning": 86.1,
+              "score_30": 54.7,
+              "score_50": 34.1
+            },
+            "bus gán thành car": {
+              "warning": 67.0,
+              "score_30": 49.6,
+              "score_50": 39.0
+            },
+            "traffic_light gán thành traffic_sign": {
+              "warning": 69.0,
+              "score_30": 25.9,
+              "score_50": 11.6
+            },
+            "traffic_sign gán thành traffic_light": {
+              "warning": 62.0,
+              "score_30": 29.4,
+              "score_50": 16.6
+            }
+          }
+        }
+      }
+    ],
+    "open_questions": [
+      "Nhãn đúng dùng để đo gọi xe bán tải và xe van là car, còn câu mô tả ở đây xếp chúng vào truck theo bảng đặt tên của policy. Một phần báo nhầm giữa car và truck là do khác quy ước, chưa tách ra được.",
+      "barrier và pole chưa có số đo: dữ liệu đo không có hai nhãn này.",
+      "Box đèn và biển báo phần lớn dưới 48 px; mô hình nhận chúng kém (báo nhầm 7–9% ở mức 30 điểm).",
+      "Chưa đo trên dữ liệu ngoài bộ đã dùng để đặt ngưỡng."
+    ],
+    "rules": []
+  }
+}

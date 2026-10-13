@@ -25,7 +25,7 @@ def main():
     imgsz = image_size()
     predictions = []
     for index, frame in enumerate(manifest['frames']):
-        result = model.predict(frame['path'], device='cpu', conf=0.65, imgsz=imgsz, max_det=300, verbose=False)[0]
+        result = model.predict(frame['path'], device='cpu', conf=0.25, imgsz=imgsz, max_det=300, verbose=False)[0]
         for box in result.boxes:
             x1, y1, x2, y2 = box.xyxy[0].tolist()
             predictions.append({'frame_id': frame['id'], 'label': result.names[int(box.cls[0])], 'confidence': float(box.conf[0]), 'geometry': {'type': 'bbox', 'x': x1, 'y': y1, 'width': x2-x1, 'height': y2-y1}})
