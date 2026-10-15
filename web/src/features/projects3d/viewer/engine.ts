@@ -9,8 +9,8 @@ import {
   SELECTED_COLOR,
   cssColor,
 } from './colors.ts';
-import { boxKey, flagsOf } from './flags.ts';
-import type { Verdict } from './flags.ts';
+import { boxKey, flagsOf, pinSvg } from './flags.ts';
+import type { Risk, Verdict } from './flags.ts';
 
 // The three.js side of the point cloud viewer. It draws one frame of a scene (scene.json of a
 // 3D project) and knows nothing about React: the page hands it settings and reads back what is
@@ -22,6 +22,8 @@ export interface Box3D {
   size: [number, number, number];
   heading: number;
   points: number;
+  // How far the cuboid's bottom is above the road under it, in metres (below zero: under it).
+  lift?: number;
 }
 export interface Scene3D {
   segment: string;
@@ -36,6 +38,8 @@ export interface Scene3D {
     boxes: Box3D[];
     // The cameras that have an image of this frame.
     cameras?: string[];
+    // Where an object missing in this frame would be, interpolated from the frames around it.
+    ghosts?: Box3D[];
   }[];
 }
 export type ColorMode = 'height' | 'intensity' | 'range' | 'laser';
@@ -72,7 +76,12 @@ const BYTES_PER_POINT = 22;
 // 12 edges of the box and one segment on its top face pointing where it is heading.
 const BOX_EDGES = [0, 1, 1, 3, 3, 2, 2, 0, 4, 5, 5, 7, 7, 6, 6, 4, 0, 4, 1, 5, 2, 6, 3, 7];
 const VERTICES_PER_BOX = BOX_EDGES.length + 2;
+// The part of a sunk cuboid below the road is painted in this colour.
+const SUNK_COLOR = 0xef4444;
 const CAMERA_HOME = { position: [-35, 0, 22], target: [8, 0, 0] } as const;
+// Flying to an issue: how long it takes, and how high above the cuboid it ends up looking.
+const FLIGHT_MS = 700;
+const FLIGHT_ELEVATION = 0.6;
 // A pointer that moved less than this between press and release was a click, not a drag.
 const CLICK_PX = 4;
 // Thin cuboids (a sign is a few centimetres deep) are picked as if at least this thick.
@@ -109,10 +118,34 @@ export class PointCloudEngine {
   private sensors = new THREE.Group();
   private boxLabels = new THREE.Group();
   private highlight: THREE.Mesh<THREE.BoxGeometry, THREE.MeshBasicMaterial>;
+  // The part below the road of each cuboid the risk engine found sunk (setSunk): a red block
+  // with red edges, from the cuboid's bottom up to the road.
+  private sunkParts = new THREE.Group();
+  private sunkGeometry = new THREE.BoxGeometry(1, 1, 1);
+  private sunkEdges = new THREE.EdgesGeometry(this.sunkGeometry);
+  private sunkFill = new THREE.MeshBasicMaterial({
+    color: SUNK_COLOR,
+    transparent: true,
+    opacity: 0.35,
+    depthWrite: false,
+  });
+  private sunkLine = new THREE.LineBasicMaterial({ color: SUNK_COLOR });
+  private sunk = new Set<string>();
   private selected: string | null = null;
   // Decision by box key, for colouring cuboids by review.
   private reviews: Record<string, Verdict> = {};
+  // The 3D Risk Engine's cases by box key: the cuboids it doubts are flagged, reviewed or not.
+  private risks: Record<string, Risk> = {};
+  // The number of each flagged cuboid for the whole segment, by box key (issuesOf).
+  private numbers = new Map<string, number>();
   private pressed: { x: number; y: number } | null = null;
+  // The object to fly to once its frame is on screen, and the flight under way.
+  private pendingFocus: { frame: number; objectId: string } | null = null;
+  private flight: {
+    start: number;
+    from: [THREE.Vector3, THREE.Vector3];
+    to: [THREE.Vector3, THREE.Vector3];
+  } | null = null;
   private listeners: [keyof HTMLElementEventMap, (event: PointerEvent) => void][] = [];
   private trajectory: THREE.Line<THREE.BufferGeometry, THREE.LineBasicMaterial>;
   private poses: THREE.Matrix4[];
@@ -156,6 +189,8 @@ export class PointCloudEngine {
     this.camera.up.set(0, 0, 1);
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.controls.maxPolarAngle = Math.PI / 2;
+    // Grabbing the view stops a flight, so the camera never fights the hand.
+    this.controls.addEventListener('start', () => (this.flight = null));
     this.resetCamera();
 
     this.vehicleGroup.matrixAutoUpdate = this.worldGroup.matrixAutoUpdate = false;
@@ -204,6 +239,7 @@ export class PointCloudEngine {
       this.boxLines,
       this.boxLabels,
       this.highlight,
+      this.sunkParts,
       this.sensors,
       new THREE.AxesHelper(3),
     );
@@ -239,7 +275,8 @@ export class PointCloudEngine {
     this.observer = new ResizeObserver(() => this.resize());
     this.observer.observe(host);
     this.resize();
-    this.renderer.setAnimationLoop(() => {
+    this.renderer.setAnimationLoop((now) => {
+      this.fly(now);
       this.controls.update();
       this.renderer.render(this.world, this.camera);
       this.labels.render(this.world, this.camera);
@@ -345,6 +382,73 @@ export class PointCloudEngine {
     this.camera.position.copy(target).add(offset);
     this.controls.update();
   }
+  // Turns the camera to an object of a frame: at once when the frame is on screen, otherwise
+  // once show() has put it there.
+  focus(frame: number, objectId: string) {
+    this.pendingFocus = { frame, objectId };
+    if (frame === this.current) this.flyPending();
+  }
+  private flyPending() {
+    const pending = this.pendingFocus;
+    if (!pending || pending.frame !== this.current) return;
+    this.pendingFocus = null;
+    const box = this.locate(pending.frame, pending.objectId);
+    if (!box) return;
+    const target = box.center;
+    // Seen from the side of the vehicle, where the LiDAR hits it, a little from above. An
+    // object at the vehicle itself keeps the direction the camera has now.
+    const toward = this.anchor.clone().sub(target).setZ(0);
+    if (toward.length() < 1) toward.copy(this.camera.position).sub(this.controls.target).setZ(0);
+    if (toward.length() < 1e-6) toward.set(-1, 0, 0);
+    toward.normalize().setZ(FLIGHT_ELEVATION).normalize();
+    const distance = Math.max(12, Math.hypot(...box.size) * 3.5);
+    this.flight = {
+      start: performance.now(),
+      from: [this.controls.target.clone(), this.camera.position.clone().sub(this.controls.target)],
+      to: [target, toward.multiplyScalar(distance)],
+    };
+  }
+  // Where an object is in the scene as drawn now. In a frame where it has no cuboid (a gap),
+  // its interpolated place, or else its cuboid in the nearest frame that has one.
+  private locate(frame: number, objectId: string) {
+    const { frames } = this.scene;
+    for (let step = 0; step < frames.length; step++)
+      for (const index of step ? [frame - step, frame + step] : [frame]) {
+        const at = frames[index];
+        if (!at) continue;
+        const box =
+          at.boxes.find((b) => b.id === objectId) ??
+          (index === frame ? at.ghosts?.find((b) => b.id === objectId) : undefined);
+        if (!box) continue;
+        // From that frame's vehicle coordinates to what is drawn for the current frame.
+        const matrix = this.vehicleGroup.matrix
+          .clone()
+          .multiply(this.poses[frame].clone().invert())
+          .multiply(this.poses[index]);
+        return { center: new THREE.Vector3(...box.center).applyMatrix4(matrix), size: box.size };
+      }
+    return null;
+  }
+  // One step of the flight: the point looked at slides to the cuboid and the camera swings
+  // round it, easing in and out.
+  private fly(now: number) {
+    const flight = this.flight;
+    if (!flight) return;
+    const t = Math.min(1, (now - flight.start) / FLIGHT_MS);
+    const k = t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
+    const [fromTarget, fromOffset] = flight.from,
+      [toTarget, toOffset] = flight.to;
+    this.controls.target.lerpVectors(fromTarget, toTarget, k);
+    // Direction and distance apart, so the camera swings round instead of cutting through.
+    const direction = fromOffset
+      .clone()
+      .normalize()
+      .lerp(toOffset.clone().normalize(), k)
+      .normalize();
+    const length = fromOffset.length() + (toOffset.length() - fromOffset.length()) * k;
+    this.camera.position.copy(this.controls.target).addScaledVector(direction, length);
+    if (t === 1) this.flight = null;
+  }
   // Marks one object as selected; it stays selected in every frame it is boxed in.
   select(objectId: string | null) {
     if (objectId === this.selected) return;
@@ -354,6 +458,19 @@ export class PointCloudEngine {
   // What the reviews say, by box key: cuboids are coloured by it and the wrong ones flagged.
   setReviews(reviews: Record<string, Verdict>) {
     this.reviews = reviews;
+    if (this.current >= 0) this.rebuildBoxes();
+  }
+  setRisks(risks: Record<string, Risk>) {
+    this.risks = risks;
+    if (this.current >= 0) this.rebuildBoxes();
+  }
+  // The cuboids found sunk, by box key (sunkBoxes): their part below the road is painted red.
+  setSunk(sunk: Set<string>) {
+    this.sunk = sunk;
+    if (this.current >= 0) this.rebuildBoxes();
+  }
+  setNumbers(numbers: Map<string, number>) {
+    this.numbers = numbers;
     if (this.current >= 0) this.rebuildBoxes();
   }
   // Moves the camera nearer (factor below 1) or farther from what it is looking at.
@@ -447,8 +564,11 @@ export class PointCloudEngine {
       timestamp = this.scene.frames[this.current].timestamp;
     this.boxLabels.clear();
     this.highlight.visible = false;
+    this.sunkParts.clear();
     const flags = new Map(
-      flagsOf(this.scene.frames[this.current], this.reviews).map((flag) => [flag.objectId, flag]),
+      flagsOf(this.scene.frames[this.current], this.reviews, this.risks, this.numbers).map(
+        (flag) => [flag.objectId, flag],
+      ),
     );
     const position = new Float32Array(boxes.length * VERTICES_PER_BOX * 3),
       color = new Float32Array(position.length);
@@ -479,26 +599,44 @@ export class PointCloudEngine {
         this.highlight.rotation.z = box.heading;
         this.highlight.visible = this.settings.boxes;
       }
+      // Sunk: the part from the bottom up to the road, no higher than the cuboid itself.
+      if (box.lift !== undefined && box.lift < 0 && this.sunk.has(boxKey(timestamp, box.id))) {
+        const depth = Math.min(sz, -box.lift);
+        for (const part of [
+          new THREE.Mesh(this.sunkGeometry, this.sunkFill),
+          new THREE.LineSegments(this.sunkEdges, this.sunkLine),
+        ]) {
+          part.position.set(cx, cy, cz - sz / 2 + depth / 2);
+          part.scale.set(sx, sy, depth);
+          part.rotation.z = box.heading;
+          this.sunkParts.add(part);
+        }
+      }
+      const flag = flags.get(box.id);
       if (chosen || this.settings.labels) {
         const tag = document.createElement('div');
-        tag.className = 'viewer3d-box' + (chosen ? ' viewer3d-box--selected' : '');
+        tag.className =
+          'viewer3d-box' +
+          (chosen ? ' viewer3d-box--selected' : '') +
+          (flag ? ' viewer3d-box--pinned' : '');
         tag.style.borderColor = cssColor(own);
         tag.textContent = `${box.type} · ${box.id.slice(0, 5)}`;
         const label = new CSS2DObject(tag);
         label.position.set(cx, cy, cz + sz / 2);
-        label.center.set(0.5, 1.4);
+        // Beside the pin when the cuboid has one, else centred over the cuboid.
+        label.center.set(flag ? 0 : 0.5, 1.4);
         this.boxLabels.add(label);
       }
-      // A cuboid reviewed as wrong carries a flag in the colour of its error, with its number.
-      const flag = flags.get(box.id);
+      // A cuboid reviewed as wrong, or doubted by the risk engine, carries a map pin with its
+      // number, its point on the top of the cuboid: red when confirmed, green when reviewed as
+      // right, orange or yellow by risk.
       if (flag) {
         const tag = document.createElement('div');
-        tag.className = 'viewer3d-flag' + (chosen ? ' viewer3d-flag--selected' : '');
-        tag.style.setProperty('--flag', cssColor(flag.color));
-        tag.textContent = `⚑ ${flag.number}`;
+        tag.className = 'viewer3d-pin' + (chosen ? ' viewer3d-pin--selected' : '');
+        tag.innerHTML = pinSvg(flag);
         const marker = new CSS2DObject(tag);
         marker.position.set(cx, cy, cz + sz / 2);
-        marker.center.set(0.5, chosen || this.settings.labels ? 2.5 : 1.3);
+        marker.center.set(0.5, 1);
         this.boxLabels.add(marker);
       }
       for (const vertex of segments) {
@@ -537,6 +675,7 @@ export class PointCloudEngine {
     this.sensors.visible = this.settings.sensors;
     this.boxLines.visible = this.boxLabels.visible = this.settings.boxes;
     if (!this.settings.boxes) this.highlight.visible = false;
+    this.sunkParts.visible = this.settings.boxes;
     this.pointMaterial.size = this.settings.pointSize;
   }
   private report(points: number) {
@@ -569,6 +708,9 @@ export class PointCloudEngine {
     const count = this.rebuildPoints();
     this.rebuildBoxes();
     this.applyPose(false);
+    // A flight asked for another frame is dropped once the reviewer has moved on.
+    if (this.pendingFocus?.frame === index) this.flyPending();
+    else this.pendingFocus = null;
     this.report(count);
     for (const ahead of [1, 2])
       if (index + ahead < this.scene.frames.length) this.fetchCloud(index + ahead).catch(() => {});
@@ -604,6 +746,11 @@ export class PointCloudEngine {
     this.boxLabels.clear();
     this.highlight.geometry.dispose();
     this.highlight.material.dispose();
+    this.sunkParts.clear();
+    this.sunkGeometry.dispose();
+    this.sunkEdges.dispose();
+    this.sunkFill.dispose();
+    this.sunkLine.dispose();
     this.pointGeometry.dispose();
     this.pointMaterial.dispose();
     this.boxLines.geometry.dispose();

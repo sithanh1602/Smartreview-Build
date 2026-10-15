@@ -1,6 +1,7 @@
 import { ReviewError, validateReview } from '../../shared/review.ts';
 import { readJson, sameOrigin } from '../projects/upload.ts';
 import { noTable, RISK_FILE } from './service.ts';
+import { precisionOf } from '../../core/risk3d/precision.ts';
 import type { Project3DService } from './service.ts';
 import type { Json, Req, Res } from '../types.ts';
 
@@ -68,6 +69,20 @@ export async function handleProjects3D(
       if (!data)
         throw new ReviewError(404, 'Project này được import trước khi có engine chấm rủi ro 3D.');
       json(res, 200, JSON.parse(data.toString('utf8')));
+    } else if (route === '/risk/precision') {
+      // How the engine's cases fared with the reviewers, rule by rule.
+      if (req.method !== 'GET') throw new ReviewError(405, 'Use GET.');
+      const data = await projects.read(id, RISK_FILE);
+      if (!data)
+        throw new ReviewError(404, 'Project này được import trước khi có engine chấm rủi ro 3D.');
+      const { store } = await projects.reviews(id);
+      json(res, 200, precisionOf(JSON.parse(data.toString('utf8')), await store.list()));
+    } else if (route === '/risk/rescore') {
+      // The stored scene scored again by the engine as it is now.
+      if (req.method !== 'POST') throw new ReviewError(405, 'Use POST.');
+      sameOrigin(req);
+      leaderOnly();
+      json(res, 200, await projects.rescore(id));
     } else if (stored) {
       // What the viewer reads. The files of a READY project never change, and the address
       // carries the project's revision, so the browser may keep them.

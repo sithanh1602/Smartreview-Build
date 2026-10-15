@@ -335,6 +335,7 @@ export class Project3DService {
           total_cases: risk.cases.length,
           levels: risk.levels,
           gaps: risk.gaps.length,
+          warnings: risk.warnings.length,
         },
       };
       if (this.remote) {
@@ -460,6 +461,45 @@ export class Project3DService {
       pending.catch(() => this.scenes.delete(id));
     }
     return pending;
+  }
+  // Scores the stored scene again with the engine as it is now, and stores the new report in
+  // place of the one made at import: after a change of policy or engine. The scene is the one
+  // exported at import; measures added to the exporter since are not in it, so rules that need
+  // them say nothing until the segment is imported again.
+  async rescore(id: string) {
+    const data = await this.read(id, 'scene.json');
+    if (!data) throw new ReviewError(409, 'Không tìm thấy dữ liệu project trên kho lưu trữ.');
+    const report = analyzeScene(JSON.parse(data.toString('utf8')));
+    const bytes = Buffer.from(JSON.stringify(report));
+    const row = await this.row(id);
+    if (row.storage_key) {
+      const key = `${row.storage_key}/${RISK_FILE}`;
+      await this.remote!.write(key, bytes);
+      // The old report may be held in memory.
+      const cached = this.files.get(key);
+      if (cached) {
+        this.fileBytes -= cached.length;
+        this.files.delete(key);
+      }
+    } else await fs.writeFile(path.join(path.dirname(row.dataset_path), RISK_FILE), bytes);
+    const meta = typeof row.metadata === 'string' ? JSON.parse(row.metadata) : row.metadata;
+    meta.risk = {
+      engine_version: report.engine_version,
+      policy_version: report.policy_version,
+      total_cases: report.cases.length,
+      levels: report.levels,
+      gaps: report.gaps.length,
+      warnings: report.warnings.length,
+    };
+    await this.pool.execute<Rows>('UPDATE projects_3d SET metadata=? WHERE id=?', [
+      JSON.stringify(meta),
+      id,
+    ]);
+    await this.pool.execute<Rows>('UPDATE dataset_revisions_3d SET engine_version=? WHERE id=?', [
+      report.engine_version,
+      row.dataset_revision_id,
+    ]);
+    return meta.risk;
   }
   async reviews(id: string) {
     const index = await this.index(id);

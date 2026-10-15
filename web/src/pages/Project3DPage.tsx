@@ -6,6 +6,7 @@ import { ProjectStatus } from '../features/projects/ProjectLayout';
 import { ProjectPeople } from '../features/projects/ProjectPeople';
 import { Import3DForm, stageText } from '../features/projects3d/Import3DForm';
 import { useProject3D } from '../features/projects3d/useProject3D';
+import { RiskPrecision } from '../features/projects3d/RiskPrecision';
 import { BOX_COLORS, cssColor } from '../features/projects3d/viewer/colors';
 import { roleLabel } from '../features/auth/AuthGate';
 import { useAuth } from '../features/auth/AuthProvider';
@@ -90,8 +91,24 @@ export function Project3DPage() {
                 Xem từng frame của segment, chọn một cuboid để xem chi tiết và lưu quyết định
                 review.
               </p>
+              {meta.risk ? (
+                <p className="mt-2 text-sm tabular-nums" data-testid="risk-summary">
+                  Risk Engine:{' '}
+                  <span className={meta.risk.total_cases ? 'font-semibold text-orange-700' : ''}>
+                    {count(meta.risk.total_cases)} chỗ nghi lỗi
+                  </span>
+                  {meta.risk.total_cases > 0 &&
+                    ` (${meta.risk.levels.high} cao, ${meta.risk.levels.medium} trung bình, ${meta.risk.levels.low} thấp)`}
+                  {meta.risk.gaps > 0 && ` · ${count(meta.risk.gaps)} chỗ thiếu cuboid`}
+                  {meta.risk.warnings !== undefined && ` · ${count(meta.risk.warnings)} cảnh báo`}
+                </p>
+              ) : (
+                <p className="mt-2 text-sm text-muted" data-testid="risk-summary">
+                  Project import trước khi có Risk Engine 3D: chưa có danh sách chỗ nghi lỗi.
+                </p>
+              )}
               {p.review_summary && (
-                <p className="mt-2 text-sm tabular-nums" data-testid="review-summary">
+                <p className="mt-1 text-sm tabular-nums text-muted" data-testid="review-summary">
                   Đã review {count(p.review_summary.reviewed)}/{count(meta.total_boxes)} cuboid ·{' '}
                   <span className="text-rose-700">{count(p.review_summary.errors)} lỗi</span> ·{' '}
                   {count(p.review_summary.correct)} đúng · {count(p.review_summary.unsure)} chưa
@@ -109,6 +126,12 @@ export function Project3DPage() {
               {opening ? 'Đang mở review 3D…' : 'Mở review 3D →'}
             </Link>
           </section>
+          <RiskPrecision
+            projectId={p.id}
+            leader={leader}
+            scoredWith={meta.risk?.engine_version}
+            onRescored={retry}
+          />
           <div className="mb-6 grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
             <Stat
               label="Frame"

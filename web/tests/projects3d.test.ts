@@ -5,6 +5,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import { Project3DService } from '../server/projects3d/service.ts';
+import { ENGINE_3D_VERSION, POLICY_3D_VERSION } from '../core/risk3d/engine.ts';
 import sharp from 'sharp';
 import {
   cameraImage,
@@ -116,6 +117,8 @@ function memoryPool() {
         storage_provider: p[3],
         storage_key: p[4],
       });
+    else if (sql.startsWith('UPDATE projects_3d SET metadata=?'))
+      projects.get(p[1]).metadata = JSON.parse(p[0]);
     else if (sql.startsWith('UPDATE projects_3d SET status=?'))
       Object.assign(projects.get(p[2]), { status: p[0], error_message: p[1] });
     else if (sql.startsWith('INSERT INTO dataset_revisions_3d')) return [{ insertId: ++revisions }];
@@ -142,7 +145,9 @@ const stored: string[] = [];
 const remoteFiles = new Map<string, Buffer>();
 const remote = {
   name: 'dropbox' as const,
-  async write() {},
+  async write(key: string, data: Uint8Array) {
+    remoteFiles.set(key, Buffer.from(data));
+  },
   async uploadFiles(files: { key: string; file: string }[]) {
     for (const f of files) {
       remoteFiles.set(f.key, await fs.readFile(f.file));
@@ -266,12 +271,14 @@ test('importing a segment stores the scene under Project3D on the remote', async
   assert.equal(body.metadata.motion_compensated, false);
   // The segment is scored once, at import, from the scene alone.
   assert.deepEqual(body.metadata.risk, {
-    engine_version: '3d-1.0.0',
-    policy_version: '1.0.0',
+    engine_version: ENGINE_3D_VERSION,
+    policy_version: POLICY_3D_VERSION,
     total_cases: 1,
     levels: { high: 0, medium: 1, low: 0 },
     gaps: 0,
+    warnings: body.metadata.risk.warnings,
   });
+  assert.equal(typeof body.metadata.risk.warnings, 'number');
   assert.equal(body.storage_key, undefined);
   const key = pool.projects.get(project.id).storage_key;
   assert.match(key, new RegExp(`^Project3D/${project.id}/[a-f0-9-]{36}$`));
@@ -291,17 +298,30 @@ test('importing a segment stores the scene under Project3D on the remote', async
     Buffer.from(
       JSON.stringify({
         segment: 's',
-        frames: [
-          { timestamp: 100, boxes: [{ id: 'a' }] },
-          { timestamp: 200, boxes: [{ id: 'a' }, { id: 'b' }] },
-        ],
+        frames: [100, 200].map((timestamp, i) => ({
+          timestamp,
+          pose: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
+          boxes: (i ? ['a', 'b'] : ['a']).map((id) => ({
+            id,
+            type: 'VEHICLE',
+            center: [10 + i, id === 'a' ? 0 : 5, 1],
+            size: [4.5, 2, 1.6],
+            heading: 0,
+            counted: 100,
+          })),
+        })),
       }),
     ),
   );
   // The report of the 3D Risk Engine is read back as it was stored.
-  remoteFiles.set(`${key}/risk.json`, Buffer.from(JSON.stringify({ cases: [{ id: '200:a' }] })));
+  const report = {
+    engine_version: 'e',
+    policy_version: 'p',
+    cases: [{ id: '200:a', findings: [{ check_id: 'track.position_jump', score: 50 }] }],
+  };
+  remoteFiles.set(`${key}/risk.json`, Buffer.from(JSON.stringify(report)));
   const risk = await fetch(`${base}/api/projects3d/${project.id}/risk`);
-  assert.deepEqual([risk.status, await risk.json()], [200, { cases: [{ id: '200:a' }] }]);
+  assert.deepEqual([risk.status, await risk.json()], [200, report]);
   const scene = await fetch(`${base}/api/projects3d/${project.id}/scene?dataset=x`);
   assert.equal(scene.status, 200);
   assert.match(scene.headers.get('cache-control')!, /immutable/);
@@ -363,6 +383,29 @@ test('importing a segment stores the scene under Project3D on the remote', async
   assert.equal(all.reviews['100:a'].error_type, 'BBOX');
   const shown = (await (await fetch(`${base}/api/projects3d/${project.id}`)).json()) as any;
   assert.deepEqual(shown.review_summary, { reviewed: 3, correct: 1, errors: 2, unsure: 0 });
+  // How the engine's cases fared with those reviews: its one case (200:a) was a real error, and
+  // the reviewer found one more (100:a) that it missed.
+  const precisionRes = await fetch(`${base}/api/projects3d/${project.id}/risk/precision`);
+  const precision = (await precisionRes.json()) as any;
+  assert.equal(precisionRes.status, 200, JSON.stringify(precision));
+  assert.deepEqual(precision.checks['track.position_jump'], {
+    cases: 1,
+    reviewed: 1,
+    errors: 1,
+    correct: 0,
+    unsure: 0,
+    precision: 1,
+  });
+  assert.deepEqual(precision.missed, { count: 1, by_error_type: { BBOX: 1 } });
+  // A leader scores the stored scene again with the engine as it is now.
+  const rescored = await fetch(`${base}/api/projects3d/${project.id}/risk/rescore`, {
+    method: 'POST',
+  });
+  assert.equal(rescored.status, 200, await rescored.clone().text());
+  assert.equal(((await rescored.json()) as any).engine_version, ENGINE_3D_VERSION);
+  const stored3d = JSON.parse(remoteFiles.get(`${key}/risk.json`)!.toString());
+  assert.equal(stored3d.engine_version, ENGINE_3D_VERSION);
+  assert.equal(pool.projects.get(project.id).metadata.risk.engine_version, ENGINE_3D_VERSION);
   const again = await upload(project.id, required());
   assert.equal(again.status, 409);
   const listed = (await (await fetch(`${base}/api/projects3d`)).json()) as any[];

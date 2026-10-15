@@ -14,7 +14,10 @@ ra là hợp đồng với viewer: sửa ở đây thì phải sửa bên đọc
 
 Đầu ra:
   <out>/scene.json            lidar, pose từng frame, cuboid từng frame; mỗi cuboid có "counted":
-                              số điểm của point cloud đã xuất nằm trong cuboid đó
+                              số điểm của point cloud đã xuất nằm trong cuboid đó, và độ khít
+                              "outside", "slack", "moved", "lift" (xem count_points);
+                              frame có đối tượng vắng mặt giữa hai lần có mặt thêm "ghosts":
+                              cuboid nội suy ở đó, đo như cuboid thật (xem ghost_boxes)
   <out>/frames/<ts>.bin       float32 [x, y, z, intensity] * N  (hệ toạ độ xe, đã bù chuyển động)
                               int16   [dx, dy, dz] * N          (mm, điểm chưa bù = điểm đã bù + d)
   <out>/cameras/<CAMERA>/<ts>.jpg   ảnh camera, ghi nguyên byte JPEG có trong parquet
@@ -165,28 +168,256 @@ def export_cameras(root: Path, output: Path, segment: str, timestamps: set) -> i
     return written
 
 
-def count_points(points, frame_boxes):
-    """Ghi vào từng cuboid số điểm nằm trong nó ("counted"). points: [N, 3], hệ toạ độ xe.
+# Độ khít của cuboid (docs/risk-3d.md, "Độ khít"). Chỉ xét điểm trong chiều cao của cuboid và
+# cao hơn dải GROUND_M trên mặt đường (hay trên đáy cuboid, chỗ nào cao hơn); điểm nằm trong một
+# cuboid khác (nới OTHER_GROW_M) là của vật khác. Vành quanh cuboid rộng RING_M theo hai phương ngang. Phép dò
+# đặt cuboid lệch đi tới SEARCH_M theo từng bước SEARCH_STEP_M. Khoảng trống chỉ đo khi có từ
+# SLACK_MIN_POINTS điểm.
+RING_M = 0.5
+GROUND_M = 0.3
+OTHER_GROW_M = 0.2
+SEARCH_M = 1.0
+SEARCH_STEP_M = 0.25
+SLACK_MIN_POINTS = 10
+# Mặt đường quanh cuboid là một mặt phẳng, để trên dốc và sát mép đường vẫn đo đúng (xem
+# ground_plane): điểm thấp nhất của mỗi ô GROUND_CELL_M trong chân cuboid nới GROUND_REACH_M,
+# không thuộc cuboid khác; cần từ GROUND_MIN_POINTS điểm và GROUND_MIN_CELLS ô.
+GROUND_REACH_M = 2.5
+GROUND_CELL_M = 0.5
+GROUND_MIN_POINTS = 20
+GROUND_MIN_CELLS = 6
+# Khởi đầu từ các ô thấp: ô cao hơn phân vị GROUND_START_PERCENTILE quá GROUND_START_M là thân xe,
+# bụi cây, tường. Sau mỗi lần khớp bỏ ô cao hơn mặt phẳng quá GROUND_KEEP_M. Độ dốc tối đa
+# GROUND_MAX_SLOPE theo mỗi phương.
+GROUND_START_PERCENTILE = 25
+GROUND_START_M = 0.3
+GROUND_KEEP_M = 0.15
+GROUND_MAX_SLOPE = 0.15
+# Mặt đường nhựa phẳng: các ô giữ lại lệch khỏi mặt phẳng trung bình (có trọng số) không quá
+# GROUND_MAX_RMS_M. Gồ ghề hơn là bụi cây, cỏ hay thân vật, không thấy mặt đường: không dùng.
+GROUND_MAX_RMS_M = 0.08
+# Mặt đường có bậc (vỉa hè): bậc được chọn theo các ô trong GROUND_STEP_NEAR_M ngoài chân cuboid.
+GROUND_STEP_NEAR_M = 1.5
+# Một bậc cần được ủng hộ ít nhất GROUND_STEP_SUPPORT lần bậc được ủng hộ nhiều nhất.
+GROUND_STEP_SUPPORT = 0.25
+GROUND_STEP_CONTACT_M = 0.3
+_steps = np.arange(-SEARCH_M, SEARCH_M + 1e-9, SEARCH_STEP_M)
+# Các vị trí dò, gần trước xa sau: khi hai vị trí ôm được số điểm bằng nhau thì lấy vị trí gần.
+SEARCH_OFFSETS = sorted(((u, v) for u in _steps for v in _steps), key=lambda o: (np.hypot(*o), o))
+SEARCH_OFFSETS = np.array(SEARCH_OFFSETS)
 
+
+def to_box(points, box):
+    """Điểm [N, 3] trong hệ toạ độ của cuboid: x theo hướng cuboid, y ngang, z đứng, gốc ở tâm."""
+    cos, sin = np.cos(box["heading"]), np.sin(box["heading"])
+    d = points - np.array(box["center"])
+    return np.stack([d[:, 0] * cos + d[:, 1] * sin, d[:, 1] * cos - d[:, 0] * sin, d[:, 2]], -1)
+
+
+def _fit_plane(cells, weight, keep, half, two_sided):
+    """Khớp mặt phẳng có trọng số vào các ô keep, rồi bỏ dần ô xa mặt phẳng (chỉ ô cao hơn, hay cả
+    hai phía khi two_sided). Trả (a, b, c, rms) hoặc None."""
+    result = None
+    for _ in range(4):
+        if keep.sum() < GROUND_MIN_CELLS:
+            return result
+        x, y, z, w = cells[keep, 0], cells[keep, 1], cells[keep, 2], weight[keep]
+        along = x.min() < -half[0] / 2 and x.max() > half[0] / 2
+        across = y.min() < -half[1] / 2 and y.max() > half[1] / 2
+        columns = [c for c, seen in ((x, along), (y, across)) if seen] + [np.ones_like(x)]
+        solution = list(np.linalg.lstsq(np.column_stack(columns) * w[:, None], z * w, rcond=None)[0])
+        a = solution.pop(0) if along else 0.0
+        b = solution.pop(0) if across else 0.0
+        c = solution.pop(0)
+        if max(abs(a), abs(b)) > GROUND_MAX_SLOPE:
+            a, b = np.clip([a, b], -GROUND_MAX_SLOPE, GROUND_MAX_SLOPE)
+            c = np.average(z - a * x - b * y, weights=w)
+        rms = float(np.sqrt(np.average((z - (x * a + y * b + c)) ** 2, weights=w)))
+        result = (float(a), float(b), float(c), rms)
+        residual = cells[:, 2] - (cells[:, 0] * a + cells[:, 1] * b + c)
+        nearer = (np.abs(residual) if two_sided else residual) < GROUND_KEEP_M
+        if nearer.sum() < GROUND_MIN_CELLS or (nearer == keep).all():
+            break
+        keep = nearer
+    return result
+
+
+def ground_plane(local, half):
+    """Mặt đường quanh một cuboid: (a, b, c) với z = a x + b y + c trong hệ toạ độ của cuboid, hoặc
+    None khi quanh đó quá ít điểm hay không thấy mặt đường (GROUND_MAX_RMS_M). local: điểm [N, 3]
+    trong hệ của cuboid, đã bỏ điểm của cuboid khác.
+
+    Lấy điểm thấp nhất của mỗi ô, vì trong một ô có mặt đường thì không gì thấp hơn nó. Mặt phẳng
+    chứ không phải một độ cao: trên dốc, phía dốc xuống thấp hơn tâm cuboid, phía dốc lên cao hơn.
+    Ô gần chân cuboid nặng hơn ô xa. Độ dốc theo một phương chỉ đo khi có ô ở cả hai phía của
+    cuboid theo phương đó; vật che mất một phía thì mặt đường coi như phẳng theo phương ấy.
+
+    Sát mép đường, mặt đường và vỉa hè là hai bậc, không một mặt phẳng nào khớp cả hai. Khi đó tìm
+    các bậc trong các ô sát chân cuboid (trong GROUND_STEP_NEAR_M) và chọn bậc vật đứng trên: bậc
+    cao nhất không cao hơn điểm thấp nhất của vật (bánh xe, bàn chân) quá GROUND_KEEP_M, vì mặt
+    đất dưới vật không thể cao hơn chính vật. Chỉ chọn khi điểm ấy chạm bậc (thấp hơn bậc cộng
+    GROUND_STEP_CONTACT_M): ở xa chỉ thấy phần trên của vật thì không biết nó đứng trên bậc nào.
+    Rồi khớp lại mặt phẳng chỉ trên bậc ấy.
+    """
+    if len(local) < GROUND_MIN_POINTS:
+        return None
+    cell = np.floor(local[:, :2] / GROUND_CELL_M).astype(np.int64)
+    key = cell[:, 0] * 1_000_003 + cell[:, 1]
+    order = np.lexsort((local[:, 2], key))
+    key, sorted_points = key[order], local[order]
+    cells = sorted_points[np.r_[True, key[1:] != key[:-1]]]
+    if len(cells) < GROUND_MIN_CELLS:
+        return None
+    beyond = np.maximum(np.abs(cells[:, 0]) - half[0], np.abs(cells[:, 1]) - half[1])
+    weight = 1.0 / (0.5 + np.maximum(beyond, 0))
+    low = cells[:, 2] < np.percentile(cells[:, 2], GROUND_START_PERCENTILE) + GROUND_START_M
+    fit = _fit_plane(cells, weight, low, half, two_sided=False)
+    if fit is not None and fit[3] <= GROUND_MAX_RMS_M:
+        return fit[:3]
+    # Mặt đường có bậc: chân cuboid không tính (ở đó thường là thân vật che mất mặt đất).
+    beside = (beyond >= 0) & (beyond <= GROUND_STEP_NEAR_M)
+    if beside.sum() < GROUND_MIN_CELLS:
+        return None
+    inside = (np.abs(local[:, 0]) <= half[0]) & (np.abs(local[:, 1]) <= half[1])
+    if inside.sum() < GROUND_MIN_CELLS:
+        return None
+    lowest = np.sort(local[inside, 2])[2]
+    z, w = cells[beside, 2], weight[beside]
+    support = ((np.abs(z[:, None] - z[None, :]) <= GROUND_KEEP_M) * w[None, :]).sum(1)
+    # Các bậc: lần lượt ô được ủng hộ nhiều nhất, bỏ ô cùng bậc với một bậc đã có.
+    levels = []
+    for at in np.argsort(-support):
+        if support[at] < GROUND_STEP_SUPPORT * support.max():
+            break
+        if all(abs(z[at] - level) > GROUND_KEEP_M for level in levels):
+            levels.append(z[at])
+    under = [level for level in levels if level <= lowest + GROUND_KEEP_M]
+    if not under:
+        return None
+    level = max(under)
+    if lowest > level + GROUND_STEP_CONTACT_M:
+        return None
+    fit = _fit_plane(cells, weight, np.abs(cells[:, 2] - level) <= GROUND_KEEP_M, half, two_sided=True)
+    if fit is not None and fit[3] <= GROUND_MAX_RMS_M:
+        return fit[:3]
+    return None
+
+
+def count_points(points, frame_boxes, targets=None):
+    """Ghi vào từng cuboid số điểm và độ khít của nó. points: [N, 3], hệ toạ độ xe.
+
+    targets: các cuboid cần đo (mặc định mọi cuboid của frame); cuboid của frame vẫn là "vật khác"
+    khi đo chúng, như khi đo cuboid nội suy ở chỗ đối tượng vắng mặt (ghosts).
+
+    counted  số điểm nằm trong cuboid
+    outside  số điểm của vật nằm trong vành RING_M ngay ngoài cuboid
+    slack    [dọc, ngang] m: khoảng trống giữa mép cuboid và điểm xa nhất của vật, đo ở mặt quay
+             về phía xe (mặt mà lidar nhìn thấy); không có khi cuboid có ít điểm
+    moved    [dọc, ngang, số điểm tại chỗ, số điểm ở chỗ tốt nhất]: dời cuboid (giữ hướng, cỡ) tới
+             đâu trong ±SEARCH_M thì ôm được nhiều điểm của vật nhất; dọc/ngang tính theo cuboid
+    lift     m: đáy cuboid cao hơn mặt đường dưới tâm nó bao nhiêu (âm là chìm xuống đường), theo
+             ground_plane; không có khi quanh cuboid quá ít điểm
+
+    "Điểm của vật" là điểm trong chiều cao cuboid, cao hơn mặt đường (hay đáy cuboid, chỗ nào cao
+    hơn) quá GROUND_M, không thuộc cuboid khác. So với mặt đường chứ không chỉ với đáy, nên vỉa hè,
+    dốc lên hay mặt đường phủ lên một cuboid bị hạ thấp không bị tính là vật.
     Đếm ở đây vì point cloud đang có sẵn trong bộ nhớ: phần chấm rủi ro về sau chỉ đọc
     scene.json, không phải tải lại file .bin nào.
     """
     order = np.argsort(points[:, 0])
     points = points[order]
     xs = points[:, 0]
-    for box in frame_boxes:
+    sensor_at = np.zeros((1, 3))
+    for box in frame_boxes if targets is None else targets:
         center, half = np.array(box["center"]), np.array(box["size"]) / 2
-        # Chỉ xét các điểm trong dải x mà cuboid có thể chạm tới.
-        reach = float(np.hypot(half[0], half[1]))
+        # Chỉ xét các điểm trong ô vuông mà cuboid, vành và phép dò có thể chạm tới.
+        reach = float(np.hypot(half[0], half[1])) + max(RING_M, SEARCH_M, GROUND_REACH_M)
         near = points[np.searchsorted(xs, center[0] - reach):np.searchsorted(xs, center[0] + reach, "right")]
-        cos, sin = np.cos(box["heading"]), np.sin(box["heading"])
-        dx, dy = near[:, 0] - center[0], near[:, 1] - center[1]
-        inside = (
-            (np.abs(dx * cos + dy * sin) <= half[0])
-            & (np.abs(dy * cos - dx * sin) <= half[1])
-            & (np.abs(near[:, 2] - center[2]) <= half[2])
-        )
-        box["counted"] = int(inside.sum())
+        near = near[np.abs(near[:, 1] - center[1]) <= reach]
+        local = to_box(near, box)
+        tall = np.abs(local[:, 2]) <= half[2]
+        within = (np.abs(local[:, 0]) <= half[0]) & (np.abs(local[:, 1]) <= half[1])
+        box["counted"] = int((tall & within).sum())
+
+        theirs = np.zeros(len(near), bool)
+        for other in frame_boxes:
+            if other is box:
+                continue
+            o_half = np.array(other["size"]) / 2 + OTHER_GROW_M
+            if np.hypot(*(np.array(other["center"][:2]) - center[:2])) > reach + np.hypot(o_half[0], o_half[1]):
+                continue
+            o = to_box(near, other)
+            theirs |= (np.abs(o[:, 0]) <= o_half[0]) & (np.abs(o[:, 1]) <= o_half[1]) & (np.abs(o[:, 2]) <= o_half[2])
+        bottom = -half[2]
+        beyond = np.maximum(np.abs(local[:, 0]) - half[0], np.abs(local[:, 1]) - half[1])
+        ground = ground_plane(local[(beyond <= GROUND_REACH_M) & ~theirs], half)
+        floor = bottom
+        if ground is not None:
+            floor = np.maximum(bottom, local[:, 0] * ground[0] + local[:, 1] * ground[1] + ground[2])
+            box["lift"] = round(bottom - ground[2], 3)
+        body = tall & (local[:, 2] >= floor + GROUND_M) & (within | ~theirs)
+        ring = body & ~within & (np.abs(local[:, 0]) <= half[0] + RING_M) & (np.abs(local[:, 1]) <= half[1] + RING_M)
+        box["outside"] = int(ring.sum())
+
+        held = local[body & within]
+        if len(held) >= SLACK_MIN_POINTS:
+            # Xe ở gốc toạ độ; trong hệ của cuboid nó ở -center đã quay.
+            sensor = to_box(sensor_at, box)[0]
+            box["slack"] = rounded([
+                half[axis] - (held[:, axis].max() if sensor[axis] > 0 else -held[:, axis].min())
+                for axis in (0, 1)
+            ], 3)
+
+        mine = local[body]
+        if len(mine):
+            counts = (
+                (np.abs(mine[None, :, 0] - SEARCH_OFFSETS[:, None, 0]) <= half[0])
+                & (np.abs(mine[None, :, 1] - SEARCH_OFFSETS[:, None, 1]) <= half[1])
+            ).sum(1)
+            best = int(np.argmax(counts))
+            if counts[best]:
+                box["moved"] = [*rounded(SEARCH_OFFSETS[best], 2), int(counts[0]), int(counts[best])]
+
+
+# Đối tượng vắng mặt từ 1 tới GHOST_MAX_FRAMES frame giữa hai lần có mặt được nội suy một cuboid
+# ở mỗi frame vắng (khớp với gaps.max_frames của policy3d/_scene.json).
+GHOST_MAX_FRAMES = 5
+
+
+def ghost_boxes(order, boxes, poses):
+    """{timestamp: [cuboid nội suy]} cho chỗ đối tượng vắng mặt giữa hai lần có mặt.
+
+    Nội suy trong hệ toạ độ cố định (bằng pose của xe) rồi đổi về hệ toạ độ xe của frame vắng:
+    tâm và hướng tuyến tính giữa hai frame có mặt, kích thước của frame trước.
+    """
+    seen = {}
+    for index, timestamp in enumerate(order):
+        for box in boxes.get(timestamp, []):
+            seen.setdefault(box["id"], []).append((index, box))
+    ghosts = {}
+    for object_id, track in seen.items():
+        for (a, before), (b, after) in zip(track, track[1:]):
+            if not 1 < b - a <= GHOST_MAX_FRAMES + 1:
+                continue
+            pa, pb = poses[order[a]], poses[order[b]]
+            wa = pa[:3, :3] @ before["center"] + pa[:3, 3]
+            wb = pb[:3, :3] @ after["center"] + pb[:3, 3]
+            ya = np.arctan2(pa[1, 0], pa[0, 0]) + before["heading"]
+            yb = np.arctan2(pb[1, 0], pb[0, 0]) + after["heading"]
+            turn = (yb - ya + np.pi) % (2 * np.pi) - np.pi
+            for k in range(a + 1, b):
+                t = (k - a) / (b - a)
+                pk = poses[order[k]]
+                local = pk[:3, :3].T @ (wa + (wb - wa) * t - pk[:3, 3])
+                heading = ya + turn * t - np.arctan2(pk[1, 0], pk[0, 0])
+                ghosts.setdefault(order[k], []).append({
+                    "id": object_id,
+                    "type": before["type"],
+                    "center": rounded(local),
+                    "size": before["size"],
+                    "heading": round(float((heading + np.pi) % (2 * np.pi) - np.pi), 5),
+                })
+    return ghosts
 
 
 def rounded(values, digits=4):
@@ -225,6 +456,8 @@ def main():
             "points": r[prefix + "num_lidar_points_in_box"],
         })
 
+    # Cuboid nội suy ở chỗ đối tượng vắng mặt, để đếm xem ở đó còn điểm của vật không.
+    ghosts = ghost_boxes(sorted(frame_poses), boxes, frame_poses)
     frames_dir = args.output / "frames"
     frames_dir.mkdir(parents=True, exist_ok=True)
     laser_counts = {}
@@ -236,6 +469,8 @@ def main():
             counts.append(len(c)); corrected.append(c); raw.append(r); intensity.append(i)
         corrected, raw = np.concatenate(corrected), np.concatenate(raw)
         count_points(corrected, boxes.get(timestamp, []))
+        if timestamp in ghosts:
+            count_points(corrected, boxes.get(timestamp, []), ghosts[timestamp])
         xyzi = np.column_stack([corrected, np.concatenate(intensity)]).astype("<f4")
         delta = np.clip(np.round((raw - corrected) * 1000), -32767, 32767).astype("<i2")
         with open(frames_dir / f"{timestamp}.bin", "wb") as f:
@@ -295,6 +530,7 @@ def main():
             "pose": rounded(pose.ravel(), 6),
             "laserCounts": laser_counts[timestamp],
             "boxes": boxes.get(timestamp, []),
+            **({"ghosts": ghosts[timestamp]} if timestamp in ghosts else {}),
         })
     scene = {
         "segment": segment,

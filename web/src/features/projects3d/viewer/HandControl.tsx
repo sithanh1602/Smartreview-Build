@@ -31,7 +31,8 @@ const MODES: Record<Reading['mode'], string> = {
   none: 'Chưa thấy cử chỉ',
   pan: 'Kéo khung',
   zoom: 'Thu phóng',
-  count: 'Gọi cờ',
+  count: 'Gọi lỗi',
+  step: 'Chuyển lỗi',
 };
 const ZOOMS: Record<NonNullable<Reading['zoom']>, string> = {
   in: 'Phóng to',
@@ -44,6 +45,13 @@ const LABELS: [string, string][] = [
   ['zoom_in', 'Phóng to'],
   ['zoom_out', 'Thu nhỏ'],
   ['pan', 'Kéo khung'],
+  ['step_right', 'Ngón cái sang phải'],
+  ['step_left', 'Ngón cái sang trái'],
+  ['thumb_up', 'Ngón cái chỉ lên (số 1)'],
+  ['fist', 'Nắm tay'],
+  ['count_1_5', 'Đếm 1 tới 5 ngón'],
+  ['number_23', 'Nhập số 23 (2 rồi 3)'],
+  ['number_20', 'Nhập số 20 (2 rồi nắm tay)'],
   ['none', 'Không làm gì'],
 ];
 // A recording is cut off after this long.
@@ -66,9 +74,18 @@ function download(recording: Recording) {
 export function HandControl({
   onAction,
   onClose,
+  largest,
+  describe,
+  onReading,
 }: {
   onAction: (action: Action) => void;
   onClose: () => void;
+  // The highest issue number, so a count knows whether a second digit may follow.
+  largest: number;
+  // A line about the issue with that number, or null when there is none.
+  describe: (number: number) => string | null;
+  // What the hands are doing, whenever it changes, so the viewer can point at the issue called.
+  onReading?: (reading: Reading) => void;
 }) {
   const video = useRef<HTMLVideoElement>(null),
     overlay = useRef<HTMLCanvasElement>(null);
@@ -88,6 +105,12 @@ export function HandControl({
   }
   const act = useRef(onAction);
   act.current = onAction;
+  const report = useRef(onReading);
+  report.current = onReading;
+  const interpreter = useRef<GestureInterpreter | null>(null);
+  const highest = useRef(largest);
+  highest.current = largest;
+  useEffect(() => interpreter.current?.setLargest(largest), [largest]);
   const stopTape = useRef(() => {});
   stopTape.current = () => {
     if (tape.current) toggleRecording();
@@ -144,6 +167,8 @@ export function HandControl({
       if (stopped) return close();
       setState('running');
       const gestures = new GestureInterpreter();
+      gestures.setLargest(highest.current);
+      interpreter.current = gestures;
       const context = overlay.current!.getContext('2d')!;
       let last = -1,
         shown = '';
@@ -180,10 +205,12 @@ export function HandControl({
         const result = gestures.update(hands, now);
         for (const action of result.actions) act.current(action);
         // The hold bar moves every picture; the rest is redrawn only when it changes.
-        const key = `${result.reading.mode}:${result.reading.zoom}:${result.reading.count}:${Math.round(result.reading.hold * 20)}`;
+        const r = result.reading;
+        const key = `${r.mode}:${r.zoom}:${r.count}:${Math.round(r.hold * 20)}:${r.typed?.join('')}:${r.number}:${Math.round((r.wait ?? 0) * 20)}:${r.step}`;
         if (key !== shown) {
           shown = key;
-          setReading(result.reading);
+          setReading(r);
+          report.current?.(r);
         }
       };
       tick();
@@ -195,8 +222,22 @@ export function HandControl({
       close?.();
     };
   }, []);
-  // The bar fills while a finger count, or a still hand letting go of the zoom, is being held.
-  const holding = reading.mode === 'count' || reading.zoom === 'still';
+  // The bar fills while a finger count, the thumb, or a still hand letting go of the zoom is
+  // being held, and empties while a longer number waits for its next digit.
+  const waitingDigit = reading.wait !== undefined;
+  const holding = reading.mode === 'count' || reading.mode === 'step' || reading.zoom === 'still';
+  const bar = waitingDigit ? 1 - reading.wait! : holding ? reading.hold : 0;
+  // What a count calls up: the digits so far and the one held, with a blank for one more.
+  const more =
+    reading.number !== undefined &&
+    reading.number * 10 <= largest &&
+    (reading.typed?.length ?? 0) < 2;
+  const entered =
+    reading.mode === 'count'
+      ? `${reading.typed?.join('') ?? ''}${waitingDigit ? '' : reading.count}${more || waitingDigit ? '_' : ''}`
+      : '';
+  const target = reading.mode === 'count' && reading.number !== undefined ? reading.number : null;
+  const line = target === null ? null : describe(target);
   return (
     <div
       className="absolute bottom-14 left-2.5 z-20 w-52 overflow-hidden rounded-md border border-[#30363d] bg-[#161b22]/95 text-xs"
@@ -245,13 +286,35 @@ export function HandControl({
               {reading.mode === 'zoom' && reading.zoom ? ZOOMS[reading.zoom] : MODES[reading.mode]}
             </span>
             {reading.mode === 'count' && (
-              <span className="font-semibold tabular-nums">{`⚑ ${reading.count}`}</span>
+              <span className="font-semibold tabular-nums" data-testid="hand-number">
+                #{entered}
+              </span>
+            )}
+            {reading.mode === 'step' && (
+              <span className="font-semibold">
+                {reading.step === 1 ? 'Lỗi tiếp theo →' : '← Lỗi trước'}
+              </span>
             )}
           </p>
+          {target !== null && (
+            <p
+              className={`mt-0.5 truncate ${line ? 'text-[#f0b72f]' : 'text-[#8b949e]'}`}
+              data-testid="hand-target"
+              title={line ?? undefined}
+            >
+              {line ?? `Không có lỗi #${target}`}
+            </p>
+          )}
+          {waitingDigit && (
+            <p className="mt-0.5 text-[11px] text-[#8b949e]">
+              Giơ chữ số tiếp (nắm tay là 0), hoặc giữ nguyên để mở #{reading.number}. Hạ tay để
+              huỷ.
+            </p>
+          )}
           <div className="mt-1 h-1 overflow-hidden rounded-full bg-[#30363d]">
             <div
-              className="h-full bg-[#3fc4b4]"
-              style={{ width: `${holding ? reading.hold * 100 : 0}%` }}
+              className={`h-full ${waitingDigit ? 'bg-[#8b949e]' : 'bg-[#3fc4b4]'}`}
+              style={{ width: `${bar * 100}%` }}
             />
           </div>
         </div>
@@ -291,7 +354,13 @@ export function HandControl({
           <li>Chụm các ngón rồi bung ra: phóng to</li>
           <li>Từ bàn tay mở, chụm các ngón lại: thu nhỏ</li>
           <li>Thu phóng xong, giữ yên tay 1 giây: ngắt lệnh</li>
-          <li>Giơ 1–9 ngón, giữ yên: gọi cờ số đó</li>
+          <li>Giơ ngón tay, giữ yên: mở lỗi có mã đó (thấy trước lỗi nào trước khi mở)</li>
+          <li>
+            Mã từ 10: giơ từng chữ số rồi giữ, ví dụ #23 là 2 ngón rồi 3 ngón; nắm tay là chữ số 0
+          </li>
+          <li>
+            Ngón cái chỉ sang phải / trái, các ngón khác nắm: lỗi chưa review tiếp theo / lỗi trước
+          </li>
         </ul>
       </details>
     </div>

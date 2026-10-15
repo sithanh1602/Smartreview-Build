@@ -205,6 +205,15 @@ export interface Project3D {
     total_images?: number;
     motion_compensated: boolean;
     stored_bytes: number;
+    // What the 3D Risk Engine found at import; absent for a project imported before it.
+    // `warnings` only for imports from engine 3d-1.2.0 on.
+    risk?: {
+      engine_version: string;
+      total_cases: number;
+      levels: Record<'high' | 'medium' | 'low', number>;
+      gaps: number;
+      warnings?: number;
+    } | null;
   } | null;
   created_at: string;
   created_by: string | null;

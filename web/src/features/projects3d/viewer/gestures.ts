@@ -7,7 +7,10 @@
 //   open hand, then fingers bunched          zoom out
 //   the hand held still for a second after   let go of the zoom: the next change of shape
 //   zooming                                  (closing the hand, pointing) does not zoom
-//   1 to 9 fingers held up and still         call up the flag with that number
+//   fingers held up and still                call up the issue with that number; past 9,
+//                                            one digit after the other (a fist is 0)
+//   thumb out sideways, other fingers in     the next issue (to the right) or the one
+//                                            before (to the left)
 //
 // Dragging and zooming take one hand. A measurement is smoothed before it is used, a move
 // slower than a dead zone is not a move, and a pose is entered and left at different
@@ -22,14 +25,24 @@ export type Hand = Point[];
 export type Action =
   | { type: 'zoom'; factor: number }
   | { type: 'pan'; right: number; up: number }
-  | { type: 'flag'; number: number };
+  | { type: 'flag'; number: number }
+  | { type: 'step'; delta: 1 | -1 };
 // What the interpreter currently makes of the hands, for showing next to the camera picture.
 export interface Reading {
-  mode: 'none' | 'pan' | 'zoom' | 'count';
+  mode: 'none' | 'pan' | 'zoom' | 'count' | 'step';
   // Fingers held up, when counting.
   count: number;
-  // How far a held finger count is towards taking effect, 0 to 1.
+  // How far a held finger count (or thumb) is towards taking effect, 0 to 1.
   hold: number;
+  // The digits already entered of a number past 9, waiting for the next one.
+  typed?: number[];
+  // The number the hands are calling up, once a count has been held a moment: the digits typed
+  // and the one being held. While waiting for a next digit, the digits typed.
+  number?: number;
+  // While waiting for a next digit: how far the wait has run, 0 to 1.
+  wait?: number;
+  // The thumb's way while it is out sideways: next (1) or before (-1).
+  step?: 1 | -1;
   // While zooming: nearer, farther, the hand holding its shape (`hold` then says how far it is
   // towards letting go), or let go.
   zoom?: 'in' | 'out' | 'still' | 'released';
@@ -41,7 +54,7 @@ export interface RecordedFrame {
 }
 // A recording of real hands made from the webcam box, for tuning the rules and for tests.
 export interface Recording {
-  // What the person was doing: 'zoom_in', 'zoom_out', 'pan' or 'none'.
+  // What the person was doing, one of LABELS in HandControl.tsx: 'zoom_in', 'step_right', …
   label: string;
   frames: RecordedFrame[];
 }
@@ -78,8 +91,16 @@ export const GESTURE = {
   // out of a drag or a zoom for `settleMs`.
   holdCountMs: 900,
   settleMs: 1200,
+  // A held count shows which issue it calls up after this long, before it takes effect.
+  previewMs: 300,
+  // After a digit of a longer number, the next is awaited this long; with the hand still up the
+  // number so far is then called up, with no hand it is dropped.
+  digitWaitMs: 1500,
+  // The thumb held out sideways takes effect after this long.
+  stepHoldMs: 600,
 };
 const WRIST = 0,
+  THUMB_MCP = 2,
   THUMB_TIP = 4,
   INDEX_MCP = 5,
   INDEX_TIP = 8,
@@ -125,13 +146,28 @@ const straight = (hand: Hand) =>
   FINGERS.map(
     ([tip, joint]) => distance(hand[tip], hand[WRIST]) > distance(hand[joint], hand[WRIST]) * 1.1,
   );
+// The thumb is out when its tip is well beyond the palm's width from the little finger.
+const thumbOut = (hand: Hand) =>
+  distance(hand[THUMB_TIP], hand[PINKY_MCP]) > distance(hand[INDEX_MCP], hand[PINKY_MCP]) * 1.35;
 // How many fingers of the hand are held out, thumb included.
 export function fingersUp(hand: Hand): number {
-  // The thumb is out when its tip is well beyond the palm's width from the little finger.
-  const thumb =
-    distance(hand[THUMB_TIP], hand[PINKY_MCP]) > distance(hand[INDEX_MCP], hand[PINKY_MCP]) * 1.35;
-  return straight(hand).filter(Boolean).length + (thumb ? 1 : 0);
+  return straight(hand).filter(Boolean).length + (thumbOut(hand) ? 1 : 0);
 }
+// The thumb alone held out sideways, the other fingers curled in: which way it points as the
+// person sees themselves in the mirrored picture, right (1) or left (-1), or null. A thumb up
+// is the number one, not this.
+export function thumbSide(hand: Hand): 1 | -1 | null {
+  if (straight(hand).some(Boolean) || !thumbOut(hand)) return null;
+  const dx = (hand[THUMB_TIP].x - hand[THUMB_MCP].x) * GESTURE.aspect,
+    dy = hand[THUMB_TIP].y - hand[THUMB_MCP].y;
+  if (Math.abs(dx) < Math.abs(dy) * 1.5) return null;
+  // Mirrored: the tip going left in the camera's picture is the person's right.
+  return dx < 0 ? 1 : -1;
+}
+// A fist: no finger out and the finger tips curled in, not bunched in front of the palm.
+const fist = (hand: Hand) =>
+  fingersUp(hand) === 0 &&
+  distance(hand[INDEX_TIP], hand[WRIST]) <= distance(hand[INDEX_MCP], hand[WRIST]) * 1.1;
 // The index finger held up alone; the thumb may do as it likes.
 export function pointing(hand: Hand): boolean {
   const [index, ...others] = straight(hand);
@@ -168,12 +204,33 @@ export class GestureInterpreter {
   private pose: 'bunched' | 'open' | null = null;
   // The finger count being held, since when, and whether it has already taken effect.
   private held: { count: number; since: number; fired: boolean } | null = null;
+  // The highest number there is to call up, which tells when a number needs a second digit.
+  private largest = 9;
+  // The digits entered of a longer number, and until when the next one is awaited.
+  private typed: number[] = [];
+  private typedUntil = 0;
+  // The thumb held out sideways: which way, since when, and whether it took effect.
+  private thumb: { side: 1 | -1; since: number; fired: boolean } | null = null;
+
+  // The highest issue number: up to 9 a single count calls an issue up, past it a number can
+  // take two or three digits.
+  setLargest(largest: number) {
+    this.largest = Math.max(0, largest);
+  }
   // Until when the hand is taken to be busy dragging or zooming, not showing a number.
   private busyUntil = 0;
 
   // Takes the hands seen at `time` (milliseconds) and returns what to do about them.
   update(hands: Hand[], time: number): { actions: Action[]; reading: Reading } {
     const actions: Action[] = [];
+    // Waited long enough for a next digit: the number so far is called up if a hand is still
+    // showing it, or dropped if the hands were taken away.
+    if (this.typed.length && time >= this.typedUntil) {
+      const number = Number(this.typed.join(''));
+      this.typed = [];
+      if (hands.length && number >= 1 && number <= this.largest)
+        actions.push({ type: 'flag', number });
+    }
     const one = hands.length === 1 ? hands[0] : null;
     const dragging = one ? this.drag(one, time, actions) : null;
     if (dragging === 'moving') return { actions, reading: { mode: 'pan', count: 0, hold: 0 } };
@@ -188,28 +245,88 @@ export class GestureInterpreter {
         ? Math.min(1, (time - this.stillSince) / GESTURE.breakMs)
         : 0;
     if (!hands.length) {
-      this.held = null;
-      return { actions, reading: { mode: 'none', count: 0, hold: 0 } };
+      this.held = this.thumb = null;
+      return { actions, reading: this.waiting(time) ?? { mode: 'none', count: 0, hold: 0 } };
     }
-    const count = hands.reduce((n, hand) => n + fingersUp(hand), 0);
+    // The thumb out sideways steps through the issues; it is not the number one.
+    const side = one && time >= this.busyUntil ? thumbSide(one) : null;
+    if (side) {
+      this.held = null;
+      this.typed = [];
+      if (this.thumb?.side !== side) this.thumb = { side, since: time, fired: false };
+      const hold = Math.min(1, (time - this.thumb.since) / GESTURE.stepHoldMs);
+      if (hold >= 1 && !this.thumb.fired) {
+        this.thumb.fired = true;
+        actions.push({ type: 'step', delta: side });
+      }
+      return { actions, reading: { mode: 'step', count: 0, hold, step: side } };
+    }
+    this.thumb = null;
+    const counted = hands.reduce((n, hand) => n + fingersUp(hand), 0);
+    // A fist is the digit 0, but only after another digit: alone it shows nothing.
+    const digit = counted === 0 && this.typed.length && one && fist(one) ? 0 : counted;
     // A hand that has just dragged or zoomed is not yet showing a number, and neither is one
-    // with no finger up.
-    if (time < this.busyUntil || count === 0) {
+    // with no finger up, nor ten fingers in the middle of a number.
+    const usable =
+      time >= this.busyUntil &&
+      (digit > 0 || (digit === 0 && counted === 0 && this.typed.length > 0)) &&
+      !(digit > 9 && this.typed.length);
+    if (!usable) {
       this.held = null;
       return {
         actions,
         reading: zooming
           ? { mode: 'zoom', count: 0, hold: letGo, zoom: zooming }
-          : { mode: dragging ? 'pan' : 'none', count, hold: 0 },
+          : (this.waiting(time) ?? { mode: dragging ? 'pan' : 'none', count: counted, hold: 0 }),
       };
     }
-    if (this.held?.count !== count) this.held = { count, since: time, fired: false };
-    const hold = Math.min(1, (time - this.held.since) / GESTURE.holdCountMs);
-    if (hold >= 1 && !this.held.fired) {
-      this.held.fired = true;
-      actions.push({ type: 'flag', number: count });
+    if (this.held?.count !== digit) this.held = { count: digit, since: time, fired: false };
+    const held = time - this.held.since,
+      hold = Math.min(1, held / GESTURE.holdCountMs),
+      typed = [...this.typed];
+    const number = Number([...typed, digit].join(''));
+    if (!this.held.fired) {
+      // While a digit is being shown the wait for it does not run out.
+      if (typed.length) this.typedUntil = time + GESTURE.digitWaitMs;
+      if (hold >= 1) {
+        this.held.fired = true;
+        // No more digits can follow when every longer number is past the highest there is.
+        if (number * 10 > this.largest || typed.length >= 2) {
+          this.typed = [];
+          if (number >= 1 && number <= this.largest) actions.push({ type: 'flag', number });
+        } else {
+          this.typed = [...typed, digit];
+          this.typedUntil = time + GESTURE.digitWaitMs;
+        }
+      }
     }
-    return { actions, reading: { mode: 'count', count, hold } };
+    if (this.held.fired)
+      return {
+        actions,
+        reading: this.waiting(time) ?? { mode: 'count', count: digit, hold: 1, number },
+      };
+    return {
+      actions,
+      reading: {
+        mode: 'count',
+        count: digit,
+        hold,
+        ...(typed.length && { typed }),
+        ...(held >= GESTURE.previewMs && { number }),
+      },
+    };
+  }
+  // What the reading is while a longer number waits for its next digit.
+  private waiting(time: number): Reading | null {
+    if (!this.typed.length) return null;
+    return {
+      mode: 'count',
+      count: 0,
+      hold: 0,
+      typed: [...this.typed],
+      number: Number(this.typed.join('')),
+      wait: Math.min(1, 1 - (this.typedUntil - time) / GESTURE.digitWaitMs),
+    };
   }
   private forgetHand() {
     this.finger = this.shape = this.pointSince = this.pointLost = null;
@@ -309,9 +426,11 @@ export class GestureInterpreter {
 }
 
 // Runs a recording through a fresh interpreter: every action it leads to, the zoom they add up
-// to (below 1 is nearer, above 1 is farther) and how far the view was dragged.
-export function replay(frames: RecordedFrame[]) {
+// to (below 1 is nearer, above 1 is farther) and how far the view was dragged. `largest` is the
+// highest issue number there is, as the viewer would set it.
+export function replay(frames: RecordedFrame[], largest = 9) {
   const gestures = new GestureInterpreter();
+  gestures.setLargest(largest);
   const actions: Action[] = [];
   for (const frame of frames) actions.push(...gestures.update(frame.hands, frame.t).actions);
   let zoom = 1,
