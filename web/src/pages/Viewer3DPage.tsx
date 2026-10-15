@@ -110,6 +110,7 @@ export function Viewer3DPage() {
           boxes: true,
           boxColor: 'type',
           labels: true,
+          orientation: true,
           sensors: true,
           lasers: Object.fromEntries(loaded.lasers.map((l) => [l.name, true])),
           types: {},
@@ -190,7 +191,7 @@ export function Viewer3DPage() {
   );
   useEffect(() => {
     engine.current?.setSunk(sunk);
-  }, [sunk]);
+  }, [sunk, scene]);
   useEffect(() => {
     engine.current?.setNumbers(numbers);
   }, [numbers, scene]);

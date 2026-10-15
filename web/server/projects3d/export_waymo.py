@@ -359,6 +359,27 @@ def count_points(points, frame_boxes, targets=None):
         ring = body & ~within & (np.abs(local[:, 0]) <= half[0] + RING_M) & (np.abs(local[:, 1]) <= half[1] + RING_M)
         box["outside"] = int(ring.sum())
 
+        # Circular XY support does not clip points to the possibly misoriented box.
+        # PCA gives an undirected axis only; it cannot establish front versus rear.
+        box.pop("lidarAxis", None)
+        if box["type"] == "VEHICLE" and ground is not None:
+            support = tall & (local[:, 2] >= floor + GROUND_M) & ~theirs
+            support &= np.hypot(local[:, 0], local[:, 1]) <= np.hypot(half[0], half[1]) + 0.3
+            xy = near[support, :2]
+            if len(xy) >= 40:
+                low, high = np.quantile(xy, [0.02, 0.98], axis=0)
+                xy = xy[np.all((xy >= low) & (xy <= high), axis=1)]
+                if len(xy) >= 40:
+                    values, vectors = np.linalg.eigh(np.cov(xy.T))
+                    direction = vectors[:, -1]
+                    projection = xy @ direction
+                    box["lidarAxis"] = {
+                        "heading": round(float(np.arctan2(direction[1], direction[0])), 5),
+                        "points": len(xy),
+                        "anisotropy": round(float(values[-1] / max(values[0], 1e-6)), 3),
+                        "span": round(float(np.quantile(projection, 0.95) - np.quantile(projection, 0.05)), 3),
+                    }
+
         held = local[body & within]
         if len(held) >= SLACK_MIN_POINTS:
             # Xe ở gốc toạ độ; trong hệ của cuboid nó ở -center đã quay.

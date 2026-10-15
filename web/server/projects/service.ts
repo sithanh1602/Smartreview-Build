@@ -148,7 +148,6 @@ export class ProjectService {
       await c.beginTransaction();
       const [[row]] = await c.execute<Rows>('SELECT * FROM projects WHERE id=? FOR UPDATE', [id]);
       if (!row) throw new ReviewError(404, 'Project không tồn tại.');
-      if (row.demo_key) throw new ReviewError(409, 'Không thể xóa dataset demo mặc định.');
       if (
         !['CREATED', 'FAILED', 'READY'].includes(row.status) ||
         this.ai.active ||
