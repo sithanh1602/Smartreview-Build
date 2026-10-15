@@ -30,8 +30,13 @@ export function ReviewDecisionForm({
   const { data, saveDecision, refreshReviews, projectId } = useLoadedDataset();
   const [existing, setExisting] = useState<Review | null>(data.reviews[item.id] || null);
   const [decision, setDecision] = useState(existing?.decision || '');
-  const [type, setType] = useState(existing?.error_type || 'CLASS');
-  const [correction, setCorrection] = useState(existing?.corrected_value || '');
+  // A suggested missing object is confirmed as Missing Object, with the label to draw.
+  const missing = item.missing_object;
+  const defaultType = missing ? 'MISSING_OBJECT' : 'CLASS';
+  const [type, setType] = useState(existing?.error_type || defaultType);
+  const [correction, setCorrection] = useState(
+    existing?.corrected_value || (missing ? item.class_name : ''),
+  );
   const [note, setNote] = useState(existing?.note || '');
   const [saving, setSaving] = useState(false),
     [message, setMessage] = useState(''),
@@ -105,8 +110,8 @@ export function ReviewDecisionForm({
       const r = body.review;
       setExisting(r);
       setDecision(r?.decision || '');
-      setType(r?.error_type || 'CLASS');
-      setCorrection(r?.corrected_value || '');
+      setType(r?.error_type || defaultType);
+      setCorrection(r?.corrected_value || (missing ? item.class_name : ''));
       setNote(r?.note || '');
       setMessage('Đã tải lại quyết định từ MySQL.');
     } catch (e) {
@@ -162,6 +167,13 @@ export function ReviewDecisionForm({
           }
         >
           <legend className="sr-only">{hint('Quyết định review')}</legend>
+          {missing && !compact && (
+            <p className="rounded-lg bg-violet-50 px-2 py-1.5 text-[11px] text-violet-900">
+              Model gợi ý ở đây có “{item.class_name}” chưa được vẽ.{' '}
+              <strong>Annotation Error</strong> = đúng là bị sót (gửi annotator vẽ bổ sung);{' '}
+              <strong>Correct / False Alarm</strong> = gợi ý sai, không có vật cần vẽ.
+            </p>
+          )}
           <div className={compact ? 'flex gap-1.5' : 'grid grid-cols-3 gap-1.5'}>
             {Object.entries(DECISIONS).map(([value, label], i) => {
               const [main, sub] = split(hint(label));

@@ -1,6 +1,6 @@
 # Khuôn dạng Policy theo từng nhãn
 
-Trạng thái: **engine 6.0.0 chấm rủi ro từ các file này.** Mọi quy tắc `active` trong `policy/` được `core/risk` đọc và chạy; điểm, ngưỡng và loại lỗi lấy từ file, không còn nằm trong code (mục 1.1). Tài liệu chốt cách viết Policy thành dữ liệu để (1) sưu tầm quy định theo một dạng thống nhất, và (2) Guideline của từng dự án trở thành một bản vá trên Policy thay vì một bộ quy tắc riêng.
+Trạng thái: **engine 7.1.0 chấm rủi ro từ các file này.** Mọi quy tắc `active` trong `policy/` được `core/risk` đọc và chạy; điểm, ngưỡng và loại lỗi lấy từ file, không còn nằm trong code (mục 1.1). Tài liệu chốt cách viết Policy thành dữ liệu để (1) sưu tầm quy định theo một dạng thống nhất, và (2) Guideline của từng dự án trở thành một bản vá trên Policy thay vì một bộ quy tắc riêng.
 
 Đã viết theo khuôn dạng này: hai file chung (`_dataset.json`, `_frame.json`), đủ 9 file nhãn và file cặp nhãn `car_truck.json`. Tài liệu mô tả đúng những gì các file đó đang dùng; không còn quy tắc nào ở trạng thái `proposed`: mỗi quy tắc hoặc đang chạy, hoặc là `manual`. Những gì còn thiếu ghi ở mục 9.
 
@@ -43,17 +43,19 @@ Muốn đổi điểm hay ngưỡng thì sửa file của nhãn. Muốn thử m�
 
 **Phiên bản engine.** Sửa file policy là đổi điểm của mọi dự án đang chạy engine mới nhất, nên mỗi lần đổi hành vi phải tăng `ENGINE_VERSION` và giữ lại bản cũ. Dự án ghi phiên bản engine lúc import và tiếp tục chạy trên đúng phiên bản đó:
 
-| `engine_version`          | Thư mục        | Policy                                                                                                          |
-| ------------------------- | -------------- | --------------------------------------------------------------------------------------------------------------- |
-| `2.0.0`, `2.1.0`, `2.2.0` | `core/risk_v1` | 5 check gốc, thêm 4 check ảnh đơn ở 2.1.0, confidence thành tín hiệu độc lập ở 2.2.0                            |
-| `3.0.0`                   | `core/risk_v3` | policy 1.0.0, viết trong code                                                                                   |
-| `4.0.0`                   | `core/risk_v4` | policy 2.0.0, viết trong code: 33 check, 9 rule mức ảnh                                                         |
-| `5.0.0`                   | `core/risk_v5` | policy 3.0.0, đọc từ `core/risk_v5/policy`: 44 check, 9 rule mức ảnh; `motorcycle` và `bicycle` còn là hai nhãn |
-| `6.0.0`                   | `core/risk`    | policy 4.0.0, đọc từ `policy/`: 44 check, 9 rule mức ảnh; hai nhãn đó gộp thành `two_wheeler`                   |
+| `engine_version`          | Thư mục        | Policy                                                                                                                                                                                                                                                                                                    |
+| ------------------------- | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `2.0.0`, `2.1.0`, `2.2.0` | `core/risk_v1` | 5 check gốc, thêm 4 check ảnh đơn ở 2.1.0, confidence thành tín hiệu độc lập ở 2.2.0                                                                                                                                                                                                                      |
+| `3.0.0`                   | `core/risk_v3` | policy 1.0.0, viết trong code                                                                                                                                                                                                                                                                             |
+| `4.0.0`                   | `core/risk_v4` | policy 2.0.0, viết trong code: 33 check, 9 rule mức ảnh                                                                                                                                                                                                                                                   |
+| `5.0.0`                   | `core/risk_v5` | policy 3.0.0, đọc từ `core/risk_v5/policy`: 44 check, 9 rule mức ảnh; `motorcycle` và `bicycle` còn là hai nhãn                                                                                                                                                                                           |
+| `6.0.0`                   | `core/risk_v6` | policy 4.0.0, đọc từ `core/risk_v6/policy`: 44 check, 9 rule mức ảnh; hai nhãn đó gộp thành `two_wheeler`                                                                                                                                                                                                 |
+| `7.0.0`                   | `core/risk_v7` | policy 5.0.0, đọc từ `core/risk_v7/policy`: như 6.0.0, nhưng `*.low_confidence` 20 → 30 điểm nên confidence thấp một mình đã vào hàng đợi                                                                                                                                                                 |
+| `7.1.0`                   | `core/risk`    | policy 5.1.0, đọc từ `policy/`: như 7.0.0, thêm `any.rescore_low` cho box do người vẽ đã được `ai-service/score_boxes.py` chấm lại (rescore dưới 0,02, 30 điểm) và luật mức ảnh `coverage.model_missing` (vật core model thấy từ 0,4 mà chưa có box thì chặn tự chấp nhận, kể cả ảnh chỉ có box người vẽ) |
 
 `analyzeDataset(data, { engineVersion })` chọn engine; `npm run import -- ... --engine 4.0.0` chấm một bộ dữ liệu bằng engine cũ.
 
-Engine đọc policy từ file thì bản đóng băng của nó mang theo cả bản sao các file policy (`core/risk_v5/policy`). Sửa `policy/` không bao giờ đổi điểm của dự án đang chạy engine cũ.
+Engine đọc policy từ file thì bản đóng băng của nó mang theo cả bản sao các file policy (`core/risk_v5/policy`, `core/risk_v6/policy`, `core/risk_v7/policy`). Sửa `policy/` không bao giờ đổi điểm của dự án đang chạy engine cũ.
 
 ## 2. File của một nhãn
 
@@ -356,7 +358,7 @@ Không có `score`. Ngoài điều kiện đã ghi, các check trong `waives` v�
 ```json
 {
   "schema_version": "1.0.0",
-  "policy_version": "4.0.0",
+  "policy_version": "5.1.0",
   "labels": [
     "car",
     "truck",
@@ -550,5 +552,5 @@ Lưu ý: `score` và khoảng tỉ lệ trong ví dụ này là minh hoạ cho k
 - **`scoring.severe_from_side_px` chưa được engine dùng.**
 - **Bản vá chưa đi hết đường.** Engine đã nhận `set`, `disable`, `narrow`, `add`; server chưa lưu bản vá theo dự án và bước phân tích Guideline chưa sinh ra chúng, nên dự án thật hiện chỉ dùng dạng tắt check theo nhãn.
 - **Bộ nhãn khác hẳn** (ví dụ Guideline 3D dùng `Vehicle`, `Pedestrian`) cần thêm một bảng ánh xạ nhãn theo dự án; khuôn dạng này chưa có chỗ cho nó.
-- **Hình học 3D** (cuboid, yaw, mặt đường) chưa có khuôn nào.
+- **Hình học 3D** (cuboid, yaw, mặt đường) chưa có khuôn nào trong engine. Policy 3D đề xuất, kèm các khuôn 3D, nằm ở `policy3d/`: xem [Policy 3D](policy-3d.md).
 - **Bước dịch Guideline thành bản vá vẫn do mô hình làm**, nên vẫn cần bộ đáp án để đo độ chính xác.

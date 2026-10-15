@@ -13,6 +13,8 @@ export const POLICY_RULES: Record<string, string> = {
   'geometry.bbox_position':
     'Tâm khung lệch khỏi điểm giữa của hai frame kề từ nửa đường chéo khung trở lên thì bị gắn cờ.',
   'confidence.low_score': `Khung của mô hình có độ tin cậy dưới ${percent(POLICY.lowScore)} thì bị gắn cờ.`,
+  'confidence.rescore_low':
+    'Khung do người vẽ được mô hình chấm lại (rescore) dưới 2% cho đúng nhãn của nó ở đúng chỗ đó thì bị gắn cờ.',
   'confidence.class_margin': `Điểm của lớp đứng đầu và lớp thứ hai cách nhau dưới ${percent(POLICY.classMargin)} thì bị gắn cờ (mô hình phân vân giữa hai nhãn).`,
   'confidence.vehicle_confusion': `Lớp thứ hai là một loại xe gần giống và cách lớp đứng đầu dưới ${percent(POLICY.confusionMargin)} thì bị gắn cờ.`,
   'confidence.person_vs_two_wheeler': `Mô hình phân vân giữa người và xe hai bánh, hai điểm cách nhau dưới ${percent(POLICY.confusionMargin)}, thì bị gắn cờ.`,

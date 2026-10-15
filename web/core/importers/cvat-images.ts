@@ -1,6 +1,6 @@
 import { XMLParser, XMLValidator } from 'fast-xml-parser';
 import { normalizeDataset, SCHEMA_VERSION } from '../schema/normalize.ts';
-import { applySignals } from './signals.ts';
+import { MISSING_HINTS, applyMissingHints, applySignals, readMissingHints } from './signals.ts';
 import type { ImportOptions, Loose } from './signals.ts';
 import type { Annotation, Dataset, Geometry, Point } from '../schema/types.ts';
 
@@ -95,5 +95,10 @@ export function importCvatImages(
       }
     }
   }
-  return normalizeDataset(data);
+  const hints = readMissingHints(
+    root.meta?.[MISSING_HINTS]?.object,
+    (o) => `image-${o.image_id}:0`,
+    (o) => [o.xtl, o.ytl, o.xbr - o.xtl, o.ybr - o.ytl],
+  );
+  return normalizeDataset(applyMissingHints(data, hints));
 }

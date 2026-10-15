@@ -97,6 +97,7 @@ export function CaseQueue({
           >
             <option value="suspicious">{hint('Suspicious cases')}</option>
             <option value="all">{hint('Tất cả annotations')}</option>
+            <option value="warnings">{hint('Cảnh báo (xem thêm)')}</option>
           </select>
           <select
             aria-label={hint('Lọc trạng thái review')}
@@ -180,6 +181,11 @@ export function CaseQueue({
                       </span>
                       <span className="min-w-0 flex-1 truncate">
                         {c.class_name}
+                        {c.missing_object && (
+                          <span className="ml-1.5 rounded bg-violet-100 px-1 text-[10px] font-normal text-violet-800">
+                            Thiếu box
+                          </span>
+                        )}
                         {temporal(c) && (
                           <span className="ml-1.5 font-normal text-muted">{contextLabel(c)}</span>
                         )}
@@ -240,6 +246,11 @@ export function CaseQueue({
               <div className="mt-1.5 flex items-baseline justify-between gap-2">
                 <span className="truncate text-sm font-semibold">
                   {c.media_type === 'image' ? c.class_name : hint(`Frame ${c.frame_id}`)}
+                  {c.missing_object && (
+                    <span className="ml-1.5 rounded bg-violet-100 px-1 text-[10px] font-normal text-violet-800">
+                      Thiếu box
+                    </span>
+                  )}
                 </span>
                 {typeof c.confidence === 'number' && (
                   <span className="shrink-0 text-[10px] text-muted">

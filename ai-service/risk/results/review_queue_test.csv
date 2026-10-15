@@ -1,0 +1,598 @@
+﻿rank,image_id,tier,tier_name,predicted_errors,hard_rule,reasons,timeofday,weather,actual_errors_gt
+1,b87ee3bb-c5b70e4f.jpg,3,gán lại,21.67,1,56 box vùng xám (nghi sót xe); 5 box confidence < 0.5; 1 xe nhỏ < 32px; ảnh đêm,night,clear,18
+2,b27cd403-f2d087cc.jpg,3,gán lại,21.55,0,51 box vùng xám (nghi sót xe); 8 box confidence < 0.5; 4 xe nhỏ < 32px; box chồng lấn mạnh,daytime,undefined,15
+3,b20e291a-6012d836.jpg,3,gán lại,21.19,0,44 box vùng xám (nghi sót xe); 8 box confidence < 0.5; 5 xe nhỏ < 32px; box chồng lấn mạnh,daytime,clear,15
+4,be2034df-3fbd9d5b.jpg,3,gán lại,20.25,1,60 box vùng xám (nghi sót xe); 4 box confidence < 0.5; box chồng lấn mạnh; ảnh đêm,night,clear,19
+5,c28cecbb-11796cf6.jpg,3,gán lại,19.32,1,44 box vùng xám (nghi sót xe); 8 box confidence < 0.5; 4 xe nhỏ < 32px; có bus (lớp hiếm),daytime,overcast,32
+6,b7ab6225-7a1edecd.jpg,3,gán lại,18.69,1,41 box vùng xám (nghi sót xe); 6 box confidence < 0.5; 3 xe nhỏ < 32px; box chồng lấn mạnh; ảnh đêm; có bus (lớp hiếm),night,clear,17
+7,c8f48328-67aa756a.jpg,3,gán lại,18.45,1,49 box vùng xám (nghi sót xe); 6 box confidence < 0.5; 1 xe nhỏ < 32px; ảnh đêm,night,clear,16
+8,bd656105-bfcf9d5c.jpg,3,gán lại,18.32,0,51 box vùng xám (nghi sót xe); 4 box confidence < 0.5; 6 xe nhỏ < 32px; box chồng lấn mạnh,dawn/dusk,partly cloudy,22
+9,b729d050-af382d96.jpg,3,gán lại,18.24,0,34 box vùng xám (nghi sót xe); 7 box confidence < 0.5; 3 xe nhỏ < 32px; box chồng lấn mạnh,daytime,undefined,17
+10,c7c9e31d-719f694c.jpg,3,gán lại,17.89,1,48 box vùng xám (nghi sót xe); 6 box confidence < 0.5; 1 xe nhỏ < 32px; ảnh đêm,night,clear,17
+11,c41203a6-f2bee3f0.jpg,3,gán lại,17.78,0,42 box vùng xám (nghi sót xe); 3 box confidence < 0.5; 5 xe nhỏ < 32px; box chồng lấn mạnh,daytime,clear,15
+12,b2b70230-bad4ff6e.jpg,3,gán lại,17.38,0,36 box vùng xám (nghi sót xe); 5 box confidence < 0.5; 5 xe nhỏ < 32px; box chồng lấn mạnh,daytime,partly cloudy,11
+13,b7d8cd90-a01c6422.jpg,3,gán lại,17.23,0,36 box vùng xám (nghi sót xe); 5 box confidence < 0.5; 6 xe nhỏ < 32px; box chồng lấn mạnh,daytime,clear,28
+14,be2c66b0-2bc5eec8.jpg,3,gán lại,17.22,1,54 box vùng xám (nghi sót xe); 2 box confidence < 0.5; ảnh đêm,night,clear,15
+15,b4c89ab1-5c72cd7d.jpg,3,gán lại,16.88,0,35 box vùng xám (nghi sót xe); 8 box confidence < 0.5; 2 xe nhỏ < 32px; box chồng lấn mạnh,daytime,partly cloudy,12
+16,c5b7b466-f6066e36.jpg,3,gán lại,16.82,1,35 box vùng xám (nghi sót xe); 6 box confidence < 0.5; 2 xe nhỏ < 32px; box chồng lấn mạnh; có bus (lớp hiếm),daytime,overcast,10
+17,b7ab6225-743ee003.jpg,3,gán lại,16.38,1,39 box vùng xám (nghi sót xe); 7 box confidence < 0.5; 3 xe nhỏ < 32px; box chồng lấn mạnh; ảnh đêm,night,clear,8
+18,c4327604-30fa8196.jpg,3,gán lại,16.36,1,48 box vùng xám (nghi sót xe); 3 box confidence < 0.5; ảnh đêm,night,clear,16
+19,be9ce27e-b78ea956.jpg,3,gán lại,16.12,0,32 box vùng xám (nghi sót xe); 10 box confidence < 0.5; 1 xe nhỏ < 32px; box chồng lấn mạnh,daytime,undefined,19
+20,ca284215-d643be76.jpg,3,gán lại,16.1,1,55 box vùng xám (nghi sót xe); 3 box confidence < 0.5; 1 xe nhỏ < 32px; ảnh đêm,night,clear,11
+21,b6eda03e-50c604c1.jpg,3,gán lại,16.08,1,47 box vùng xám (nghi sót xe); 3 box confidence < 0.5; ảnh đêm,night,clear,12
+22,c02d18db-f5278de0.jpg,3,gán lại,16.07,0,36 box vùng xám (nghi sót xe); 7 box confidence < 0.5; 5 xe nhỏ < 32px; box chồng lấn mạnh,daytime,overcast,28
+23,c10163bb-7ad315ce.jpg,3,gán lại,16.04,0,36 box vùng xám (nghi sót xe); 6 box confidence < 0.5; 2 xe nhỏ < 32px,daytime,overcast,17
+24,bf585795-7312cfb9.jpg,3,gán lại,15.9,1,37 box vùng xám (nghi sót xe); 4 box confidence < 0.5; 2 xe nhỏ < 32px; ảnh đêm,night,clear,17
+25,c4742900-d3fdcb6c.jpg,3,gán lại,15.42,1,37 box vùng xám (nghi sót xe); 4 box confidence < 0.5; 1 xe nhỏ < 32px; box chồng lấn mạnh; ảnh đêm,night,clear,7
+26,b30b460d-0e26bd8a.jpg,3,gán lại,15.24,1,26 box vùng xám (nghi sót xe); 7 box confidence < 0.5; 2 xe nhỏ < 32px; box chồng lấn mạnh; ảnh đêm; có bus (lớp hiếm),night,clear,12
+27,c6874e8e-439ea4de.jpg,3,gán lại,15.19,0,33 box vùng xám (nghi sót xe); 6 box confidence < 0.5; 4 xe nhỏ < 32px; box chồng lấn mạnh,daytime,undefined,14
+28,bab692c9-922ed2ea.jpg,3,gán lại,15.19,0,24 box vùng xám (nghi sót xe); 10 box confidence < 0.5; 8 xe nhỏ < 32px; box chồng lấn mạnh,daytime,clear,14
+29,ba7efc39-dea175db.jpg,3,gán lại,15.16,1,49 box vùng xám (nghi sót xe); 5 box confidence < 0.5; box chồng lấn mạnh; ảnh đêm; thời tiết xấu,night,snowy,10
+30,c45fbe22-2c182907.jpg,3,gán lại,15.15,0,46 box vùng xám (nghi sót xe); 4 box confidence < 0.5; 3 xe nhỏ < 32px,dawn/dusk,clear,23
+31,bfb72242-2b84934e.jpg,3,gán lại,14.99,1,23 box vùng xám (nghi sót xe); 8 box confidence < 0.5; 5 xe nhỏ < 32px; box chồng lấn mạnh; có bus (lớp hiếm),daytime,overcast,17
+32,c9484a09-4a6da4f1.jpg,3,gán lại,14.89,1,34 box vùng xám (nghi sót xe); 6 box confidence < 0.5; box chồng lấn mạnh; ảnh đêm,night,clear,18
+33,be85292c-a3fbba40.jpg,3,gán lại,14.81,0,47 box vùng xám (nghi sót xe); 2 box confidence < 0.5; 1 xe nhỏ < 32px; box chồng lấn mạnh,dawn/dusk,clear,12
+34,c1f39934-9942e4f7.jpg,3,gán lại,14.77,0,26 box vùng xám (nghi sót xe); 8 box confidence < 0.5; 4 xe nhỏ < 32px; box chồng lấn mạnh,daytime,overcast,19
+35,c807cb19-7e09cb11.jpg,3,gán lại,14.7,1,38 box vùng xám (nghi sót xe); 3 box confidence < 0.5; 1 xe nhỏ < 32px; ảnh đêm; có bus (lớp hiếm),night,clear,6
+36,c8ef6556-627cdf0b.jpg,3,gán lại,14.59,1,27 box vùng xám (nghi sót xe); 10 box confidence < 0.5; 5 xe nhỏ < 32px; box chồng lấn mạnh; có bus (lớp hiếm),dawn/dusk,clear,19
+37,bae552dc-4ee0cab7.jpg,3,gán lại,14.58,0,26 box vùng xám (nghi sót xe); 4 box confidence < 0.5; 4 xe nhỏ < 32px; box chồng lấn mạnh,daytime,partly cloudy,10
+38,bc11304f-da51cfda.jpg,3,gán lại,14.52,1,37 box vùng xám (nghi sót xe); 5 box confidence < 0.5; box chồng lấn mạnh; ảnh đêm,night,clear,16
+39,ba8138ba-3a90a8bf.jpg,3,gán lại,14.48,1,32 box vùng xám (nghi sót xe); 5 box confidence < 0.5; 3 xe nhỏ < 32px; box chồng lấn mạnh; có bus (lớp hiếm),daytime,undefined,16
+40,b8fb5451-6c0e5ec6.jpg,3,gán lại,14.44,0,24 box vùng xám (nghi sót xe); 5 box confidence < 0.5; 7 xe nhỏ < 32px; box chồng lấn mạnh,daytime,partly cloudy,14
+41,bdd20a54-d852fa69.jpg,3,gán lại,14.31,1,49 box vùng xám (nghi sót xe); 2 box confidence < 0.5; 1 xe nhỏ < 32px; ảnh đêm,night,clear,12
+42,c1924b4e-d9f9aca2.jpg,3,gán lại,14.3,1,41 box vùng xám (nghi sót xe); 4 box confidence < 0.5; ảnh đêm,night,clear,15
+43,bb3bb8c0-2ef3abc6.jpg,3,gán lại,14.2,0,47 box vùng xám (nghi sót xe); 4 box confidence < 0.5; 4 xe nhỏ < 32px; thời tiết xấu,dawn/dusk,snowy,34
+44,c2ccdd66-3ad4767a.jpg,3,gán lại,14.16,1,45 box vùng xám (nghi sót xe); 3 box confidence < 0.5; ảnh đêm,night,clear,12
+45,bd989210-c3df0371.jpg,3,gán lại,14.16,0,28 box vùng xám (nghi sót xe); 9 box confidence < 0.5; 3 xe nhỏ < 32px; box chồng lấn mạnh,daytime,overcast,14
+46,b7dc9921-b99688d2.jpg,3,gán lại,14.15,1,42 box vùng xám (nghi sót xe); 3 box confidence < 0.5; ảnh đêm,night,clear,19
+47,bdf8fcad-dfe047d1.jpg,3,gán lại,13.89,0,33 box vùng xám (nghi sót xe); 3 box confidence < 0.5; 1 xe nhỏ < 32px; box chồng lấn mạnh,daytime,undefined,15
+48,b5183558-782ad31c.jpg,3,gán lại,13.87,0,31 box vùng xám (nghi sót xe); 4 box confidence < 0.5; 2 xe nhỏ < 32px; box chồng lấn mạnh,daytime,partly cloudy,27
+49,bb198c24-2d2ae5c5.jpg,3,gán lại,13.86,1,29 box vùng xám (nghi sót xe); 4 box confidence < 0.5; 2 xe nhỏ < 32px; ảnh đêm,night,clear,10
+50,bd355fcc-63dd68f2.jpg,3,gán lại,13.81,1,43 box vùng xám (nghi sót xe); 2 box confidence < 0.5; 1 xe nhỏ < 32px; ảnh đêm,night,clear,9
+51,c91a84db-b08249fc.jpg,3,gán lại,13.81,0,32 box vùng xám (nghi sót xe); 6 box confidence < 0.5; 3 xe nhỏ < 32px; box chồng lấn mạnh,daytime,undefined,10
+52,c16d1626-a3df1547.jpg,3,gán lại,13.77,1,34 box vùng xám (nghi sót xe); 3 box confidence < 0.5; 2 xe nhỏ < 32px; ảnh đêm,night,clear,15
+53,bc8ccccd-bbc93b76.jpg,3,gán lại,13.72,1,30 box vùng xám (nghi sót xe); 6 box confidence < 0.5; box chồng lấn mạnh; có bus (lớp hiếm),daytime,clear,14
+54,c630c103-34a53b18.jpg,3,gán lại,13.69,1,39 box vùng xám (nghi sót xe); 4 box confidence < 0.5; ảnh đêm; thời tiết xấu,night,rainy,15
+55,b5b7d0a6-e63e539f.jpg,3,gán lại,13.68,0,27 box vùng xám (nghi sót xe); 8 box confidence < 0.5; 3 xe nhỏ < 32px; box chồng lấn mạnh,daytime,clear,16
+56,bd735753-49b2ce68.jpg,3,gán lại,13.66,1,23 box vùng xám (nghi sót xe); 6 box confidence < 0.5; 6 xe nhỏ < 32px; box chồng lấn mạnh; có bus (lớp hiếm),daytime,clear,12
+57,b3e18480-6c84e030.jpg,3,gán lại,13.65,0,29 box vùng xám (nghi sót xe); 7 box confidence < 0.5; 3 xe nhỏ < 32px; box chồng lấn mạnh; thời tiết xấu,dawn/dusk,rainy,13
+58,c564c92b-2f727c05.jpg,3,gán lại,13.56,1,19 box vùng xám (nghi sót xe); 8 box confidence < 0.5; 8 xe nhỏ < 32px; box chồng lấn mạnh; có bus (lớp hiếm),daytime,clear,15
+59,bc7cbf85-6f37fbdf.jpg,3,gán lại,13.54,1,36 box vùng xám (nghi sót xe); 3 box confidence < 0.5; 2 xe nhỏ < 32px; ảnh đêm,night,clear,12
+60,b7e68039-9ea5f87c.jpg,3,gán lại,13.43,0,39 box vùng xám (nghi sót xe); 6 box confidence < 0.5; box chồng lấn mạnh; thời tiết xấu,daytime,rainy,13
+61,bf234dae-307f8179.jpg,3,gán lại,13.33,1,30 box vùng xám (nghi sót xe); 5 box confidence < 0.5; 1 xe nhỏ < 32px; ảnh đêm,night,clear,15
+62,b4581cf1-fa4a5f32.jpg,3,gán lại,13.14,0,23 box vùng xám (nghi sót xe); 6 box confidence < 0.5; 5 xe nhỏ < 32px; box chồng lấn mạnh,daytime,overcast,18
+63,c3c28990-04db5664.jpg,3,gán lại,13.13,0,24 box vùng xám (nghi sót xe); 6 box confidence < 0.5; 7 xe nhỏ < 32px; box chồng lấn mạnh,daytime,clear,10
+64,b93942f9-441a4817.jpg,3,gán lại,13.08,1,34 box vùng xám (nghi sót xe); 3 box confidence < 0.5; 1 xe nhỏ < 32px; ảnh đêm,night,clear,12
+65,c8af3e03-11a30ece.jpg,3,gán lại,13.07,1,29 box vùng xám (nghi sót xe); 2 box confidence < 0.5; 1 xe nhỏ < 32px; box chồng lấn mạnh; ảnh đêm; có bus (lớp hiếm),night,clear,11
+66,bf2c174a-547a550a.jpg,3,gán lại,12.99,0,29 box vùng xám (nghi sót xe); 4 box confidence < 0.5; 6 xe nhỏ < 32px; box chồng lấn mạnh,daytime,undefined,10
+67,b368ee71-aba6eeef.jpg,3,gán lại,12.83,0,28 box vùng xám (nghi sót xe); 3 box confidence < 0.5; 3 xe nhỏ < 32px,daytime,clear,7
+68,bf245ae0-7630688e.jpg,3,gán lại,12.73,1,30 box vùng xám (nghi sót xe); 2 box confidence < 0.5; box chồng lấn mạnh; ảnh đêm; có bus (lớp hiếm),night,clear,9
+69,c001770a-2aac41a8.jpg,3,gán lại,12.7,0,30 box vùng xám (nghi sót xe); 2 box confidence < 0.5; 1 xe nhỏ < 32px; box chồng lấn mạnh,daytime,undefined,6
+70,bba4ee51-3badc9f8.jpg,3,gán lại,12.63,0,23 box vùng xám (nghi sót xe); 6 box confidence < 0.5; 4 xe nhỏ < 32px; box chồng lấn mạnh,daytime,undefined,12
+71,ba09810a-ac2ef27d.jpg,3,gán lại,12.61,0,31 box vùng xám (nghi sót xe); 4 box confidence < 0.5; 3 xe nhỏ < 32px; box chồng lấn mạnh,dawn/dusk,undefined,12
+72,fe189115-9cc4a501.jpg,3,gán lại,12.57,0,27 box vùng xám (nghi sót xe); 6 box confidence < 0.5; 5 xe nhỏ < 32px; box chồng lấn mạnh,dawn/dusk,clear,17
+73,c48569ef-c99d8f9e.jpg,3,gán lại,12.53,0,21 box vùng xám (nghi sót xe); 7 box confidence < 0.5; 7 xe nhỏ < 32px; box chồng lấn mạnh,daytime,clear,9
+74,bafeadd4-255dc46e.jpg,3,gán lại,12.44,1,27 box vùng xám (nghi sót xe); 4 box confidence < 0.5; box chồng lấn mạnh; ảnh đêm,night,clear,17
+75,bfc99518-547e6e69.jpg,3,gán lại,12.43,1,25 box vùng xám (nghi sót xe); 4 box confidence < 0.5; 1 xe nhỏ < 32px; box chồng lấn mạnh; ảnh đêm,night,clear,13
+76,b94cd5b4-26c295e5.jpg,3,gán lại,12.4,0,31 box vùng xám (nghi sót xe); 4 box confidence < 0.5; 1 xe nhỏ < 32px,daytime,undefined,12
+77,c1797ffb-50a40199.jpg,3,gán lại,12.4,1,32 box vùng xám (nghi sót xe); 2 box confidence < 0.5; ảnh đêm,night,clear,13
+78,c6f6368c-0e7cbc68.jpg,3,gán lại,12.33,1,20 box vùng xám (nghi sót xe); 7 box confidence < 0.5; 7 xe nhỏ < 32px; box chồng lấn mạnh; có bus (lớp hiếm),daytime,partly cloudy,14
+79,c4e55051-bda84aa3.jpg,3,gán lại,12.3,0,21 box vùng xám (nghi sót xe); 6 box confidence < 0.5; 6 xe nhỏ < 32px; box chồng lấn mạnh,daytime,clear,15
+80,b40669bb-19958f9a.jpg,3,gán lại,12.27,1,26 box vùng xám (nghi sót xe); 2 box confidence < 0.5; 1 xe nhỏ < 32px; ảnh đêm,night,undefined,7
+81,b447a3cf-10656b18.jpg,3,gán lại,12.11,1,44 box vùng xám (nghi sót xe); 2 box confidence < 0.5; 1 xe nhỏ < 32px; ảnh đêm; thời tiết xấu,night,rainy,19
+82,b5b2f593-25b7b157.jpg,3,gán lại,12.08,0,20 box vùng xám (nghi sót xe); 4 box confidence < 0.5; 2 xe nhỏ < 32px; box chồng lấn mạnh,daytime,clear,7
+83,c949b637-0f47dc98.jpg,3,gán lại,12.02,0,35 box vùng xám (nghi sót xe); 6 box confidence < 0.5; thời tiết xấu,daytime,snowy,10
+84,b893983a-265a0b70.jpg,3,gán lại,12.02,0,22 box vùng xám (nghi sót xe); 4 box confidence < 0.5; 3 xe nhỏ < 32px; box chồng lấn mạnh,daytime,overcast,9
+85,baefe65c-de9ef3eb.jpg,3,gán lại,11.99,1,37 box vùng xám (nghi sót xe); 2 box confidence < 0.5; 3 xe nhỏ < 32px; thời tiết xấu; có bus (lớp hiếm),daytime,snowy,19
+86,b4a8ec73-893c4da4.jpg,3,gán lại,11.96,0,22 box vùng xám (nghi sót xe); 6 box confidence < 0.5; 3 xe nhỏ < 32px; box chồng lấn mạnh,daytime,clear,4
+87,c90a2111-04776fd3.jpg,3,gán lại,11.96,0,23 box vùng xám (nghi sót xe); 5 box confidence < 0.5; 2 xe nhỏ < 32px; box chồng lấn mạnh,daytime,overcast,13
+88,bd4a61fd-fb447d72.jpg,3,gán lại,11.92,1,31 box vùng xám (nghi sót xe); 3 box confidence < 0.5; ảnh đêm,night,clear,14
+89,c6ffd190-c9536b0b.jpg,3,gán lại,11.92,1,27 box vùng xám (nghi sót xe); 2 box confidence < 0.5; 1 xe nhỏ < 32px; ảnh đêm,night,clear,18
+90,bfbe2ad2-03a46467.jpg,2,xác minh,11.84,1,35 box vùng xám (nghi sót xe); 4 box confidence < 0.5; 1 xe nhỏ < 32px; ảnh đêm; thời tiết xấu; có bus (lớp hiếm),night,rainy,11
+91,c620ac7c-124d4be5.jpg,2,xác minh,11.83,1,22 box vùng xám (nghi sót xe); 3 box confidence < 0.5; 2 xe nhỏ < 32px; ảnh đêm,night,clear,6
+92,c845b617-f7e6bd96.jpg,2,xác minh,11.82,0,42 box vùng xám (nghi sót xe); 2 box confidence < 0.5; thời tiết xấu,daytime,rainy,8
+93,c4770a97-fb46c2d8.jpg,2,xác minh,11.82,1,37 box vùng xám (nghi sót xe); 2 box confidence < 0.5; 1 xe nhỏ < 32px; ảnh đêm,night,clear,17
+94,bbc06e30-64bcf017.jpg,2,xác minh,11.78,1,50 box vùng xám (nghi sót xe); ảnh đêm; có bus (lớp hiếm),night,clear,14
+95,b46009c2-9334336d.jpg,2,xác minh,11.76,1,31 box vùng xám (nghi sót xe); 3 box confidence < 0.5; 1 xe nhỏ < 32px; ảnh đêm,night,clear,11
+96,baa79505-43ff4345.jpg,2,xác minh,11.74,0,22 box vùng xám (nghi sót xe); 4 box confidence < 0.5; 3 xe nhỏ < 32px; box chồng lấn mạnh,daytime,partly cloudy,15
+97,c8620a67-55f86ae2.jpg,2,xác minh,11.72,0,23 box vùng xám (nghi sót xe); 6 box confidence < 0.5; 2 xe nhỏ < 32px; box chồng lấn mạnh,daytime,partly cloudy,11
+98,bb4fca33-008f9178.jpg,2,xác minh,11.7,1,38 box vùng xám (nghi sót xe); 1 box confidence < 0.5; ảnh đêm,night,clear,16
+99,b5e3d0f7-4ed391cd.jpg,2,xác minh,11.56,0,37 box vùng xám (nghi sót xe); 3 box confidence < 0.5,undefined,undefined,13
+100,c79de76f-e52908de.jpg,2,xác minh,11.54,1,32 box vùng xám (nghi sót xe); 3 box confidence < 0.5; ảnh đêm,night,clear,16
+101,c1f5ccf1-3db75c28.jpg,2,xác minh,11.52,1,42 box vùng xám (nghi sót xe); 1 box confidence < 0.5; ảnh đêm,night,clear,16
+102,b9e12f59-40d0d945.jpg,2,xác minh,11.37,1,31 box vùng xám (nghi sót xe); 1 box confidence < 0.5; 1 xe nhỏ < 32px; ảnh đêm,night,clear,10
+103,c0de5178-dd9fe4fb.jpg,2,xác minh,11.33,0,38 box vùng xám (nghi sót xe); 3 box confidence < 0.5,dawn/dusk,clear,13
+104,bf90176a-c0b94917.jpg,2,xác minh,11.31,0,23 box vùng xám (nghi sót xe); 4 box confidence < 0.5; 4 xe nhỏ < 32px,daytime,clear,6
+105,c8f39d22-69f436d4.jpg,2,xác minh,11.3,1,37 box vùng xám (nghi sót xe); ảnh đêm,night,clear,6
+106,bbcf6d54-cccd1867.jpg,2,xác minh,11.29,1,24 box vùng xám (nghi sót xe); 4 box confidence < 0.5; 1 xe nhỏ < 32px; ảnh đêm,night,clear,10
+107,c373cc4e-59108d25.jpg,2,xác minh,11.28,1,30 box vùng xám (nghi sót xe); 5 box confidence < 0.5; box chồng lấn mạnh; ảnh đêm,night,clear,10
+108,b5b44d2d-60f87448.jpg,2,xác minh,11.16,0,25 box vùng xám (nghi sót xe); 3 box confidence < 0.5; 3 xe nhỏ < 32px,daytime,clear,11
+109,b5042634-4b1e927b.jpg,2,xác minh,11.15,0,25 box vùng xám (nghi sót xe); 3 box confidence < 0.5; 1 xe nhỏ < 32px; box chồng lấn mạnh,daytime,undefined,8
+110,ba635a0a-fd69cb62.jpg,2,xác minh,11.11,0,25 box vùng xám (nghi sót xe); 3 box confidence < 0.5; box chồng lấn mạnh,daytime,clear,11
+111,b3a87019-ba714074.jpg,2,xác minh,11.08,0,25 box vùng xám (nghi sót xe); 7 box confidence < 0.5; 4 xe nhỏ < 32px; box chồng lấn mạnh; thời tiết xấu,daytime,rainy,15
+112,c74ee988-8f4b380d.jpg,2,xác minh,11.08,1,22 box vùng xám (nghi sót xe); 5 box confidence < 0.5; 3 xe nhỏ < 32px; box chồng lấn mạnh; có bus (lớp hiếm),dawn/dusk,overcast,12
+113,b7ba2ed7-7f381040.jpg,2,xác minh,11.06,1,35 box vùng xám (nghi sót xe); 2 box confidence < 0.5; ảnh đêm,night,overcast,9
+114,bab692c9-efde0b04.jpg,2,xác minh,11.02,0,21 box vùng xám (nghi sót xe); 4 box confidence < 0.5; 2 xe nhỏ < 32px; box chồng lấn mạnh,daytime,clear,9
+115,beff1d1c-faff23dd.jpg,2,xác minh,10.99,0,31 box vùng xám (nghi sót xe); 2 box confidence < 0.5; 2 xe nhỏ < 32px,daytime,undefined,13
+116,b97b9ee8-612c36ef.jpg,2,xác minh,10.86,0,22 box vùng xám (nghi sót xe); 2 box confidence < 0.5; 2 xe nhỏ < 32px; box chồng lấn mạnh,daytime,partly cloudy,5
+117,b8201476-b9dba8dd.jpg,2,xác minh,10.84,0,21 box vùng xám (nghi sót xe); 5 box confidence < 0.5; 1 xe nhỏ < 32px; box chồng lấn mạnh,daytime,clear,13
+118,c59c31f2-cdac8cc8.jpg,2,xác minh,10.82,0,35 box vùng xám (nghi sót xe); 2 box confidence < 0.5; 1 xe nhỏ < 32px,daytime,undefined,19
+119,bde6526d-224f7ea1.jpg,2,xác minh,10.78,1,22 box vùng xám (nghi sót xe); 4 box confidence < 0.5; ảnh đêm,night,clear,12
+120,b8a28c17-5befd35a.jpg,2,xác minh,10.77,1,31 box vùng xám (nghi sót xe); 1 box confidence < 0.5; ảnh đêm; có bus (lớp hiếm),night,clear,8
+121,c7955e20-b48c7a6a.jpg,2,xác minh,10.7,0,17 box vùng xám (nghi sót xe); 4 box confidence < 0.5; 8 xe nhỏ < 32px; box chồng lấn mạnh,daytime,clear,11
+122,bc67ddf0-874dcf8d.jpg,2,xác minh,10.53,1,20 box vùng xám (nghi sót xe); 3 box confidence < 0.5; 3 xe nhỏ < 32px; box chồng lấn mạnh; có bus (lớp hiếm),daytime,clear,13
+123,b6579e76-7415d4ba.jpg,2,xác minh,10.49,0,23 box vùng xám (nghi sót xe); 5 box confidence < 0.5; 3 xe nhỏ < 32px; box chồng lấn mạnh; thời tiết xấu,daytime,snowy,13
+124,b6decb24-0de96f8c.jpg,2,xác minh,10.47,0,18 box vùng xám (nghi sót xe); 5 box confidence < 0.5; 4 xe nhỏ < 32px; box chồng lấn mạnh,daytime,clear,8
+125,b6359092-fc2faab6.jpg,2,xác minh,10.47,0,13 box vùng xám (nghi sót xe); 11 box confidence < 0.5; 4 xe nhỏ < 32px; box chồng lấn mạnh,daytime,clear,5
+126,c04ad8f3-05b8c75c.jpg,2,xác minh,10.46,1,31 box vùng xám (nghi sót xe); 2 box confidence < 0.5; ảnh đêm; có bus (lớp hiếm),night,clear,8
+127,c0dee1a9-19b5d7a5.jpg,2,xác minh,10.39,1,26 box vùng xám (nghi sót xe); 3 box confidence < 0.5; ảnh đêm,night,clear,11
+128,b8e675b0-2345da2d.jpg,2,xác minh,10.39,1,36 box vùng xám (nghi sót xe); ảnh đêm,night,clear,24
+129,ca6170df-c1a75664.jpg,2,xác minh,10.36,1,33 box vùng xám (nghi sót xe); 2 box confidence < 0.5; ảnh đêm,night,clear,13
+130,c6dca574-a5f624f4.jpg,2,xác minh,10.34,0,21 box vùng xám (nghi sót xe); 4 box confidence < 0.5; 3 xe nhỏ < 32px,daytime,clear,11
+131,bbc64a91-b3bf5a63.jpg,2,xác minh,10.34,1,32 box vùng xám (nghi sót xe); 3 box confidence < 0.5; ảnh đêm,night,clear,15
+132,b1c9c847-3bda4659.jpg,2,xác minh,10.28,0,19 box vùng xám (nghi sót xe); 4 box confidence < 0.5; 2 xe nhỏ < 32px; box chồng lấn mạnh,daytime,undefined,7
+133,c9c4d608-4555cd80.jpg,2,xác minh,10.27,1,28 box vùng xám (nghi sót xe); 1 box confidence < 0.5; 2 xe nhỏ < 32px; có bus (lớp hiếm),daytime,partly cloudy,11
+134,c09ffc61-d494d8f0.jpg,2,xác minh,10.2,0,22 box vùng xám (nghi sót xe); 4 box confidence < 0.5; 2 xe nhỏ < 32px,daytime,clear,9
+135,bfdd9ffd-3943106e.jpg,2,xác minh,10.17,0,26 box vùng xám (nghi sót xe); 4 box confidence < 0.5; 1 xe nhỏ < 32px; box chồng lấn mạnh; thời tiết xấu,daytime,rainy,10
+136,b84507e4-4f69e97b.jpg,2,xác minh,10.16,1,22 box vùng xám (nghi sót xe); 4 box confidence < 0.5; 1 xe nhỏ < 32px; ảnh đêm,night,clear,16
+137,b8b15e54-f8461121.jpg,2,xác minh,10.13,1,19 box vùng xám (nghi sót xe); 4 box confidence < 0.5; 3 xe nhỏ < 32px; box chồng lấn mạnh; có bus (lớp hiếm),daytime,clear,7
+138,b4475526-4a48bfe5.jpg,2,xác minh,10.13,0,31 box vùng xám (nghi sót xe); 1 box confidence < 0.5; 2 xe nhỏ < 32px,daytime,overcast,10
+139,b4ed5563-e22cb18a.jpg,2,xác minh,10.11,1,28 box vùng xám (nghi sót xe); 3 box confidence < 0.5; ảnh đêm,night,clear,6
+140,bffe8c14-b44a7634.jpg,2,xác minh,10.1,1,20 box vùng xám (nghi sót xe); 6 box confidence < 0.5; box chồng lấn mạnh; có bus (lớp hiếm),daytime,undefined,9
+141,c3b1694b-79c97ac2.jpg,2,xác minh,10.1,0,24 box vùng xám (nghi sót xe); 4 box confidence < 0.5; box chồng lấn mạnh,daytime,undefined,9
+142,ca679a1e-b92f424d.jpg,2,xác minh,10.08,1,24 box vùng xám (nghi sót xe); 1 box confidence < 0.5; ảnh đêm,night,clear,2
+143,bf7b93b6-de7552a6.jpg,2,xác minh,10.04,0,27 box vùng xám (nghi sót xe); 1 box confidence < 0.5; 2 xe nhỏ < 32px,daytime,overcast,14
+144,c95f8af6-f4a9099f.jpg,2,xác minh,10.02,1,19 box vùng xám (nghi sót xe); 4 box confidence < 0.5; 2 xe nhỏ < 32px; ảnh đêm,night,clear,8
+145,bbeefd23-dbf4d60e.jpg,2,xác minh,10.01,0,21 box vùng xám (nghi sót xe); 1 box confidence < 0.5; 3 xe nhỏ < 32px,daytime,undefined,8
+146,b666b95d-c38366c7.jpg,2,xác minh,10.0,0,32 box vùng xám (nghi sót xe); 5 box confidence < 0.5; thời tiết xấu,daytime,rainy,10
+147,ba908c74-4e0a63ae.jpg,2,xác minh,9.98,1,20 box vùng xám (nghi sót xe); 3 box confidence < 0.5; 1 xe nhỏ < 32px; box chồng lấn mạnh; có bus (lớp hiếm),daytime,undefined,10
+148,c68dcb6b-c1775bef.jpg,2,xác minh,9.93,0,22 box vùng xám (nghi sót xe); 3 box confidence < 0.5; 1 xe nhỏ < 32px; box chồng lấn mạnh,daytime,clear,17
+149,b9a8d20a-4c0028f7.jpg,2,xác minh,9.89,1,24 box vùng xám (nghi sót xe); 1 box confidence < 0.5; 1 xe nhỏ < 32px; ảnh đêm,night,clear,11
+150,ca3165e0-3a330c98.jpg,2,xác minh,9.88,1,30 box vùng xám (nghi sót xe); 2 box confidence < 0.5; ảnh đêm,night,clear,14
+151,bb0b99d2-a91aab3d.jpg,2,xác minh,9.87,1,22 box vùng xám (nghi sót xe); 2 box confidence < 0.5; box chồng lấn mạnh; có bus (lớp hiếm),dawn/dusk,overcast,9
+152,bcde71de-ac5c8c74.jpg,2,xác minh,9.83,0,22 box vùng xám (nghi sót xe); 3 box confidence < 0.5; 3 xe nhỏ < 32px; box chồng lấn mạnh,daytime,undefined,7
+153,b3e72283-d9fc39b0.jpg,2,xác minh,9.8,1,26 box vùng xám (nghi sót xe); 6 box confidence < 0.5; 1 xe nhỏ < 32px; box chồng lấn mạnh; ảnh đêm; thời tiết xấu,night,rainy,10
+154,c87d3555-5c159851.jpg,2,xác minh,9.79,0,18 box vùng xám (nghi sót xe); 5 box confidence < 0.5; 1 xe nhỏ < 32px; box chồng lấn mạnh,daytime,overcast,11
+155,be73806a-cd8633af.jpg,2,xác minh,9.78,1,26 box vùng xám (nghi sót xe); 1 box confidence < 0.5; ảnh đêm,night,clear,10
+156,baa9acbe-f3af19f6.jpg,2,xác minh,9.75,1,24 box vùng xám (nghi sót xe); 3 box confidence < 0.5; ảnh đêm; có bus (lớp hiếm),night,clear,8
+157,c876f8b1-f19a1697.jpg,2,xác minh,9.75,1,23 box vùng xám (nghi sót xe); 2 box confidence < 0.5; ảnh đêm,night,clear,5
+158,c1c811a6-523b402f.jpg,2,xác minh,9.71,1,20 box vùng xám (nghi sót xe); 5 box confidence < 0.5; ảnh đêm,night,clear,6
+159,b6bb7bc8-795f455a.jpg,2,xác minh,9.69,1,28 box vùng xám (nghi sót xe); 1 box confidence < 0.5; ảnh đêm,night,clear,8
+160,c2a6b1c9-dd645325.jpg,2,xác minh,9.69,0,20 box vùng xám (nghi sót xe); 4 box confidence < 0.5; 1 xe nhỏ < 32px; box chồng lấn mạnh,daytime,clear,10
+161,c5c910c6-c7aa96f1.jpg,2,xác minh,9.64,1,42 box vùng xám (nghi sót xe); 4 box confidence < 0.5; ảnh đêm; thời tiết xấu,night,rainy,17
+162,b603f785-b94d2adc.jpg,2,xác minh,9.64,1,22 box vùng xám (nghi sót xe); 2 box confidence < 0.5; box chồng lấn mạnh; ảnh đêm; có bus (lớp hiếm),night,clear,8
+163,bc7a0adc-b360c4b1.jpg,2,xác minh,9.62,0,20 box vùng xám (nghi sót xe); 2 box confidence < 0.5; 1 xe nhỏ < 32px; box chồng lấn mạnh,daytime,clear,9
+164,b9742173-21a140e8.jpg,2,xác minh,9.58,0,22 box vùng xám (nghi sót xe); 2 box confidence < 0.5; 2 xe nhỏ < 32px,daytime,clear,9
+165,c3d39d44-4ee18d50.jpg,2,xác minh,9.58,0,35 box vùng xám (nghi sót xe); 2 box confidence < 0.5; thời tiết xấu,daytime,snowy,16
+166,b4f85748-c4be0117.jpg,2,xác minh,9.58,1,29 box vùng xám (nghi sót xe); ảnh đêm,night,clear,13
+167,b685046c-a16279b4.jpg,2,xác minh,9.57,0,24 box vùng xám (nghi sót xe); 4 box confidence < 0.5; 1 xe nhỏ < 32px; box chồng lấn mạnh,daytime,undefined,13
+168,c1a99e5b-c709000a.jpg,2,xác minh,9.56,0,18 box vùng xám (nghi sót xe); 4 box confidence < 0.5; 4 xe nhỏ < 32px,daytime,clear,3
+169,c7c39101-5935025f.jpg,2,xác minh,9.55,1,26 box vùng xám (nghi sót xe); 2 box confidence < 0.5; box chồng lấn mạnh; ảnh đêm; thời tiết xấu; có bus (lớp hiếm),night,snowy,6
+170,b535fb0a-845db498.jpg,2,xác minh,9.49,0,15 box vùng xám (nghi sót xe); 3 box confidence < 0.5; 7 xe nhỏ < 32px; box chồng lấn mạnh,daytime,undefined,9
+171,b5c6d506-d687e2ab.jpg,2,xác minh,9.49,1,21 box vùng xám (nghi sót xe); 1 box confidence < 0.5; 3 xe nhỏ < 32px; ảnh đêm,night,clear,9
+172,c5f27105-45b3e276.jpg,2,xác minh,9.48,0,19 box vùng xám (nghi sót xe); 2 box confidence < 0.5; 6 xe nhỏ < 32px,daytime,partly cloudy,13
+173,c01c4d85-a68b0ac8.jpg,2,xác minh,9.48,1,25 box vùng xám (nghi sót xe); 2 box confidence < 0.5; ảnh đêm,night,clear,13
+174,b28aac6c-9f1b99cb.jpg,2,xác minh,9.48,1,không có box nào confidence ≥ 0.3; 32 box vùng xám (nghi sót xe); ảnh đêm,night,clear,21
+175,b83d7cf3-4e193818.jpg,2,xác minh,9.47,0,25 box vùng xám (nghi sót xe); 2 box confidence < 0.5; 2 xe nhỏ < 32px,daytime,clear,11
+176,c571c186-39041336.jpg,2,xác minh,9.47,1,28 box vùng xám (nghi sót xe); 1 box confidence < 0.5; ảnh đêm; có bus (lớp hiếm),night,clear,12
+177,c676514a-8b4d18b7.jpg,2,xác minh,9.45,1,22 box vùng xám (nghi sót xe); 3 box confidence < 0.5; box chồng lấn mạnh; ảnh đêm; có bus (lớp hiếm),night,undefined,8
+178,bc66fedc-6649b88c.jpg,2,xác minh,9.45,1,21 box vùng xám (nghi sót xe); 2 box confidence < 0.5; 2 xe nhỏ < 32px; ảnh đêm,night,clear,8
+179,c3e986e8-99f2d744.jpg,2,xác minh,9.45,1,34 box vùng xám (nghi sót xe); 1 box confidence < 0.5; 1 xe nhỏ < 32px; ảnh đêm,night,clear,14
+180,c66c630d-0ffac45a.jpg,2,xác minh,9.44,0,23 box vùng xám (nghi sót xe); 5 box confidence < 0.5; box chồng lấn mạnh; thời tiết xấu,daytime,rainy,7
+181,c48f5464-73d132a1.jpg,2,xác minh,9.44,0,23 box vùng xám (nghi sót xe); 2 box confidence < 0.5; 3 xe nhỏ < 32px,daytime,overcast,4
+182,c041f204-6b0c3778.jpg,2,xác minh,9.41,1,16 box vùng xám (nghi sót xe); 2 box confidence < 0.5; 5 xe nhỏ < 32px; box chồng lấn mạnh; có bus (lớp hiếm),daytime,partly cloudy,11
+183,b364b881-5dd3ec28.jpg,2,xác minh,9.37,1,17 box vùng xám (nghi sót xe); 5 box confidence < 0.5; 2 xe nhỏ < 32px; ảnh đêm,night,clear,6
+184,b3f7c502-d89499e0.jpg,2,xác minh,9.34,1,26 box vùng xám (nghi sót xe); 2 box confidence < 0.5; ảnh đêm,night,clear,10
+185,b6ffe7bd-7c91eac9.jpg,2,xác minh,9.31,1,23 box vùng xám (nghi sót xe); 2 box confidence < 0.5; có bus (lớp hiếm),daytime,clear,9
+186,bbff5146-d503a17e.jpg,2,xác minh,9.22,1,33 box vùng xám (nghi sót xe); 1 box confidence < 0.5; ảnh đêm; thời tiết xấu,night,snowy,7
+187,b4a240e1-6e3cd8b8.jpg,2,xác minh,9.14,1,38 box vùng xám (nghi sót xe); ảnh đêm,night,clear,14
+188,c6549c4a-35d928df.jpg,2,xác minh,9.11,1,31 box vùng xám (nghi sót xe); 1 box confidence < 0.5; ảnh đêm; thời tiết xấu,night,rainy,12
+189,b1d968b9-ce42734f.jpg,2,xác minh,9.06,0,19 box vùng xám (nghi sót xe); 4 box confidence < 0.5; 4 xe nhỏ < 32px,dawn/dusk,overcast,10
+190,c2937a02-db177509.jpg,2,xác minh,9.03,0,24 box vùng xám (nghi sót xe); 2 box confidence < 0.5,daytime,clear,7
+191,b22e02cd-6af68e18.jpg,2,xác minh,8.99,1,22 box vùng xám (nghi sót xe); 2 box confidence < 0.5; ảnh đêm,night,clear,8
+192,b9baae14-474c5be2.jpg,2,xác minh,8.98,0,16 box vùng xám (nghi sót xe); 4 box confidence < 0.5; 2 xe nhỏ < 32px; box chồng lấn mạnh,daytime,overcast,9
+193,b555790d-e81a454b.jpg,2,xác minh,8.97,0,20 box vùng xám (nghi sót xe); 1 box confidence < 0.5; 2 xe nhỏ < 32px,daytime,undefined,6
+194,be94df25-464ac4f8.jpg,2,xác minh,8.95,0,26 box vùng xám (nghi sót xe); box chồng lấn mạnh,daytime,clear,11
+195,c5b80ec1-bb9fd172.jpg,2,xác minh,8.94,0,22 box vùng xám (nghi sót xe); 1 box confidence < 0.5; 2 xe nhỏ < 32px,daytime,clear,9
+196,bb9e60a8-3a61f409.jpg,2,xác minh,8.94,0,19 box vùng xám (nghi sót xe); 1 box confidence < 0.5; 1 xe nhỏ < 32px,daytime,clear,2
+197,c24bae34-454a0416.jpg,2,xác minh,8.93,0,19 box vùng xám (nghi sót xe); 2 box confidence < 0.5; 2 xe nhỏ < 32px,daytime,partly cloudy,11
+198,bee6f1ed-d591156d.jpg,2,xác minh,8.91,1,33 box vùng xám (nghi sót xe); ảnh đêm; thời tiết xấu,night,rainy,12
+199,c86b771a-b1c0561b.jpg,2,xác minh,8.9,1,16 box vùng xám (nghi sót xe); 3 box confidence < 0.5; 2 xe nhỏ < 32px; có bus (lớp hiếm),daytime,overcast,4
+200,c0c183ff-1b24f541.jpg,2,xác minh,8.85,0,13 box vùng xám (nghi sót xe); 7 box confidence < 0.5; 5 xe nhỏ < 32px; box chồng lấn mạnh,daytime,clear,8
+201,c58d52cb-63d66bf4.jpg,2,xác minh,8.84,1,21 box vùng xám (nghi sót xe); 2 box confidence < 0.5; 1 xe nhỏ < 32px; box chồng lấn mạnh; ảnh đêm,night,clear,21
+202,c7416644-f82aa227.jpg,2,xác minh,8.82,1,16 box vùng xám (nghi sót xe); 3 box confidence < 0.5; 2 xe nhỏ < 32px; box chồng lấn mạnh; ảnh đêm,night,clear,7
+203,b3a94ee5-68ed7d65.jpg,2,xác minh,8.82,0,19 box vùng xám (nghi sót xe); 4 box confidence < 0.5; 3 xe nhỏ < 32px,dawn/dusk,overcast,10
+204,c96ffe59-e18bc459.jpg,2,xác minh,8.81,1,22 box vùng xám (nghi sót xe); 1 box confidence < 0.5; ảnh đêm,night,clear,13
+205,c4cf6bff-d98bdd3c.jpg,2,xác minh,8.78,0,25 box vùng xám (nghi sót xe); 2 box confidence < 0.5; 1 xe nhỏ < 32px,dawn/dusk,clear,13
+206,bdb035d5-c1048cf3.jpg,2,xác minh,8.78,1,26 box vùng xám (nghi sót xe); 1 box confidence < 0.5; ảnh đêm,night,clear,7
+207,c8af3e03-7468b30d.jpg,2,xác minh,8.77,1,23 box vùng xám (nghi sót xe); 1 box confidence < 0.5; ảnh đêm,night,clear,19
+208,c330c787-368eb638.jpg,2,xác minh,8.77,0,20 box vùng xám (nghi sót xe); 2 box confidence < 0.5; 1 xe nhỏ < 32px,daytime,clear,8
+209,c6e1c974-906461f4.jpg,2,xác minh,8.77,0,15 box vùng xám (nghi sót xe); 2 box confidence < 0.5; 2 xe nhỏ < 32px,daytime,partly cloudy,8
+210,c68e50e0-91685ec0.jpg,2,xác minh,8.74,0,21 box vùng xám (nghi sót xe); 4 box confidence < 0.5; 3 xe nhỏ < 32px; thời tiết xấu,daytime,rainy,11
+211,beea0e03-fa22a607.jpg,2,xác minh,8.69,0,18 box vùng xám (nghi sót xe); 3 box confidence < 0.5; 2 xe nhỏ < 32px,daytime,clear,12
+212,c9f6b520-523674ac.jpg,2,xác minh,8.67,0,15 box vùng xám (nghi sót xe); 4 box confidence < 0.5; 1 xe nhỏ < 32px; box chồng lấn mạnh,daytime,overcast,7
+213,b2fc7cb5-1635d64b.jpg,2,xác minh,8.63,1,22 box vùng xám (nghi sót xe); 1 box confidence < 0.5; ảnh đêm,night,clear,5
+214,bdeec3db-4796d5a6.jpg,2,xác minh,8.61,1,30 box vùng xám (nghi sót xe); 1 box confidence < 0.5; ảnh đêm,night,clear,13
+215,b982723f-84848a7f.jpg,2,xác minh,8.6,0,17 box vùng xám (nghi sót xe); 6 box confidence < 0.5; 8 xe nhỏ < 32px; box chồng lấn mạnh; thời tiết xấu,daytime,snowy,11
+216,b71d7574-e6bc43e9.jpg,2,xác minh,8.6,0,17 box vùng xám (nghi sót xe); 3 box confidence < 0.5; box chồng lấn mạnh,daytime,undefined,8
+217,c9312bb0-7ac780f4.jpg,2,xác minh,8.59,1,21 box vùng xám (nghi sót xe); 1 box confidence < 0.5; 1 xe nhỏ < 32px; ảnh đêm,night,clear,6
+218,c27353a6-2b3a186d.jpg,2,xác minh,8.58,0,15 box vùng xám (nghi sót xe); 3 box confidence < 0.5; 2 xe nhỏ < 32px; box chồng lấn mạnh,daytime,clear,8
+219,beeaded5-9bb26175.jpg,2,xác minh,8.57,1,20 box vùng xám (nghi sót xe); 3 box confidence < 0.5; ảnh đêm,night,clear,15
+220,b57a6b0c-86b6e489.jpg,2,xác minh,8.56,0,13 box vùng xám (nghi sót xe); 5 box confidence < 0.5; 4 xe nhỏ < 32px; box chồng lấn mạnh,daytime,clear,9
+221,b3e72283-584093dc.jpg,2,xác minh,8.53,0,14 box vùng xám (nghi sót xe); 4 box confidence < 0.5; 5 xe nhỏ < 32px,daytime,overcast,8
+222,b5046f1e-7b9d98d0.jpg,2,xác minh,8.53,1,20 box vùng xám (nghi sót xe); 1 box confidence < 0.5; ảnh đêm,night,clear,6
+223,bfe0801e-20388316.jpg,2,xác minh,8.5,1,15 box vùng xám (nghi sót xe); 2 box confidence < 0.5; 2 xe nhỏ < 32px; box chồng lấn mạnh; có bus (lớp hiếm),daytime,clear,6
+224,b3da33d5-a64e7657.jpg,2,xác minh,8.49,0,17 box vùng xám (nghi sót xe); 2 box confidence < 0.5; 1 xe nhỏ < 32px; box chồng lấn mạnh,daytime,clear,4
+225,c715680d-cd283438.jpg,2,xác minh,8.47,1,28 box vùng xám (nghi sót xe); 1 box confidence < 0.5; ảnh đêm; thời tiết xấu,night,snowy,16
+226,c2b673e4-93811ad0.jpg,2,xác minh,8.46,1,không có box nào confidence ≥ 0.3; 26 box vùng xám (nghi sót xe); ảnh đêm,night,clear,8
+227,bcef7536-5c2e5a49.jpg,2,xác minh,8.39,1,19 box vùng xám (nghi sót xe); 2 box confidence < 0.5; ảnh đêm,night,clear,19
+228,c45cf21f-d6bc94ba.jpg,2,xác minh,8.36,0,24 box vùng xám (nghi sót xe); 1 box confidence < 0.5; 1 xe nhỏ < 32px,dawn/dusk,clear,7
+229,c97c0d3c-b656cd59.jpg,2,xác minh,8.36,1,16 box vùng xám (nghi sót xe); 3 box confidence < 0.5; 1 xe nhỏ < 32px; ảnh đêm; có bus (lớp hiếm),night,clear,12
+230,b336bdb9-ed5d2cc3.jpg,2,xác minh,8.32,0,32 box vùng xám (nghi sót xe); 1 box confidence < 0.5; thời tiết xấu,daytime,rainy,17
+231,c2b457e5-36e3ecee.jpg,2,xác minh,8.29,0,21 box vùng xám (nghi sót xe); 1 box confidence < 0.5,daytime,clear,7
+232,bff2ee41-90d20c1a.jpg,2,xác minh,8.28,0,23 box vùng xám (nghi sót xe); 1 box confidence < 0.5,daytime,undefined,13
+233,b645271a-42c7ec52.jpg,2,xác minh,8.26,1,28 box vùng xám (nghi sót xe); 3 box confidence < 0.5; 1 xe nhỏ < 32px; ảnh đêm; thời tiết xấu,night,rainy,5
+234,bcaf73c1-e0c7165a.jpg,2,xác minh,8.24,1,30 box vùng xám (nghi sót xe); 2 box confidence < 0.5; ảnh đêm; thời tiết xấu; có bus (lớp hiếm),night,rainy,11
+235,b97b9ee8-ea15f29a.jpg,2,xác minh,8.22,0,18 box vùng xám (nghi sót xe); 2 box confidence < 0.5; 3 xe nhỏ < 32px; box chồng lấn mạnh,dawn/dusk,overcast,7
+236,c7f7a5bb-41d4551f.jpg,2,xác minh,8.19,0,16 box vùng xám (nghi sót xe); 3 box confidence < 0.5; 4 xe nhỏ < 32px,dawn/dusk,overcast,11
+237,beea0e03-031a65e7.jpg,2,xác minh,8.17,0,20 box vùng xám (nghi sót xe); 2 box confidence < 0.5; box chồng lấn mạnh,daytime,undefined,3
+238,c43df889-173cde62.jpg,2,xác minh,8.12,1,23 box vùng xám (nghi sót xe); 1 box confidence < 0.5; ảnh đêm,night,clear,6
+239,bdd3c8b3-ff26c094.jpg,2,xác minh,8.1,1,17 box vùng xám (nghi sót xe); 3 box confidence < 0.5; ảnh đêm,night,clear,6
+240,b4aabd48-38c15aba.jpg,2,xác minh,8.1,0,17 box vùng xám (nghi sót xe); 5 box confidence < 0.5; 2 xe nhỏ < 32px; box chồng lấn mạnh,daytime,undefined,4
+241,c3b1694b-fadd8eba.jpg,2,xác minh,8.09,0,23 box vùng xám (nghi sót xe); 2 box confidence < 0.5,daytime,clear,6
+242,b33ced12-c53391e6.jpg,2,xác minh,8.06,0,15 box vùng xám (nghi sót xe); 5 box confidence < 0.5; 2 xe nhỏ < 32px; box chồng lấn mạnh,daytime,clear,7
+243,c5a4ccc0-2bc61efc.jpg,2,xác minh,8.06,1,19 box vùng xám (nghi sót xe); 2 box confidence < 0.5; ảnh đêm,night,clear,16
+244,bff7ed18-b5f7d2e1.jpg,2,xác minh,8.04,0,22 box vùng xám (nghi sót xe); 1 box confidence < 0.5; 1 xe nhỏ < 32px,daytime,overcast,15
+245,c6a0f0b4-648cd548.jpg,2,xác minh,8.03,1,18 box vùng xám (nghi sót xe); 2 box confidence < 0.5; 2 xe nhỏ < 32px; ảnh đêm,night,clear,9
+246,c399b1cb-0b569b85.jpg,2,xác minh,8.03,0,16 box vùng xám (nghi sót xe); 2 box confidence < 0.5; 2 xe nhỏ < 32px,daytime,clear,4
+247,b7b32a5f-90bce6e1.jpg,2,xác minh,8.03,1,16 box vùng xám (nghi sót xe); 3 box confidence < 0.5; 1 xe nhỏ < 32px; ảnh đêm,night,clear,7
+248,b3a4cbbb-73f71148.jpg,2,xác minh,8.0,1,19 box vùng xám (nghi sót xe); 2 box confidence < 0.5; ảnh đêm,night,clear,6
+249,b6d855a5-c1d5a996.jpg,2,xác minh,7.98,0,25 box vùng xám (nghi sót xe); 1 box confidence < 0.5,daytime,partly cloudy,13
+250,c2032247-86ea336e.jpg,2,xác minh,7.98,0,14 box vùng xám (nghi sót xe); 2 box confidence < 0.5; 3 xe nhỏ < 32px; box chồng lấn mạnh,daytime,clear,9
+251,c93364f2-95b285aa.jpg,2,xác minh,7.96,1,23 box vùng xám (nghi sót xe); 2 box confidence < 0.5; 1 xe nhỏ < 32px; thời tiết xấu; có bus (lớp hiếm),daytime,snowy,10
+252,b5ff07b5-3411352a.jpg,2,xác minh,7.94,1,23 box vùng xám (nghi sót xe); 1 box confidence < 0.5; ảnh đêm,night,clear,17
+253,b782f9ad-6bc1d4ee.jpg,2,xác minh,7.92,1,25 box vùng xám (nghi sót xe); ảnh đêm,night,clear,9
+254,bedcfa26-e2d45cac.jpg,2,xác minh,7.92,0,16 box vùng xám (nghi sót xe); 3 box confidence < 0.5; 1 xe nhỏ < 32px; box chồng lấn mạnh,dawn/dusk,partly cloudy,14
+255,c571c186-33a17c72.jpg,2,xác minh,7.9,1,16 box vùng xám (nghi sót xe); 1 box confidence < 0.5; 1 xe nhỏ < 32px; ảnh đêm,night,clear,8
+256,c946b395-eac458c3.jpg,2,xác minh,7.9,0,14 box vùng xám (nghi sót xe); 2 box confidence < 0.5; 5 xe nhỏ < 32px; box chồng lấn mạnh,daytime,overcast,8
+257,bc6a6534-8b519e81.jpg,2,xác minh,7.89,1,13 box vùng xám (nghi sót xe); 6 box confidence < 0.5; box chồng lấn mạnh; có bus (lớp hiếm),daytime,overcast,7
+258,b7a9b166-52309c81.jpg,2,xác minh,7.87,0,13 box vùng xám (nghi sót xe); 2 box confidence < 0.5; 2 xe nhỏ < 32px; box chồng lấn mạnh,daytime,clear,8
+259,bf196891-1bf4eedc.jpg,2,xác minh,7.86,0,15 box vùng xám (nghi sót xe); 3 box confidence < 0.5; box chồng lấn mạnh,daytime,overcast,9
+260,b2965b06-88a1da19.jpg,2,xác minh,7.85,1,20 box vùng xám (nghi sót xe); 2 box confidence < 0.5; ảnh đêm,night,clear,8
+261,b677a46e-fb00fe82.jpg,2,xác minh,7.84,1,15 box vùng xám (nghi sót xe); 1 box confidence < 0.5; 1 xe nhỏ < 32px; ảnh đêm,night,clear,9
+262,ba402b44-b17beb78.jpg,2,xác minh,7.84,0,13 box vùng xám (nghi sót xe); 3 box confidence < 0.5; 4 xe nhỏ < 32px,daytime,clear,3
+263,ca194104-1aa2aa9a.jpg,2,xác minh,7.83,0,16 box vùng xám (nghi sót xe); 2 box confidence < 0.5; 1 xe nhỏ < 32px,daytime,overcast,8
+264,baa50786-e1613030.jpg,2,xác minh,7.78,0,13 box vùng xám (nghi sót xe); 5 box confidence < 0.5; 3 xe nhỏ < 32px; box chồng lấn mạnh,daytime,clear,5
+265,c2d5a01a-a0821dcd.jpg,2,xác minh,7.74,1,20 box vùng xám (nghi sót xe); 3 box confidence < 0.5; 1 xe nhỏ < 32px; ảnh đêm; thời tiết xấu,night,snowy,9
+266,c9557697-8a2ab930.jpg,2,xác minh,7.71,1,29 box vùng xám (nghi sót xe); 1 box confidence < 0.5; ảnh đêm,night,clear,7
+267,c32246a5-79a01821.jpg,2,xác minh,7.67,0,13 box vùng xám (nghi sót xe); 2 box confidence < 0.5; 3 xe nhỏ < 32px,daytime,clear,10
+268,c3283326-74d7ae20.jpg,2,xác minh,7.64,1,23 box vùng xám (nghi sót xe); 1 box confidence < 0.5; ảnh đêm,night,clear,2
+269,b5ab0e46-19655ca4.jpg,2,xác minh,7.63,0,12 box vùng xám (nghi sót xe); 6 box confidence < 0.5; 1 xe nhỏ < 32px; box chồng lấn mạnh,daytime,clear,10
+270,c52a5080-f9be7559.jpg,2,xác minh,7.61,0,21 box vùng xám (nghi sót xe); 2 box confidence < 0.5; 3 xe nhỏ < 32px; thời tiết xấu,daytime,snowy,7
+271,c48f5464-2b6fcad2.jpg,2,xác minh,7.61,0,11 box vùng xám (nghi sót xe); 4 box confidence < 0.5; 4 xe nhỏ < 32px; box chồng lấn mạnh,daytime,overcast,7
+272,c447f74e-f67bf173.jpg,2,xác minh,7.59,0,không có box nào confidence ≥ 0.3; 21 box vùng xám (nghi sót xe),daytime,clear,26
+273,c21d47dc-fd0bdc45.jpg,2,xác minh,7.59,0,11 box vùng xám (nghi sót xe); 3 box confidence < 0.5; 2 xe nhỏ < 32px,daytime,undefined,11
+274,c122b0dd-9c06c62c.jpg,2,xác minh,7.57,1,15 box vùng xám (nghi sót xe); 3 box confidence < 0.5; 2 xe nhỏ < 32px; ảnh đêm; có bus (lớp hiếm),night,clear,10
+275,b23b2649-1a78948d.jpg,2,xác minh,7.56,0,18 box vùng xám (nghi sót xe); 1 box confidence < 0.5; 1 xe nhỏ < 32px,daytime,partly cloudy,4
+276,c1aa3aff-7dab2121.jpg,2,xác minh,7.52,0,12 box vùng xám (nghi sót xe); 3 box confidence < 0.5; box chồng lấn mạnh,daytime,undefined,6
+277,bfc8dd24-b7264c9d.jpg,2,xác minh,7.49,0,12 box vùng xám (nghi sót xe); 2 box confidence < 0.5; 4 xe nhỏ < 32px; box chồng lấn mạnh,daytime,overcast,14
+278,bf60c0eb-310cd7ca.jpg,2,xác minh,7.47,1,15 box vùng xám (nghi sót xe); 1 box confidence < 0.5; ảnh đêm,night,clear,4
+279,b85d7504-1eef8eea.jpg,2,xác minh,7.46,0,16 box vùng xám (nghi sót xe); 2 box confidence < 0.5; 4 xe nhỏ < 32px; thời tiết xấu,daytime,snowy,7
+280,c0677163-cccbd1cf.jpg,2,xác minh,7.46,0,23 box vùng xám (nghi sót xe); 1 box confidence < 0.5,dawn/dusk,clear,8
+281,ba4bcdc5-3d4f7a56.jpg,2,xác minh,7.44,0,19 box vùng xám (nghi sót xe); 2 box confidence < 0.5,daytime,clear,11
+282,b3eb8895-e5b1e6df.jpg,2,xác minh,7.34,0,21 box vùng xám (nghi sót xe); 1 box confidence < 0.5; box chồng lấn mạnh,daytime,undefined,4
+283,c0677163-89d37846.jpg,2,xác minh,7.33,0,14 box vùng xám (nghi sót xe); 2 box confidence < 0.5; 3 xe nhỏ < 32px,daytime,clear,4
+284,bb298f1a-55b463fb.jpg,2,xác minh,7.33,1,24 box vùng xám (nghi sót xe); ảnh đêm,night,clear,10
+285,b26cfcdc-7b00747d.jpg,2,xác minh,7.32,0,22 box vùng xám (nghi sót xe); 2 box confidence < 0.5; 1 xe nhỏ < 32px; thời tiết xấu,daytime,rainy,10
+286,c155d65b-01ae7aac.jpg,2,xác minh,7.31,0,15 box vùng xám (nghi sót xe); 2 box confidence < 0.5,daytime,undefined,10
+287,bcd596fa-d4c78bb9.jpg,2,xác minh,7.31,0,12 box vùng xám (nghi sót xe); 2 box confidence < 0.5; 4 xe nhỏ < 32px; box chồng lấn mạnh,daytime,clear,6
+288,c1de2ece-fae99097.jpg,2,xác minh,7.3,1,23 box vùng xám (nghi sót xe); 1 box confidence < 0.5; ảnh đêm,night,clear,8
+289,b48c7b5f-49fec7f1.jpg,2,xác minh,7.29,0,14 box vùng xám (nghi sót xe); 3 box confidence < 0.5; 1 xe nhỏ < 32px,daytime,clear,3
+290,bfaca2bb-f1c305a8.jpg,2,xác minh,7.28,0,11 box vùng xám (nghi sót xe); 5 box confidence < 0.5; 1 xe nhỏ < 32px; box chồng lấn mạnh,daytime,clear,7
+291,b7a9b166-a7b6abec.jpg,2,xác minh,7.27,0,26 box vùng xám (nghi sót xe); 1 box confidence < 0.5; box chồng lấn mạnh; thời tiết xấu,daytime,snowy,6
+292,c0e834fd-74036e84.jpg,2,xác minh,7.27,0,14 box vùng xám (nghi sót xe); 2 box confidence < 0.5; 2 xe nhỏ < 32px,daytime,overcast,12
+293,c0f5b0d0-d0dcf28e.jpg,2,xác minh,7.26,1,17 box vùng xám (nghi sót xe); 1 xe nhỏ < 32px; có bus (lớp hiếm),daytime,undefined,3
+294,b49d6c0d-bb90cc08.jpg,2,xác minh,7.26,1,12 box vùng xám (nghi sót xe); 3 box confidence < 0.5; 1 xe nhỏ < 32px; box chồng lấn mạnh; có bus (lớp hiếm),daytime,undefined,7
+295,c60d6c5c-11adb0a5.jpg,2,xác minh,7.24,1,12 box vùng xám (nghi sót xe); 4 box confidence < 0.5; box chồng lấn mạnh; có bus (lớp hiếm),daytime,clear,8
+296,c4605841-affd9541.jpg,2,xác minh,7.23,0,11 box vùng xám (nghi sót xe); 5 box confidence < 0.5; 3 xe nhỏ < 32px; box chồng lấn mạnh,daytime,clear,5
+297,b2c7ebc4-731ea908.jpg,2,xác minh,7.22,1,18 box vùng xám (nghi sót xe); 1 xe nhỏ < 32px; ảnh đêm,night,clear,6
+298,b5b94ff0-c8b06edc.jpg,2,xác minh,7.21,0,16 box vùng xám (nghi sót xe); 3 box confidence < 0.5,daytime,undefined,4
+299,c00d0859-8e02615e.jpg,2,xác minh,7.19,0,9 box vùng xám (nghi sót xe); 6 box confidence < 0.5; 3 xe nhỏ < 32px; box chồng lấn mạnh,daytime,clear,8
+300,b3841888-101ea0f3.jpg,2,xác minh,7.16,1,23 box vùng xám (nghi sót xe); 2 box confidence < 0.5; ảnh đêm,night,clear,7
+301,c0e8fdda-cc0a57e4.jpg,2,xác minh,7.15,0,12 box vùng xám (nghi sót xe); 2 box confidence < 0.5; 2 xe nhỏ < 32px,daytime,undefined,12
+302,b5047c50-e1facff6.jpg,2,xác minh,7.15,0,13 box vùng xám (nghi sót xe); 3 box confidence < 0.5; box chồng lấn mạnh,daytime,undefined,9
+303,b936e35e-f493bf16.jpg,2,xác minh,7.09,1,17 box vùng xám (nghi sót xe); 2 box confidence < 0.5; ảnh đêm; có bus (lớp hiếm),night,clear,9
+304,c4d1be5c-f868e120.jpg,2,xác minh,7.08,1,21 box vùng xám (nghi sót xe); ảnh đêm,night,clear,7
+305,c5c48d80-d0a65d93.jpg,2,xác minh,7.08,1,12 box vùng xám (nghi sót xe); 2 box confidence < 0.5; box chồng lấn mạnh; ảnh đêm; có bus (lớp hiếm),night,clear,9
+306,b79c1f8d-f34cbff5.jpg,2,xác minh,7.06,0,13 box vùng xám (nghi sót xe); 3 box confidence < 0.5; 1 xe nhỏ < 32px; box chồng lấn mạnh,dawn/dusk,clear,6
+307,bea64506-a82db0f9.jpg,2,xác minh,7.0,0,17 box vùng xám (nghi sót xe); 1 box confidence < 0.5; 2 xe nhỏ < 32px,daytime,undefined,6
+308,c93c1596-49d96696.jpg,2,xác minh,7.0,1,12 box vùng xám (nghi sót xe); 3 box confidence < 0.5; 1 xe nhỏ < 32px; ảnh đêm; có bus (lớp hiếm),night,clear,10
+309,b1d0a191-06deb55d.jpg,2,xác minh,6.98,0,15 box vùng xám (nghi sót xe); 3 box confidence < 0.5; 2 xe nhỏ < 32px; box chồng lấn mạnh; thời tiết xấu,daytime,snowy,11
+310,c6a47cec-c221b550.jpg,2,xác minh,6.96,0,11 box vùng xám (nghi sót xe); 3 box confidence < 0.5; 4 xe nhỏ < 32px,dawn/dusk,overcast,3
+311,c9821da0-2b4ef0c0.jpg,2,xác minh,6.94,1,15 box vùng xám (nghi sót xe); 1 box confidence < 0.5; ảnh đêm,night,clear,14
+312,b8b84774-58b7527d.jpg,2,xác minh,6.94,1,24 box vùng xám (nghi sót xe); 1 box confidence < 0.5; ảnh đêm; thời tiết xấu,night,snowy,3
+313,c23551ce-6007b75e.jpg,2,xác minh,6.93,0,14 box vùng xám (nghi sót xe); 2 box confidence < 0.5; 1 xe nhỏ < 32px,daytime,partly cloudy,4
+314,c68e50e0-1d6a90a8.jpg,2,xác minh,6.92,0,13 box vùng xám (nghi sót xe); 6 box confidence < 0.5; 2 xe nhỏ < 32px; box chồng lấn mạnh; thời tiết xấu,daytime,rainy,7
+315,bebd9c47-9d51ac58.jpg,2,xác minh,6.9,1,23 box vùng xám (nghi sót xe); 1 box confidence < 0.5; 1 xe nhỏ < 32px; ảnh đêm; thời tiết xấu,night,rainy,7
+316,bba9d58b-afdc737b.jpg,2,xác minh,6.89,1,17 box vùng xám (nghi sót xe); 2 box confidence < 0.5; ảnh đêm,night,clear,3
+317,bbc9db98-2a592de3.jpg,2,xác minh,6.87,1,11 box vùng xám (nghi sót xe); 3 box confidence < 0.5; 1 xe nhỏ < 32px; box chồng lấn mạnh; ảnh đêm,night,clear,9
+318,c8e01103-9ff8595d.jpg,2,xác minh,6.87,1,18 box vùng xám (nghi sót xe); 1 box confidence < 0.5; thời tiết xấu; có bus (lớp hiếm),daytime,rainy,5
+319,c9ffe9d7-7558d38d.jpg,2,xác minh,6.8,0,14 box vùng xám (nghi sót xe); 2 box confidence < 0.5,daytime,partly cloudy,4
+320,c71751ee-b6f43370.jpg,2,xác minh,6.77,0,17 box vùng xám (nghi sót xe); 2 box confidence < 0.5,dawn/dusk,overcast,11
+321,b726c429-726588e2.jpg,2,xác minh,6.75,0,11 box vùng xám (nghi sót xe); 3 box confidence < 0.5; 4 xe nhỏ < 32px,daytime,overcast,6
+322,b5e1a441-3bc3277c.jpg,2,xác minh,6.75,1,10 box vùng xám (nghi sót xe); 2 box confidence < 0.5; 2 xe nhỏ < 32px; ảnh đêm,night,clear,6
+323,c62cf532-b431541d.jpg,2,xác minh,6.74,1,23 box vùng xám (nghi sót xe); ảnh đêm,night,clear,15
+324,c561cb9a-aafc0bad.jpg,2,xác minh,6.72,1,11 box vùng xám (nghi sót xe); 3 box confidence < 0.5; box chồng lấn mạnh; có bus (lớp hiếm),daytime,overcast,10
+325,ca2bcf0e-69e964d2.jpg,2,xác minh,6.71,0,10 box vùng xám (nghi sót xe); 4 box confidence < 0.5; 1 xe nhỏ < 32px; box chồng lấn mạnh,daytime,clear,11
+326,c57ec379-6b2b4a1b.jpg,2,xác minh,6.67,1,16 box vùng xám (nghi sót xe); 1 box confidence < 0.5; ảnh đêm,night,clear,14
+327,c60b2910-eb72d5a2.jpg,2,xác minh,6.65,1,11 box vùng xám (nghi sót xe); 6 box confidence < 0.5; box chồng lấn mạnh; có bus (lớp hiếm),daytime,overcast,6
+328,ca551156-fb7d1680.jpg,2,xác minh,6.65,1,16 box vùng xám (nghi sót xe); 1 box confidence < 0.5; ảnh đêm,night,clear,8
+329,b5ab0e46-8eab4733.jpg,2,xác minh,6.59,0,21 box vùng xám (nghi sót xe),daytime,clear,11
+330,bd0db9ed-cdca9422.jpg,2,xác minh,6.59,1,17 box vùng xám (nghi sót xe); 4 box confidence < 0.5; box chồng lấn mạnh; ảnh đêm; thời tiết xấu,night,rainy,6
+331,bc24f222-dad76e37.jpg,2,xác minh,6.58,0,9 box vùng xám (nghi sót xe); 3 box confidence < 0.5; 2 xe nhỏ < 32px; box chồng lấn mạnh,dawn/dusk,clear,7
+332,b6ffe7bd-1e0d5145.jpg,2,xác minh,6.56,1,25 box vùng xám (nghi sót xe); ảnh đêm,night,clear,1
+333,b5b17442-ad1dc2ea.jpg,2,xác minh,6.55,0,15 box vùng xám (nghi sót xe); 2 box confidence < 0.5; box chồng lấn mạnh,daytime,overcast,4
+334,c21334d5-57aa0da4.jpg,2,xác minh,6.54,1,14 box vùng xám (nghi sót xe); 1 box confidence < 0.5; ảnh đêm,night,clear,5
+335,bd355fcc-c72ca547.jpg,2,xác minh,6.53,1,11 box vùng xám (nghi sót xe); 1 box confidence < 0.5; 1 xe nhỏ < 32px; ảnh đêm,night,clear,3
+336,c37382d8-010bbe82.jpg,2,xác minh,6.52,0,10 box vùng xám (nghi sót xe); 2 box confidence < 0.5; box chồng lấn mạnh,daytime,partly cloudy,6
+337,ba7ef348-fcf901f3.jpg,2,xác minh,6.51,1,16 box vùng xám (nghi sót xe); 1 box confidence < 0.5; ảnh đêm,night,clear,5
+338,b9e91422-944c7a2f.jpg,2,xác minh,6.5,0,13 box vùng xám (nghi sót xe); 3 box confidence < 0.5; 1 xe nhỏ < 32px,daytime,overcast,6
+339,bd31fb8b-28ae6a12.jpg,2,xác minh,6.49,0,12 box vùng xám (nghi sót xe); 2 box confidence < 0.5; 1 xe nhỏ < 32px,daytime,undefined,8
+340,c3cd662f-228cba06.jpg,2,xác minh,6.49,0,18 box vùng xám (nghi sót xe); 2 box confidence < 0.5; 2 xe nhỏ < 32px; thời tiết xấu,daytime,rainy,3
+341,c35e0eea-8161d596.jpg,2,xác minh,6.47,0,23 box vùng xám (nghi sót xe),dawn/dusk,clear,9
+342,b2a1e013-638d6e4d.jpg,2,xác minh,6.45,0,8 box vùng xám (nghi sót xe); 6 box confidence < 0.5; 3 xe nhỏ < 32px; box chồng lấn mạnh,daytime,clear,5
+343,c4a6774c-753a089b.jpg,2,xác minh,6.45,0,17 box vùng xám (nghi sót xe); 1 box confidence < 0.5,daytime,clear,5
+344,bd8f4dfa-52cf9375.jpg,2,xác minh,6.43,0,14 box vùng xám (nghi sót xe); 3 box confidence < 0.5; 3 xe nhỏ < 32px; box chồng lấn mạnh; thời tiết xấu,dawn/dusk,rainy,7
+345,bec7b5c0-492e391a.jpg,2,xác minh,6.43,0,10 box vùng xám (nghi sót xe); 1 box confidence < 0.5,daytime,overcast,4
+346,c76fbaa1-d03af260.jpg,2,xác minh,6.42,1,18 box vùng xám (nghi sót xe); 1 box confidence < 0.5; ảnh đêm,night,clear,6
+347,bd4518ef-21d8ee40.jpg,2,xác minh,6.4,1,8 box vùng xám (nghi sót xe); 3 box confidence < 0.5; 2 xe nhỏ < 32px; ảnh đêm,night,clear,6
+348,c35a0c1c-33884693.jpg,2,xác minh,6.4,1,10 box vùng xám (nghi sót xe); 3 box confidence < 0.5; 2 xe nhỏ < 32px; box chồng lấn mạnh; có bus (lớp hiếm),daytime,overcast,5
+349,b7ec9c7e-cfdf4a45.jpg,2,xác minh,6.37,0,13 box vùng xám (nghi sót xe); 2 box confidence < 0.5; 2 xe nhỏ < 32px,daytime,overcast,6
+350,b3c39081-34b43a1c.jpg,2,xác minh,6.36,0,21 box vùng xám (nghi sót xe),daytime,partly cloudy,9
+351,c5c352c8-2b9624d5.jpg,2,xác minh,6.32,0,10 box vùng xám (nghi sót xe); 3 box confidence < 0.5; box chồng lấn mạnh,daytime,overcast,6
+352,b940ba87-435d34a8.jpg,2,xác minh,6.23,0,12 box vùng xám (nghi sót xe); 1 box confidence < 0.5; 1 xe nhỏ < 32px,dawn/dusk,clear,15
+353,c4ccd765-48590402.jpg,2,xác minh,6.21,1,16 box vùng xám (nghi sót xe); ảnh đêm,night,clear,7
+354,c4e92086-e1b8324f.jpg,2,xác minh,6.2,0,12 box vùng xám (nghi sót xe); 1 box confidence < 0.5; 2 xe nhỏ < 32px,daytime,overcast,4
+355,b96c88de-92c2d62b.jpg,2,xác minh,6.19,0,16 box vùng xám (nghi sót xe); 4 box confidence < 0.5; 1 xe nhỏ < 32px; box chồng lấn mạnh; thời tiết xấu,dawn/dusk,snowy,11
+356,b61459f8-ae92ce64.jpg,2,xác minh,6.17,0,9 box vùng xám (nghi sót xe); 3 box confidence < 0.5; 4 xe nhỏ < 32px,daytime,clear,8
+357,b26dddb5-28e4a05f.jpg,2,xác minh,6.15,1,14 box vùng xám (nghi sót xe); 2 box confidence < 0.5; 2 xe nhỏ < 32px; có bus (lớp hiếm),dawn/dusk,clear,4
+358,b4b4b979-a64f258c.jpg,2,xác minh,6.14,0,10 box vùng xám (nghi sót xe); 3 box confidence < 0.5; box chồng lấn mạnh,daytime,clear,6
+359,c52f53f8-f2c94064.jpg,2,xác minh,6.12,1,16 box vùng xám (nghi sót xe); 1 box confidence < 0.5; ảnh đêm,night,clear,3
+360,c760a824-730269a3.jpg,2,xác minh,6.11,0,11 box vùng xám (nghi sót xe); 3 box confidence < 0.5; box chồng lấn mạnh,daytime,overcast,12
+361,c993615f-665ece03.jpg,2,xác minh,6.1,0,12 box vùng xám (nghi sót xe); 2 box confidence < 0.5; 3 xe nhỏ < 32px,dawn/dusk,overcast,3
+362,b6606454-86d77cb2.jpg,2,xác minh,6.1,0,11 box vùng xám (nghi sót xe); 1 box confidence < 0.5,daytime,clear,1
+363,be60191c-813aa925.jpg,2,xác minh,6.05,0,14 box vùng xám (nghi sót xe); 3 box confidence < 0.5; 4 xe nhỏ < 32px; thời tiết xấu,daytime,snowy,6
+364,be307493-a2247ebf.jpg,2,xác minh,6.04,1,10 box vùng xám (nghi sót xe); 1 box confidence < 0.5; ảnh đêm,night,clear,1
+365,c405a5e6-c5687e69.jpg,2,xác minh,6.04,0,16 box vùng xám (nghi sót xe); 1 xe nhỏ < 32px,daytime,overcast,7
+366,c7955e20-a156a983.jpg,2,xác minh,6.04,0,16 box vùng xám (nghi sót xe); 1 box confidence < 0.5; 1 xe nhỏ < 32px,daytime,clear,4
+367,c9effc42-a75644ee.jpg,2,xác minh,6.03,1,10 box vùng xám (nghi sót xe); 2 box confidence < 0.5; 4 xe nhỏ < 32px; có bus (lớp hiếm),daytime,undefined,3
+368,b3c3f8ef-8f40dc74.jpg,2,xác minh,6.03,1,13 box vùng xám (nghi sót xe); 3 box confidence < 0.5; 1 xe nhỏ < 32px; ảnh đêm; thời tiết xấu,night,snowy,5
+369,b2bceb54-0b1f3332.jpg,2,xác minh,6.02,0,không có box nào confidence ≥ 0.3; 22 box vùng xám (nghi sót xe); thời tiết xấu,daytime,rainy,8
+370,bb77aa36-6aeefd56.jpg,2,xác minh,6.01,1,11 box vùng xám (nghi sót xe); 2 box confidence < 0.5; 1 xe nhỏ < 32px; ảnh đêm,night,clear,7
+371,c2937a02-5e3132bb.jpg,2,xác minh,6.01,1,8 box vùng xám (nghi sót xe); 3 box confidence < 0.5; 3 xe nhỏ < 32px; box chồng lấn mạnh; có bus (lớp hiếm),daytime,overcast,4
+372,bb300252-63610170.jpg,2,xác minh,6.01,1,không có box nào confidence ≥ 0.3; 16 box vùng xám (nghi sót xe); ảnh đêm,night,clear,14
+373,c267da7f-006f108f.jpg,2,xác minh,6.0,0,14 box vùng xám (nghi sót xe); 2 box confidence < 0.5; 1 xe nhỏ < 32px; thời tiết xấu,daytime,snowy,7
+374,bcbf4834-eed0f97c.jpg,2,xác minh,5.97,1,13 box vùng xám (nghi sót xe); 2 box confidence < 0.5; 1 xe nhỏ < 32px; có bus (lớp hiếm),daytime,clear,8
+375,ba7efc39-b198d2da.jpg,2,xác minh,5.97,1,19 box vùng xám (nghi sót xe); 1 box confidence < 0.5; 1 xe nhỏ < 32px; ảnh đêm; thời tiết xấu,night,snowy,3
+376,ca3736db-cc8e1fb7.jpg,2,xác minh,5.97,0,14 box vùng xám (nghi sót xe),daytime,partly cloudy,10
+377,c2186a76-5444a563.jpg,2,xác minh,5.96,0,13 box vùng xám (nghi sót xe); 1 box confidence < 0.5; 1 xe nhỏ < 32px,daytime,clear,6
+378,bf9e2172-8feb4817.jpg,2,xác minh,5.9,0,12 box vùng xám (nghi sót xe); 1 box confidence < 0.5,daytime,overcast,4
+379,bc79227e-51c8d967.jpg,2,xác minh,5.89,1,15 box vùng xám (nghi sót xe); 1 box confidence < 0.5; ảnh đêm; thời tiết xấu,night,snowy,18
+380,bf838e9d-d8d5be4d.jpg,2,xác minh,5.88,0,15 box vùng xám (nghi sót xe),daytime,clear,9
+381,c6deff23-56aa65be.jpg,2,xác minh,5.88,1,17 box vùng xám (nghi sót xe); ảnh đêm,night,clear,9
+382,be7c5bf9-f31d60c1.jpg,2,xác minh,5.86,1,10 box vùng xám (nghi sót xe); 3 box confidence < 0.5; ảnh đêm; có bus (lớp hiếm),night,clear,3
+383,c43c290b-61f94939.jpg,2,xác minh,5.85,0,9 box vùng xám (nghi sót xe); 2 box confidence < 0.5; 4 xe nhỏ < 32px,daytime,clear,4
+384,b73de6c1-1eb67050.jpg,2,xác minh,5.85,1,9 box vùng xám (nghi sót xe); 3 box confidence < 0.5; 3 xe nhỏ < 32px; box chồng lấn mạnh; có bus (lớp hiếm),daytime,overcast,8
+385,b61aec41-15e06558.jpg,2,xác minh,5.84,1,16 box vùng xám (nghi sót xe); 1 box confidence < 0.5; 1 xe nhỏ < 32px; ảnh đêm,night,clear,9
+386,c566a4d9-3b84e88d.jpg,2,xác minh,5.84,1,12 box vùng xám (nghi sót xe); 1 box confidence < 0.5; ảnh đêm; thời tiết xấu,night,snowy,7
+387,b263f57d-1ccf6e51.jpg,2,xác minh,5.83,1,19 box vùng xám (nghi sót xe); 1 xe nhỏ < 32px; thời tiết xấu; có bus (lớp hiếm),daytime,rainy,11
+388,bb655f15-825903ad.jpg,2,xác minh,5.8,0,8 box vùng xám (nghi sót xe); 2 box confidence < 0.5; 3 xe nhỏ < 32px,daytime,undefined,4
+389,bce1e185-c51123bb.jpg,2,xác minh,5.76,0,9 box vùng xám (nghi sót xe); 2 box confidence < 0.5; 3 xe nhỏ < 32px,daytime,clear,7
+390,c7bc6671-fc3f4552.jpg,2,xác minh,5.71,1,17 box vùng xám (nghi sót xe); 1 box confidence < 0.5; 2 xe nhỏ < 32px; thời tiết xấu; có bus (lớp hiếm),dawn/dusk,rainy,6
+391,bb172cd0-523870b7.jpg,2,xác minh,5.67,1,20 box vùng xám (nghi sót xe); ảnh đêm,night,clear,10
+392,c3b60e81-b28ef868.jpg,2,xác minh,5.65,1,12 box vùng xám (nghi sót xe); 3 box confidence < 0.5; ảnh đêm; thời tiết xấu; có bus (lớp hiếm),night,rainy,3
+393,b255cd6c-bc3cbb18.jpg,2,xác minh,5.65,0,19 box vùng xám (nghi sót xe); 1 xe nhỏ < 32px; thời tiết xấu,daytime,rainy,4
+394,baecebd1-0c93fa0d.jpg,2,xác minh,5.63,0,13 box vùng xám (nghi sót xe); 2 box confidence < 0.5; 1 xe nhỏ < 32px; thời tiết xấu,daytime,rainy,11
+395,bb9e9d40-886fb5e0.jpg,2,xác minh,5.52,1,19 box vùng xám (nghi sót xe); ảnh đêm,night,clear,9
+396,c2c5fee5-da368df3.jpg,2,xác minh,5.51,0,15 box vùng xám (nghi sót xe); 1 box confidence < 0.5,daytime,undefined,5
+397,b570f833-dd98c0f2.jpg,2,xác minh,5.51,0,8 box vùng xám (nghi sót xe); 2 box confidence < 0.5; box chồng lấn mạnh,daytime,overcast,3
+398,be83fbfa-53a6b842.jpg,2,xác minh,5.51,0,9 box vùng xám (nghi sót xe); 2 box confidence < 0.5; 3 xe nhỏ < 32px,daytime,undefined,3
+399,ca561e94-8f719a63.jpg,2,xác minh,5.5,1,11 box vùng xám (nghi sót xe); 2 box confidence < 0.5; box chồng lấn mạnh; có bus (lớp hiếm),daytime,undefined,5
+400,c5a42fb0-f73381b8.jpg,2,xác minh,5.48,0,9 box vùng xám (nghi sót xe); 1 box confidence < 0.5; box chồng lấn mạnh,daytime,partly cloudy,5
+401,c0eba0ba-db5d7deb.jpg,2,xác minh,5.43,0,11 box vùng xám (nghi sót xe); 2 xe nhỏ < 32px,daytime,clear,5
+402,bd9ad5aa-fe1b1a19.jpg,2,xác minh,5.4,1,không có box nào confidence ≥ 0.3; 13 box vùng xám (nghi sót xe); ảnh đêm,night,clear,9
+403,c6fea8ac-016040c9.jpg,2,xác minh,5.38,1,9 box vùng xám (nghi sót xe); 2 box confidence < 0.5; ảnh đêm,night,clear,2
+404,c4f723f1-a0aab25c.jpg,2,xác minh,5.31,1,14 box vùng xám (nghi sót xe); ảnh đêm,night,clear,1
+405,b821ab2e-089c3379.jpg,2,xác minh,5.27,1,13 box vùng xám (nghi sót xe); 1 box confidence < 0.5; ảnh đêm,night,clear,7
+406,b88a00df-e8484d02.jpg,2,xác minh,5.25,1,17 box vùng xám (nghi sót xe); ảnh đêm; có bus (lớp hiếm),night,clear,6
+407,ba70dfe3-69c229dd.jpg,2,xác minh,5.24,1,15 box vùng xám (nghi sót xe); ảnh đêm,night,clear,4
+408,bab90acb-5e9f3a31.jpg,2,xác minh,5.22,1,13 box vùng xám (nghi sót xe); 2 box confidence < 0.5; ảnh đêm,night,clear,3
+409,baf2f38d-596d1bc4.jpg,2,xác minh,5.21,1,10 box vùng xám (nghi sót xe); 2 box confidence < 0.5; ảnh đêm,night,clear,6
+410,b760329b-611024b4.jpg,2,xác minh,5.21,1,8 box vùng xám (nghi sót xe); 2 box confidence < 0.5; box chồng lấn mạnh; có bus (lớp hiếm),daytime,partly cloudy,10
+411,bbcf6d54-e39b0c22.jpg,2,xác minh,5.19,1,10 box vùng xám (nghi sót xe); 4 box confidence < 0.5; box chồng lấn mạnh; ảnh đêm,night,clear,2
+412,bf3ce441-9a0953bb.jpg,2,xác minh,5.18,0,11 box vùng xám (nghi sót xe); 1 box confidence < 0.5; 1 xe nhỏ < 32px,daytime,undefined,4
+413,b7f75fad-1c1c419b.jpg,2,xác minh,5.16,0,11 box vùng xám (nghi sót xe); 1 box confidence < 0.5; 1 xe nhỏ < 32px,daytime,overcast,4
+414,b4aa2f44-023fb7df.jpg,2,xác minh,5.14,1,8 box vùng xám (nghi sót xe); 3 box confidence < 0.5; box chồng lấn mạnh; có bus (lớp hiếm),daytime,clear,4
+415,ca3045ee-a27490fa.jpg,2,xác minh,5.14,1,10 box vùng xám (nghi sót xe); ảnh đêm,night,clear,1
+416,c4742900-38974bfd.jpg,2,xác minh,5.13,1,14 box vùng xám (nghi sót xe); ảnh đêm,night,clear,8
+417,be76ea62-78b2c8f8.jpg,2,xác minh,5.12,1,không có box nào confidence ≥ 0.3; 11 box vùng xám (nghi sót xe); ảnh đêm,night,clear,2
+418,b80b91c9-527a346a.jpg,2,xác minh,5.11,1,9 box vùng xám (nghi sót xe); 2 box confidence < 0.5; 2 xe nhỏ < 32px; ảnh đêm,night,clear,4
+419,b7a175e0-ea597801.jpg,2,xác minh,5.11,1,không có box nào confidence ≥ 0.3; 14 box vùng xám (nghi sót xe); ảnh đêm,night,clear,5
+420,c7415d8d-dfb8ef47.jpg,2,xác minh,5.09,0,8 box vùng xám (nghi sót xe); 2 box confidence < 0.5; 3 xe nhỏ < 32px,daytime,undefined,6
+421,bec19328-e01f5679.jpg,2,xác minh,5.08,1,9 box vùng xám (nghi sót xe); 2 box confidence < 0.5; box chồng lấn mạnh; ảnh đêm,night,clear,2
+422,c147e8f1-42dac06d.jpg,2,xác minh,5.06,1,17 box vùng xám (nghi sót xe); 1 box confidence < 0.5; ảnh đêm; thời tiết xấu,night,rainy,7
+423,bc1af7c9-f48843d6.jpg,2,xác minh,5.03,0,8 box vùng xám (nghi sót xe); 1 box confidence < 0.5; 2 xe nhỏ < 32px,daytime,undefined,3
+424,c07ceafc-344c73cd.jpg,2,xác minh,5.01,0,6 box vùng xám (nghi sót xe); 3 box confidence < 0.5; 2 xe nhỏ < 32px; box chồng lấn mạnh,dawn/dusk,overcast,5
+425,c21fba09-53381e9a.jpg,2,xác minh,4.99,1,14 box vùng xám (nghi sót xe); 1 box confidence < 0.5; ảnh đêm; thời tiết xấu,night,snowy,3
+426,b4561bec-26a99096.jpg,2,xác minh,4.99,1,12 box vùng xám (nghi sót xe); 1 box confidence < 0.5; ảnh đêm; thời tiết xấu,night,rainy,2
+427,ba15261b-46e2755d.jpg,2,xác minh,4.97,1,12 box vùng xám (nghi sót xe); ảnh đêm; có bus (lớp hiếm),night,clear,4
+428,c150197f-96adff4d.jpg,2,xác minh,4.97,0,9 box vùng xám (nghi sót xe); 1 box confidence < 0.5; 1 xe nhỏ < 32px; box chồng lấn mạnh; thời tiết xấu,daytime,snowy,2
+429,b83a044e-2926e767.jpg,2,xác minh,4.95,0,13 box vùng xám (nghi sót xe); 1 box confidence < 0.5; 1 xe nhỏ < 32px; thời tiết xấu,daytime,rainy,4
+430,bebc2a98-23f14ef2.jpg,2,xác minh,4.92,0,16 box vùng xám (nghi sót xe); 1 box confidence < 0.5; thời tiết xấu,daytime,snowy,10
+431,c72d0482-3ae5270e.jpg,2,xác minh,4.89,1,không có box nào confidence ≥ 0.3; 15 box vùng xám (nghi sót xe); ảnh đêm; thời tiết xấu,night,snowy,6
+432,c0b358a3-fef47f1e.jpg,2,xác minh,4.87,1,11 box vùng xám (nghi sót xe); 1 box confidence < 0.5; ảnh đêm,night,clear,3
+433,c253aa39-477c3d0a.jpg,2,xác minh,4.84,1,9 box vùng xám (nghi sót xe); 1 box confidence < 0.5; ảnh đêm,night,clear,12
+434,c1a07cae-269e1f30.jpg,2,xác minh,4.83,0,không có box nào confidence ≥ 0.3; 10 box vùng xám (nghi sót xe),daytime,clear,5
+435,bfef4a55-cb6a5afa.jpg,2,xác minh,4.77,1,8 box vùng xám (nghi sót xe); 1 box confidence < 0.5; box chồng lấn mạnh; thời tiết xấu; có bus (lớp hiếm),daytime,rainy,6
+436,bb81a7a9-4469e43e.jpg,2,xác minh,4.76,1,7 box vùng xám (nghi sót xe); 2 box confidence < 0.5; 1 xe nhỏ < 32px; ảnh đêm,night,clear,6
+437,b975a665-43da0ef1.jpg,2,xác minh,4.73,0,9 box vùng xám (nghi sót xe); 2 box confidence < 0.5; 2 xe nhỏ < 32px,dawn/dusk,partly cloudy,12
+438,b74fa71d-b72c24a3.jpg,2,xác minh,4.72,0,11 box vùng xám (nghi sót xe); 3 box confidence < 0.5; box chồng lấn mạnh,dawn/dusk,undefined,3
+439,b3e0345b-20d013f8.jpg,2,xác minh,4.69,0,6 box vùng xám (nghi sót xe); 2 box confidence < 0.5; box chồng lấn mạnh,daytime,clear,3
+440,b4fd3ecf-25548ea4.jpg,2,xác minh,4.67,0,17 box vùng xám (nghi sót xe); thời tiết xấu,daytime,rainy,6
+441,b720f8cf-eb23da16.jpg,2,xác minh,4.67,0,12 box vùng xám (nghi sót xe),daytime,overcast,3
+442,c35f86eb-86dc57eb.jpg,2,xác minh,4.66,1,10 box vùng xám (nghi sót xe); 1 box confidence < 0.5; ảnh đêm,night,clear,2
+443,c8bf003e-59bda2b9.jpg,2,xác minh,4.65,1,không có box nào confidence ≥ 0.3; 11 box vùng xám (nghi sót xe); ảnh đêm,night,undefined,7
+444,b2afce7f-0cb9967a.jpg,2,xác minh,4.64,0,8 box vùng xám (nghi sót xe); 1 box confidence < 0.5; 2 xe nhỏ < 32px,daytime,clear,4
+445,c1dc04b3-0279aa42.jpg,2,xác minh,4.63,0,8 box vùng xám (nghi sót xe); 1 box confidence < 0.5; 2 xe nhỏ < 32px,dawn/dusk,partly cloudy,5
+446,b7041acc-a64aa9d2.jpg,2,xác minh,4.62,0,10 box vùng xám (nghi sót xe); 1 box confidence < 0.5; box chồng lấn mạnh,daytime,overcast,4
+447,c926408d-8de795c6.jpg,2,xác minh,4.62,0,9 box vùng xám (nghi sót xe); 1 xe nhỏ < 32px,daytime,undefined,6
+448,c1f74dbc-c774031f.jpg,2,xác minh,4.62,1,7 box vùng xám (nghi sót xe); 1 box confidence < 0.5; ảnh đêm,night,clear,3
+449,bbf2bd83-b7d61805.jpg,2,xác minh,4.62,1,5 box vùng xám (nghi sót xe); 2 box confidence < 0.5; 1 xe nhỏ < 32px; ảnh đêm,night,clear,3
+450,bd3c3916-579aeb09.jpg,2,xác minh,4.59,1,7 box vùng xám (nghi sót xe); 1 box confidence < 0.5; ảnh đêm,night,clear,7
+451,bc24f222-2acc4952.jpg,2,xác minh,4.58,0,9 box vùng xám (nghi sót xe); 1 xe nhỏ < 32px,daytime,clear,4
+452,c752e922-ae691e9d.jpg,2,xác minh,4.54,0,9 box vùng xám (nghi sót xe); 5 box confidence < 0.5; box chồng lấn mạnh; thời tiết xấu,daytime,snowy,6
+453,b71ecc5a-7a837d0a.jpg,2,xác minh,4.53,0,10 box vùng xám (nghi sót xe); 4 xe nhỏ < 32px; thời tiết xấu,daytime,snowy,4
+454,c2461a5a-c6094472.jpg,2,xác minh,4.52,1,12 box vùng xám (nghi sót xe); 2 box confidence < 0.5; ảnh đêm; thời tiết xấu,night,rainy,4
+455,c775de6b-c8966c9a.jpg,2,xác minh,4.51,0,8 box vùng xám (nghi sót xe); 1 box confidence < 0.5; 2 xe nhỏ < 32px,dawn/dusk,clear,4
+456,bffe6c38-2cd2565f.jpg,2,xác minh,4.5,1,6 box vùng xám (nghi sót xe); 4 box confidence < 0.5; box chồng lấn mạnh; có bus (lớp hiếm),daytime,partly cloudy,8
+457,c7eab2ff-fad5c867.jpg,2,xác minh,4.49,1,không có box nào confidence ≥ 0.3; 9 box vùng xám (nghi sót xe); ảnh đêm,night,clear,4
+458,b7279e9d-fcd59829.jpg,2,xác minh,4.46,0,7 box vùng xám (nghi sót xe); 2 box confidence < 0.5,daytime,clear,5
+459,b2194b15-1825056a.jpg,2,xác minh,4.46,1,12 box vùng xám (nghi sót xe); ảnh đêm,night,clear,6
+460,c7331983-36418bf8.jpg,2,xác minh,4.46,1,10 box vùng xám (nghi sót xe); 1 box confidence < 0.5; thời tiết xấu; có bus (lớp hiếm),dawn/dusk,snowy,5
+461,b995df4d-4bf935df.jpg,2,xác minh,4.45,1,8 box vùng xám (nghi sót xe); ảnh đêm,night,clear,6
+462,c02ee64a-64c0a49a.jpg,2,xác minh,4.44,0,8 box vùng xám (nghi sót xe); 2 box confidence < 0.5,daytime,clear,4
+463,b4253085-ce679d21.jpg,2,xác minh,4.38,1,6 box vùng xám (nghi sót xe); 1 box confidence < 0.5; box chồng lấn mạnh; ảnh đêm,night,clear,9
+464,b3c672a8-b7b886ae.jpg,2,xác minh,4.37,1,13 box vùng xám (nghi sót xe); ảnh đêm,night,clear,6
+465,c75a249b-f1341238.jpg,2,xác minh,4.36,0,9 box vùng xám (nghi sót xe); 3 box confidence < 0.5; 2 xe nhỏ < 32px,dawn/dusk,partly cloudy,1
+466,bc8c555a-5f402650.jpg,2,xác minh,4.32,0,12 box vùng xám (nghi sót xe); 1 box confidence < 0.5,daytime,undefined,4
+467,c8bc1028-89f17211.jpg,2,xác minh,4.31,1,5 box vùng xám (nghi sót xe); 1 box confidence < 0.5; 1 xe nhỏ < 32px; ảnh đêm,night,clear,7
+468,b37c86c4-53f2f54c.jpg,2,xác minh,4.31,0,7 box vùng xám (nghi sót xe); 2 box confidence < 0.5; 1 xe nhỏ < 32px,daytime,overcast,3
+469,c146d100-92fd1b9f.jpg,2,xác minh,4.29,0,8 box vùng xám (nghi sót xe); 1 box confidence < 0.5; 1 xe nhỏ < 32px,daytime,partly cloudy,5
+470,baa618bf-40e56190.jpg,2,xác minh,4.28,1,9 box vùng xám (nghi sót xe); 2 box confidence < 0.5; 1 xe nhỏ < 32px; thời tiết xấu; có bus (lớp hiếm),daytime,snowy,7
+471,c11f4171-18d042d3.jpg,2,xác minh,4.25,1,không có box nào confidence ≥ 0.3; 12 box vùng xám (nghi sót xe); ảnh đêm,night,clear,5
+472,c2b6d359-e8c54604.jpg,2,xác minh,4.22,0,8 box vùng xám (nghi sót xe),undefined,undefined,4
+473,bd026bc5-7d3bf0ef.jpg,2,xác minh,4.21,0,8 box vùng xám (nghi sót xe); 2 box confidence < 0.5,daytime,overcast,3
+474,c11c833f-e77889aa.jpg,2,xác minh,4.21,0,10 box vùng xám (nghi sót xe); 1 box confidence < 0.5; box chồng lấn mạnh,dawn/dusk,clear,1
+475,be651ed5-4b80b1c3.jpg,2,xác minh,4.19,1,không có box nào confidence ≥ 0.3; 8 box vùng xám (nghi sót xe); ảnh đêm,night,clear,3
+476,b58aff80-bea21173.jpg,2,xác minh,4.18,1,9 box vùng xám (nghi sót xe); 1 box confidence < 0.5; ảnh đêm,night,clear,3
+477,b3990772-45bf6ad7.jpg,2,xác minh,4.17,1,8 box vùng xám (nghi sót xe); 2 box confidence < 0.5; ảnh đêm,night,clear,3
+478,c39ad1d8-0993aef9.jpg,2,xác minh,4.17,1,11 box vùng xám (nghi sót xe); ảnh đêm,night,clear,2
+479,c71936fa-e8370814.jpg,2,xác minh,4.16,0,3 box vùng xám (nghi sót xe); 3 box confidence < 0.5; 6 xe nhỏ < 32px; box chồng lấn mạnh,daytime,overcast,5
+480,c15c29a5-184070ba.jpg,2,xác minh,4.16,1,5 box vùng xám (nghi sót xe); 2 box confidence < 0.5; box chồng lấn mạnh; có bus (lớp hiếm),daytime,undefined,4
+481,c31a04de-1c417568.jpg,2,xác minh,4.15,1,7 box vùng xám (nghi sót xe); 1 box confidence < 0.5; ảnh đêm,night,clear,1
+482,c0efbe92-2ee3e529.jpg,2,xác minh,4.11,0,5 box vùng xám (nghi sót xe); 2 box confidence < 0.5; box chồng lấn mạnh,daytime,clear,3
+483,b6a6df2d-3911b7c3.jpg,2,xác minh,4.11,0,13 box vùng xám (nghi sót xe); 1 box confidence < 0.5,dawn/dusk,partly cloudy,4
+484,c37b9726-caffaa65.jpg,2,xác minh,4.11,1,14 box vùng xám (nghi sót xe); thời tiết xấu; có bus (lớp hiếm),daytime,snowy,4
+485,b24702e3-f56e0731.jpg,2,xác minh,4.09,0,5 box vùng xám (nghi sót xe); 1 box confidence < 0.5; 2 xe nhỏ < 32px,daytime,clear,4
+486,bfaa6e54-147a080d.jpg,2,xác minh,4.08,0,12 box vùng xám (nghi sót xe); 1 box confidence < 0.5; thời tiết xấu,daytime,rainy,2
+487,c4e2eba0-f32cc5b6.jpg,2,xác minh,4.07,1,6 box vùng xám (nghi sót xe); 1 box confidence < 0.5; ảnh đêm,night,clear,5
+488,c132df41-509fc403.jpg,2,xác minh,4.07,0,5 box vùng xám (nghi sót xe); 3 box confidence < 0.5; 2 xe nhỏ < 32px; box chồng lấn mạnh,daytime,undefined,6
+489,c6a0e7c1-b9bc987c.jpg,2,xác minh,4.05,0,6 box vùng xám (nghi sót xe); 2 box confidence < 0.5; box chồng lấn mạnh,daytime,clear,3
+490,b4b09f5b-11633a17.jpg,2,xác minh,4.03,1,9 box vùng xám (nghi sót xe); 1 box confidence < 0.5; ảnh đêm; có bus (lớp hiếm),night,clear,5
+491,c4c4db55-82c87232.jpg,2,xác minh,4.03,0,7 box vùng xám (nghi sót xe); 1 box confidence < 0.5,daytime,clear,4
+492,c3926b26-2b8702c9.jpg,2,xác minh,4.01,0,8 box vùng xám (nghi sót xe); 1 box confidence < 0.5,daytime,overcast,1
+493,b6d855a5-38d55a26.jpg,2,xác minh,3.99,0,8 box vùng xám (nghi sót xe),daytime,overcast,3
+494,b26ba07a-38f78442.jpg,2,xác minh,3.98,1,không có box nào confidence ≥ 0.3; 10 box vùng xám (nghi sót xe); ảnh đêm; thời tiết xấu,night,rainy,4
+495,b803d91d-64200a2d.jpg,2,xác minh,3.97,0,6 box vùng xám (nghi sót xe); 2 box confidence < 0.5; 2 xe nhỏ < 32px; box chồng lấn mạnh; thời tiết xấu,daytime,snowy,8
+496,bdae005f-1c0f2e8b.jpg,2,xác minh,3.95,0,6 box vùng xám (nghi sót xe); 1 box confidence < 0.5; 3 xe nhỏ < 32px,dawn/dusk,overcast,2
+497,b1d968b9-563405f4.jpg,2,xác minh,3.93,1,6 box vùng xám (nghi sót xe); 2 box confidence < 0.5; 1 xe nhỏ < 32px; có bus (lớp hiếm),daytime,overcast,2
+498,c6e4273a-c3e46891.jpg,2,xác minh,3.93,1,8 box vùng xám (nghi sót xe); ảnh đêm,night,clear,1
+499,beaa0c22-9f7d6767.jpg,2,xác minh,3.92,0,4 box vùng xám (nghi sót xe); 2 box confidence < 0.5; box chồng lấn mạnh,daytime,clear,4
+500,b98c2fe7-a1ba769e.jpg,2,xác minh,3.89,0,6 box vùng xám (nghi sót xe); 2 box confidence < 0.5; 1 xe nhỏ < 32px,daytime,partly cloudy,6
+501,b230132b-ff8f2719.jpg,2,xác minh,3.88,1,12 box vùng xám (nghi sót xe); ảnh đêm,night,clear,5
+502,b5a09124-0c5ec091.jpg,2,xác minh,3.84,0,6 box vùng xám (nghi sót xe); 1 box confidence < 0.5; 1 xe nhỏ < 32px,daytime,partly cloudy,2
+503,b93c2c35-3533f822.jpg,2,xác minh,3.83,0,8 box vùng xám (nghi sót xe),daytime,overcast,4
+504,bd6ca291-74e28b01.jpg,2,xác minh,3.83,1,5 box vùng xám (nghi sót xe); 3 box confidence < 0.5; box chồng lấn mạnh; có bus (lớp hiếm),dawn/dusk,clear,5
+505,c41c4557-ca6aea38.jpg,2,xác minh,3.79,1,6 box vùng xám (nghi sót xe); 3 box confidence < 0.5; box chồng lấn mạnh; thời tiết xấu; có bus (lớp hiếm),daytime,rainy,6
+506,c2c8b275-bd783d7f.jpg,2,xác minh,3.75,1,4 box vùng xám (nghi sót xe); 2 box confidence < 0.5; box chồng lấn mạnh; ảnh đêm; có bus (lớp hiếm),night,clear,5
+507,b9d12c48-1cdf1b03.jpg,2,xác minh,3.69,0,5 box vùng xám (nghi sót xe); 2 box confidence < 0.5; 2 xe nhỏ < 32px,daytime,overcast,3
+508,bd1c6dd5-1534269e.jpg,2,xác minh,3.67,1,7 box vùng xám (nghi sót xe); 2 box confidence < 0.5; có bus (lớp hiếm),daytime,clear,3
+509,c926408d-6840aaf6.jpg,2,xác minh,3.63,0,4 box vùng xám (nghi sót xe); 1 box confidence < 0.5; 1 xe nhỏ < 32px,daytime,clear,5
+510,c4e2eba0-1f3761a9.jpg,2,xác minh,3.63,0,không có box nào confidence ≥ 0.3; 7 box vùng xám (nghi sót xe),dawn/dusk,undefined,5
+511,b48dd7b4-6462b6f7.jpg,2,xác minh,3.62,1,không có box nào confidence ≥ 0.3; 7 box vùng xám (nghi sót xe); ảnh đêm,night,clear,3
+512,b23a79d1-43dfeecd.jpg,2,xác minh,3.61,1,5 box vùng xám (nghi sót xe); 2 box confidence < 0.5; ảnh đêm,night,clear,4
+513,c734eb0a-125bba62.jpg,2,xác minh,3.58,0,5 box vùng xám (nghi sót xe); 1 box confidence < 0.5; 1 xe nhỏ < 32px,daytime,partly cloudy,6
+514,b47262a4-b17e0871.jpg,2,xác minh,3.58,0,7 box vùng xám (nghi sót xe),daytime,clear,3
+515,c87793e4-f899b0b4.jpg,2,xác minh,3.56,1,5 box vùng xám (nghi sót xe); 1 box confidence < 0.5; ảnh đêm,night,clear,3
+516,b7064abc-24deedb3.jpg,2,xác minh,3.54,0,7 box vùng xám (nghi sót xe),daytime,partly cloudy,6
+517,c5f0cacd-3c4333b4.jpg,2,xác minh,3.52,1,8 box vùng xám (nghi sót xe); ảnh đêm,night,clear,3
+518,b3432539-8f9fc466.jpg,2,xác minh,3.47,0,3 box vùng xám (nghi sót xe); 2 box confidence < 0.5; 2 xe nhỏ < 32px; box chồng lấn mạnh,daytime,overcast,3
+519,b74bedfc-9adcb4ef.jpg,2,xác minh,3.43,0,8 box vùng xám (nghi sót xe),daytime,overcast,7
+520,bc6a2a77-88414eb2.jpg,2,xác minh,3.36,0,không có box nào confidence ≥ 0.3; 7 box vùng xám (nghi sót xe),daytime,clear,0
+521,c2d921c8-2d2a2c9b.jpg,2,xác minh,3.36,0,6 box vùng xám (nghi sót xe); 1 box confidence < 0.5,daytime,partly cloudy,2
+522,c970d004-efeb8b97.jpg,2,xác minh,3.35,0,không có box nào confidence ≥ 0.3; 5 box vùng xám (nghi sót xe),daytime,overcast,7
+523,c4816131-7251b67e.jpg,2,xác minh,3.32,0,11 box vùng xám (nghi sót xe),daytime,clear,5
+524,c20ae70f-bc706ea7.jpg,2,xác minh,3.31,1,6 box vùng xám (nghi sót xe); ảnh đêm,night,clear,4
+525,b5fcec51-bb59c567.jpg,2,xác minh,3.31,0,9 box vùng xám (nghi sót xe),daytime,clear,6
+526,be791a81-a6b53fef.jpg,2,xác minh,3.29,0,5 box vùng xám (nghi sót xe); 2 xe nhỏ < 32px,daytime,overcast,1
+527,b501bb52-aab37014.jpg,2,xác minh,3.28,0,5 box vùng xám (nghi sót xe); 1 xe nhỏ < 32px,daytime,undefined,2
+528,ca3045ee-b8ab4712.jpg,2,xác minh,3.25,1,không có box nào confidence ≥ 0.3; 5 box vùng xám (nghi sót xe); ảnh đêm,night,clear,5
+529,c0a6cfd6-fe9a5c77.jpg,2,xác minh,3.24,1,4 box vùng xám (nghi sót xe); 2 box confidence < 0.5; có bus (lớp hiếm),daytime,overcast,4
+530,c96e0b6a-f3d8aa78.jpg,2,xác minh,3.23,0,10 box vùng xám (nghi sót xe),daytime,undefined,3
+531,c9403737-33cab241.jpg,2,xác minh,3.22,0,5 box vùng xám (nghi sót xe); 2 xe nhỏ < 32px,daytime,partly cloudy,5
+532,bae16c60-e19bbf7a.jpg,2,xác minh,3.18,0,11 box vùng xám (nghi sót xe); 1 box confidence < 0.5; thời tiết xấu,dawn/dusk,snowy,5
+533,b57bfcbd-60692014.jpg,2,xác minh,3.17,1,5 box vùng xám (nghi sót xe); ảnh đêm,night,clear,2
+534,c384667d-73536fcb.jpg,2,xác minh,3.13,1,8 box vùng xám (nghi sót xe); thời tiết xấu; có bus (lớp hiếm),daytime,snowy,7
+535,b8e638c5-c29e3eba.jpg,2,xác minh,3.13,0,7 box vùng xám (nghi sót xe),daytime,partly cloudy,1
+536,b8015ebc-0445a4e2.jpg,2,xác minh,3.12,0,3 box vùng xám (nghi sót xe); 1 box confidence < 0.5; box chồng lấn mạnh,daytime,clear,5
+537,ba731feb-01fd61a2.jpg,2,xác minh,3.08,0,7 box vùng xám (nghi sót xe); 1 xe nhỏ < 32px,daytime,partly cloudy,9
+538,bff7091d-346e6f58.jpg,2,xác minh,3.06,1,2 box vùng xám (nghi sót xe); 2 box confidence < 0.5; box chồng lấn mạnh; có bus (lớp hiếm),daytime,clear,2
+539,b2e54795-0dc285dd.jpg,2,xác minh,3.06,0,6 box vùng xám (nghi sót xe),daytime,clear,2
+540,ba7b9df0-a0b062ab.jpg,2,xác minh,3.05,1,4 box vùng xám (nghi sót xe); 2 box confidence < 0.5; box chồng lấn mạnh; có bus (lớp hiếm),daytime,undefined,5
+541,b259c5e1-cda39ef9.jpg,2,xác minh,2.95,1,3 box vùng xám (nghi sót xe); 2 box confidence < 0.5; 1 xe nhỏ < 32px; box chồng lấn mạnh; có bus (lớp hiếm),daytime,clear,5
+542,b803d91d-671b8cff.jpg,2,xác minh,2.89,0,5 box vùng xám (nghi sót xe); 1 box confidence < 0.5; thời tiết xấu,daytime,snowy,1
+543,c0eab4d0-f30a0b42.jpg,2,xác minh,2.88,1,5 box vùng xám (nghi sót xe); có bus (lớp hiếm),daytime,undefined,2
+544,b94a9ed0-08112e6a.jpg,2,xác minh,2.88,0,7 box vùng xám (nghi sót xe); 1 box confidence < 0.5; thời tiết xấu,daytime,rainy,7
+545,bc5bcfab-07883191.jpg,2,xác minh,2.88,1,4 box vùng xám (nghi sót xe); 2 box confidence < 0.5; ảnh đêm; có bus (lớp hiếm),night,clear,2
+546,c50c20fc-7941d80e.jpg,2,xác minh,2.85,0,2 box vùng xám (nghi sót xe); 2 box confidence < 0.5; ảnh đêm,night,clear,3
+547,c60c04c3-b48a4e84.jpg,2,xác minh,2.83,0,3 box vùng xám (nghi sót xe); 1 box confidence < 0.5; 3 xe nhỏ < 32px,daytime,clear,2
+548,b6f4b139-527d7e55.jpg,2,xác minh,2.81,0,4 box vùng xám (nghi sót xe); 1 box confidence < 0.5,daytime,undefined,4
+549,c422771c-1619481d.jpg,2,xác minh,2.8,0,6 box vùng xám (nghi sót xe),daytime,clear,1
+550,c750081d-7ff1ef52.jpg,2,xác minh,2.78,1,không có box nào confidence ≥ 0.3; 5 box vùng xám (nghi sót xe); ảnh đêm,night,undefined,6
+551,ca56898d-f6400cb3.jpg,2,xác minh,2.78,0,không có box nào confidence ≥ 0.3; 6 box vùng xám (nghi sót xe); thời tiết xấu,daytime,snowy,4
+552,c1f35f18-96ab408e.jpg,2,xác minh,2.69,0,không có box nào confidence ≥ 0.3; 4 box vùng xám (nghi sót xe); ảnh đêm,night,clear,5
+553,c1fbed4d-18be096c.jpg,2,xác minh,2.63,0,3 box vùng xám (nghi sót xe); 2 box confidence < 0.5,daytime,partly cloudy,4
+554,c63428f4-7e084bea.jpg,2,xác minh,2.54,0,5 box vùng xám (nghi sót xe),daytime,undefined,9
+555,c5568343-87284a3a.jpg,2,xác minh,2.52,0,không có box nào confidence ≥ 0.3; 4 box vùng xám (nghi sót xe); ảnh đêm,night,clear,5
+556,bc72e27e-3c6f35f0.jpg,2,xác minh,2.52,0,4 box vùng xám (nghi sót xe),daytime,partly cloudy,9
+557,c0200910-e470c541.jpg,2,xác minh,2.48,0,không có box nào confidence ≥ 0.3; 3 box vùng xám (nghi sót xe); ảnh đêm,night,clear,1
+558,c32dbcaf-4947ca34.jpg,2,xác minh,2.48,0,không có box nào confidence ≥ 0.3; 3 box vùng xám (nghi sót xe); ảnh đêm,night,clear,2
+559,ca28f275-08807c93.jpg,2,xác minh,2.47,0,4 box vùng xám (nghi sót xe); 1 box confidence < 0.5; ảnh đêm; thời tiết xấu,night,snowy,2
+560,bdf6ab8b-3ebe8356.jpg,2,xác minh,2.46,0,2 box vùng xám (nghi sót xe); 1 box confidence < 0.5; 1 xe nhỏ < 32px,daytime,partly cloudy,2
+561,c06fd7ca-420dd696.jpg,2,xác minh,2.45,0,4 box vùng xám (nghi sót xe),daytime,partly cloudy,3
+562,c1ba5ee6-1ac54091.jpg,2,xác minh,2.4,0,3 box vùng xám (nghi sót xe),daytime,partly cloudy,1
+563,c4402b90-b65a2393.jpg,2,xác minh,2.4,0,5 box vùng xám (nghi sót xe); thời tiết xấu,daytime,snowy,14
+564,bd7cb9e1-eb5b2227.jpg,2,xác minh,2.39,0,3 box vùng xám (nghi sót xe); 1 box confidence < 0.5; ảnh đêm,night,clear,1
+565,b3d46fca-dbf2af72.jpg,2,xác minh,2.38,0,không có box nào confidence ≥ 0.3; 3 box vùng xám (nghi sót xe); ảnh đêm,night,clear,5
+566,c9178f1b-e33f5de8.jpg,2,xác minh,2.37,0,3 box vùng xám (nghi sót xe); 1 box confidence < 0.5; box chồng lấn mạnh,daytime,overcast,3
+567,c146d100-64e024d1.jpg,2,xác minh,2.35,0,6 box vùng xám (nghi sót xe); thời tiết xấu,daytime,rainy,3
+568,b3c939e3-3fb7622a.jpg,2,xác minh,2.35,0,5 box vùng xám (nghi sót xe),dawn/dusk,clear,4
+569,befd675c-ead3969d.jpg,2,xác minh,2.33,0,2 box vùng xám (nghi sót xe); 1 box confidence < 0.5; 1 xe nhỏ < 32px,daytime,clear,0
+570,c93bd9ce-d2617cc7.jpg,2,xác minh,2.33,0,không có box nào confidence ≥ 0.3; 4 box vùng xám (nghi sót xe); ảnh đêm; thời tiết xấu,night,snowy,4
+571,bd57e60e-f3226561.jpg,2,xác minh,2.27,0,không có box nào confidence ≥ 0.3; 3 box vùng xám (nghi sót xe),dawn/dusk,clear,1
+572,c7f8589f-45c47b58.jpg,2,xác minh,2.2,0,2 box vùng xám (nghi sót xe); 1 xe nhỏ < 32px,daytime,clear,3
+573,c2044e67-b5d63528.jpg,2,xác minh,2.17,0,4 box vùng xám (nghi sót xe); ảnh đêm,night,clear,2
+574,b8c0d4a5-63b97dfb.jpg,2,xác minh,2.16,0,3 box vùng xám (nghi sót xe),daytime,undefined,1
+575,c030d423-f3c1f768.jpg,2,xác minh,2.14,0,3 box vùng xám (nghi sót xe); ảnh đêm,night,clear,1
+576,c977423c-43dddd3b.jpg,2,xác minh,2.07,0,4 box vùng xám (nghi sót xe); ảnh đêm,night,clear,1
+577,c3b31662-4e576035.jpg,2,xác minh,2.06,1,2 box vùng xám (nghi sót xe); 1 box confidence < 0.5; 1 xe nhỏ < 32px; có bus (lớp hiếm),daytime,undefined,1
+578,b246c8e8-4dd36bfc.jpg,2,xác minh,2.06,0,2 box vùng xám (nghi sót xe); 1 box confidence < 0.5; ảnh đêm; thời tiết xấu,night,snowy,2
+579,c7706d20-5f4987db.jpg,2,xác minh,2.05,0,4 box vùng xám (nghi sót xe),daytime,clear,4
+580,c3906a23-5c373f34.jpg,2,xác minh,2.05,0,2 box vùng xám (nghi sót xe),daytime,clear,6
+581,c159a842-b245f317.jpg,2,xác minh,2.03,0,4 box vùng xám (nghi sót xe); ảnh đêm; thời tiết xấu,night,snowy,3
+582,c6148dad-03eb1951.jpg,2,xác minh,2.02,0,3 box vùng xám (nghi sót xe),dawn/dusk,undefined,1
+583,b63b1c14-f01a2f6b.jpg,2,xác minh,1.9,0,1 box vùng xám (nghi sót xe); 2 box confidence < 0.5; box chồng lấn mạnh,daytime,overcast,1
+584,c49c1308-4ef95803.jpg,2,xác minh,1.85,0,4 box vùng xám (nghi sót xe); thời tiết xấu,daytime,rainy,2
+585,b7d13f97-9f4fcb90.jpg,2,xác minh,1.85,0,2 box vùng xám (nghi sót xe); ảnh đêm,night,clear,6
+586,c3c0f47b-8210803f.jpg,2,xác minh,1.79,0,2 box vùng xám (nghi sót xe); 1 box confidence < 0.5,daytime,undefined,2
+587,c5b2506d-7e987d44.jpg,2,xác minh,1.65,0,2 box vùng xám (nghi sót xe),daytime,clear,2
+588,be42e5e6-33445d5b.jpg,2,xác minh,1.63,0,không có box nào confidence ≥ 0.3; 1 box vùng xám (nghi sót xe); ảnh đêm,night,clear,7
+589,b50ff9e2-ebb775d4.jpg,2,xác minh,1.61,0,2 box vùng xám (nghi sót xe); thời tiết xấu,daytime,snowy,2
+590,bedb6dc2-777e4568.jpg,2,xác minh,1.52,0,không có box nào confidence ≥ 0.3; 1 box vùng xám (nghi sót xe); ảnh đêm,night,clear,4
+591,c85d1e8c-8013a9d3.jpg,2,xác minh,1.51,0,2 box vùng xám (nghi sót xe); ảnh đêm,night,clear,2
+592,b29806ee-7194648d.jpg,2,xác minh,1.51,0,2 box vùng xám (nghi sót xe); thời tiết xấu,daytime,snowy,1
+593,b37f2b89-44772e64.jpg,2,xác minh,1.42,0,2 box vùng xám (nghi sót xe),daytime,overcast,0
+594,bb80de49-c7d12d6a.jpg,2,xác minh,1.12,0,1 box confidence < 0.5,daytime,overcast,1
+595,c3949a9e-7ee214aa.jpg,2,xác minh,1.04,0,không có box nào confidence ≥ 0.3; ảnh đêm,night,clear,0
+596,c599480d-15223a32.jpg,2,xác minh,1.03,1,có bus (lớp hiếm),daytime,undefined,0
+597,c87a6aba-757a0a27.jpg,2,xác minh,0.87,0,không có box nào confidence ≥ 0.3; ảnh đêm; thời tiết xấu,night,rainy,7

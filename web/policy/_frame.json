@@ -12,7 +12,7 @@
         "ref": "SmartReview web/core/risk, engine 4.0.0, policy 2.0.0"
       }
     ],
-    "applies_when": "Chỉ chạy khi dự án có box của mô hình. Ảnh chỉ có box người vẽ thì không có đầu ra của mô hình để xét.",
+    "applies_when": "Các quy tắc về box của mô hình chỉ chạy khi dự án có box của mô hình: ảnh chỉ có box người vẽ thì không có đầu ra của mô hình để xét. Riêng coverage.model_missing chạy trên mọi ảnh, vì danh sách vật bị sót đi kèm file import.",
     "blocking_meaning": "blocking = true: ảnh không được tự chấp nhận. blocking = false: chỉ báo cáo (quy tắc về nhãn bonus).",
     "box_sets": [
       {
@@ -255,6 +255,32 @@
         },
         "evidence": "Luật chưa từng bật trên 8.000 ảnh đã đo.",
         "source": "label_policy"
+      },
+      {
+        "id": "coverage.model_missing",
+        "status": "active",
+        "check": "coverage.model_missing",
+        "template": "model_missing",
+        "params": {
+          "labels": ["car", "truck", "bus", "two_wheeler", "person"],
+          "min_confidence": 0.4,
+          "skip_near_flagged_iou": 0.1,
+          "blocking": true
+        },
+        "blocking": true,
+        "text": "Model thấy một vật core (xe, người) với điểm từ 0,4 mà không box nào của người phủ lên: nghi sót box. Vật chồng từ 0,1 (IoU) với một box cùng nhãn đã bị gắn cờ thì không tính: đó là box bị vẽ lệch, ca của box đó đã báo.",
+        "reason": "Vật bị sót không có box nên không luật mức box nào thấy được; chỉ model nhìn lại ảnh mới chỉ ra được.",
+        "principle": "N7",
+        "note": "Danh sách vật bị sót do ai-service/score_boxes.py tìm, trong cùng lần chạy YOLO với rescore, và ghi vào file (CVAT: <meta><smartreview_missing>; COCO: smartreview_missing). Một vật được coi là đã có box khi chồng IoU từ 0,3 với một box bất kỳ hoặc nằm quá nửa trong box đó. Đây chỉ là gợi ý cho người duyệt, không bao giờ thành nhãn. Ngưỡng gắn với model (mặc định YOLO11s); đổi model thì cần đo lại. Vật dưới 32 px chỉ tìm lại được 17%. Bỏ vật gần box bị gắn cờ: trên 100 ảnh BDD100K có cài lỗi, 30 trong 35 vật có box bị cài lệch không còn thành ca thiếu box trùng lặp, cả 26 vật có box bị xoá vẫn được giữ. 5 ca trùng còn lại là xe model gọi khác loại với box lệch (car/truck); coi car, truck, bus là một thì hết trùng nhưng mất 3 vật bị sót thật, nên không làm.",
+        "measured": {
+          "auto_accept_frames": 191,
+          "blocked": 47,
+          "blocked_with_a_real_miss": 47,
+          "deleted_boxes_found": 0.39,
+          "hints_right": 0.79
+        },
+        "evidence": "BDD100K 1500 ảnh, YOLO11s. Trên 191 ảnh engine 7.0.0 tự chấp nhận (box là pre-label YOLO11n), luật chặn 47 ảnh và cả 47 đều có vật bị sót thật. Xoá 15% box thật (2281 box): gợi ý tìm lại 39%, và 79% gợi ý là đúng.",
+        "source": "engine"
       }
     ],
     "calibration": {

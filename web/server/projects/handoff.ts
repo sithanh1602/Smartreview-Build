@@ -81,8 +81,13 @@ export function buildReport(
   reviews: Record<string, Review>,
   frameReviews: Record<string, FrameReview>,
 ): HandoffReport {
+  // A confirmed missing object goes to the annotators as a region to label, like one the
+  // reviewer marked by hand.
+  const confirmed = dataset.allCases.filter(
+    (c) => reviews[c.id]?.decision === 'ERROR' && c.missing_object,
+  );
   const errors = dataset.allCases
-    .filter((c) => reviews[c.id]?.decision === 'ERROR')
+    .filter((c) => reviews[c.id]?.decision === 'ERROR' && !c.missing_object)
     .map((c): HandoffError => {
       const r = reviews[c.id];
       return {
@@ -105,7 +110,22 @@ export function buildReport(
     })
     .sort((a, b) => a.media_name.localeCompare(b.media_name) || a.frame_id - b.frame_id);
   const media = new Map(dataset.normalized.media.map((m) => [m.id, m]));
-  const missing = dataset.normalized.frames.flatMap((f) => {
+  const suggested = confirmed.map(
+    (c): HandoffMissing => ({
+      id: c.id,
+      annotation_id: null,
+      frame_ref: c.frame_ref,
+      frame_id: c.frame_id,
+      media_name: c.media_name,
+      width: c.width,
+      height: c.height,
+      image_url: c.image_url,
+      class_name: reviews[c.id].corrected_value || c.class_name,
+      geometry: c.geometry,
+      note: reviews[c.id].note ?? 'Model gợi ý, reviewer xác nhận thiếu box.',
+    }),
+  );
+  const marked = dataset.normalized.frames.flatMap((f) => {
     const m = media.get(f.media_id)!;
     return (frameReviews[f.id]?.missing_regions || []).map(
       (region): HandoffMissing => ({
@@ -125,6 +145,9 @@ export function buildReport(
       }),
     );
   });
+  const missing = [...suggested, ...marked].sort(
+    (a, b) => a.media_name.localeCompare(b.media_name) || a.frame_id - b.frame_id,
+  );
   return { project, dataset_revision: dataset.meta.dataset_id, errors, missing };
 }
 

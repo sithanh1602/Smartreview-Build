@@ -109,8 +109,10 @@ test('every engine version still runs, each on its own policy', () => {
     '4.0.0',
     '5.0.0',
     '6.0.0',
+    '7.0.0',
+    '7.1.0',
   ]);
-  assert.equal(ENGINE_VERSION, '6.0.0');
+  assert.equal(ENGINE_VERSION, '7.1.0');
   for (const engineVersion of ENGINE_VERSIONS) {
     const report = analyzeDataset(structuredClone(data), { engineVersion });
     assert.equal(report.engine_version, engineVersion);
@@ -123,14 +125,21 @@ test('every engine version still runs, each on its own policy', () => {
   const old: any = analyzeDataset(structuredClone(data), { engineVersion: '4.0.0' });
   assert.equal(old.policy_version, '2.0.0');
   assert.equal(old.results[0].score, 70);
-  assert.equal(analyze([]).policy_version, '4.0.0');
+  assert.equal(analyze([]).policy_version, '5.1.0');
+  assert.equal(analyze([], { engineVersion: '7.0.0' }).policy_version, '5.0.0');
+  assert.equal(analyze([], { engineVersion: '6.0.0' }).policy_version, '4.0.0');
   assert.equal(analyze([], { engineVersion: '5.0.0' }).policy_version, '3.0.0');
-  assert.equal((analyzeDataset(data) as any).results[0].score, 20);
+  // 6.0.0 keeps a lone low confidence below the queue; from 7.0.0 it is a case.
+  const before: any = analyzeDataset(structuredClone(data), { engineVersion: '6.0.0' });
+  assert.equal(before.results[0].score, 20);
+  assert.equal((analyzeDataset(data) as any).results[0].score, 30);
   assert.deepEqual(ENGINE_VERSIONS.map(supportsWaivers), [
     false,
     false,
     false,
     false,
+    true,
+    true,
     true,
     true,
     true,
@@ -224,7 +233,7 @@ test('a project patches the policy: set, disable, narrow, add', () => {
   ];
   const plain = analyze(boxes);
   assert.deepEqual(found(plain, 1), [
-    ['car.low_confidence', 20],
+    ['car.low_confidence', 30],
     ['car.inside_large_vehicle', 30],
   ]);
   const report = analyze(boxes, {

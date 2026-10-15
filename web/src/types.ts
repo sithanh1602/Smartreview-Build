@@ -74,8 +74,17 @@ export interface FrameInfo {
   height: number;
   image_url: string | null;
 }
+// The engine's verdict on a frame (core/risk/engine.ts triage); null for engines before 3.0.0.
+export interface FrameTriage {
+  tier: 'auto_accept' | 'verify' | 'relabel';
+  reason: string;
+  rules: { rule_id: string; blocking: boolean; reason: string }[];
+}
 export interface FrameSummary extends FrameInfo {
   annotation_count: number;
+  triage: FrameTriage | null;
+  // Objects the model found that nobody drew, from a scored import (ai-service/score_boxes.py).
+  missing_hints: { label: string; confidence: number }[];
   review: { status: FrameReview['status']; missing_count: number; version: number } | null;
 }
 export interface FrameList {
@@ -94,6 +103,7 @@ export interface FrameDetail {
   dataset_revision: string;
   frame: FrameInfo;
   annotations: Annotation[];
+  triage: FrameTriage | null;
   review: FrameReview | null;
 }
 // What GET /ai-check returns: an idle marker, a running job or a finished comparison.

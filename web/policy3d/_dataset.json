@@ -1,0 +1,224 @@
+{
+  "dataset_policy": {
+    "schema_version": "1.0.0",
+    "policy_version": "3d-0.1.0",
+    "status": "proposed",
+    "status_note": "Chưa có engine chấm 3D. Mọi quy tắc ở trạng thái proposed: viết đủ tham số để engine 3D chạy được, nhưng chưa chạy. Ngưỡng là giá trị khởi điểm, phải đo lại trên dữ liệu trước khi bật.",
+    "sources": [
+      {
+        "id": "physical",
+        "ref": "Kích thước và tốc độ vật lý của vật thể trên đường; giá trị khởi điểm, chưa đo trên dữ liệu"
+      },
+      {
+        "id": "waymo_spec",
+        "ref": "Waymo Open Dataset v2, đặc tả nhãn lidar_box (cần đối chiếu lại từng điểm với bản đặc tả)"
+      },
+      {
+        "id": "policy2d",
+        "ref": "SmartReview web/policy, policy 5.0.0: quy tắc 2D tương ứng"
+      },
+      {
+        "id": "data_contract",
+        "ref": "SmartReview web/docs/projects-3d.md: scene.json do server/projects3d/export_waymo.py sinh ra"
+      },
+      {
+        "id": "waymo_test_10frames",
+        "ref": "waymo-test-10frames: 10 frame đầu của segment 10203656353524179475_7625_000_7645_000 (104 cuboid VEHICLE, 147 SIGN), đo ngày 2026-10-15"
+      }
+    ],
+    "data": {
+      "format": "waymo-v2",
+      "scene": "scene.json: frames[] gồm timestamp, pose (ma trận 4×4 row-major, hệ xe → hệ toàn cục đã trừ origin), laserCounts, boxes[]",
+      "box_fields": {
+        "id": "laser_object_id của Waymo: giữ nguyên qua các frame, dùng làm track_id",
+        "type": "VEHICLE | PEDESTRIAN | CYCLIST | SIGN | UNKNOWN",
+        "center": "[x, y, z] m, hệ xe",
+        "size": "[length, width, height] m; length theo heading",
+        "heading": "rad, góc quay quanh trục z của hệ xe",
+        "points": "num_lidar_points_in_box"
+      },
+      "frame_rate_hz": 10
+    },
+    "conventions": [
+      "Độ dài tính bằng mét, góc bằng radian, tốc độ bằng m/s.",
+      "Hệ xe: x hướng đầu xe, y sang trái, z hướng lên. Quy tắc một box và hai box dùng hệ xe; quy tắc theo track đổi sang hệ toàn cục bằng pose của frame.",
+      "Khoảng cách (distance) là khoảng cách mặt phẳng từ gốc hệ xe tới tâm cuboid, bỏ qua z.",
+      "BEV IoU: IoU của hai hình chữ nhật xoay (chiếu cuboid xuống mặt phẳng xy).",
+      "Ngưỡng min và max đều tính cả giá trị biên. Khoảng ghi [min, max]."
+    ],
+    "labels": ["vehicle", "pedestrian", "cyclist", "sign"],
+    "source_types": {
+      "VEHICLE": "vehicle",
+      "PEDESTRIAN": "pedestrian",
+      "CYCLIST": "cyclist",
+      "SIGN": "sign",
+      "UNKNOWN": null
+    },
+    "label_mapping_2d": {
+      "vehicle": ["car", "truck", "bus"],
+      "pedestrian": ["person"],
+      "cyclist": ["two_wheeler", "person"],
+      "sign": ["traffic_sign"],
+      "note": "Để đối chiếu với policy 2D (ví dụ chiếu cuboid lên ảnh camera). cyclist ứng với hai box 2D: xe hai bánh và người lái."
+    },
+    "groups": {
+      "core": ["vehicle", "pedestrian", "cyclist"],
+      "bonus": ["sign"],
+      "meaning": "core: cuboid bị gắn cờ chặn frame khỏi tự chấp nhận. bonus: chỉ báo cáo."
+    },
+    "unknown_label": "flag",
+    "unknown_label_note": "Waymo có type UNKNOWN (0). Cuboid như vậy bị gắn cờ bởi any.unknown_type; các quy tắc chung vẫn chạy trên nó.",
+    "thresholds": {
+      "working_score": 0.3,
+      "grey_floor": 0.1,
+      "few_points": 5,
+      "far_m": 50,
+      "note": "working_score và grey_floor chỉ dùng khi cuboid có confidence (mô hình 3D), như policy 2D."
+    },
+    "box_states": [
+      {
+        "id": "manual",
+        "meaning": "Cuboid không có confidence: do người gán (mọi nhãn Waymo). Quy tắc applies_to model bỏ qua."
+      },
+      {
+        "id": "draft",
+        "meaning": "Cuboid của mô hình có confidence từ working_score."
+      },
+      {
+        "id": "grey",
+        "meaning": "Cuboid của mô hình dưới working_score: gợi ý vật bị sót, không phải nhãn."
+      },
+      {
+        "id": "invalid",
+        "meaning": "Cuboid không qua valid_cuboid: không chạy quy tắc nào khác."
+      }
+    ],
+    "scoring": {
+      "sum": "Điểm của một cuboid là tổng điểm các quy tắc bắt lỗi, tối đa 100.",
+      "weak_family": "Các quy tắc family weak (few_points, low_confidence) cùng mô tả một cuboid khó xác nhận: chỉ tính một lần, lấy điểm cao nhất.",
+      "track": "Quy tắc theo track chấm cuboid ở frame xảy ra sự việc, không chấm cả track. Áp dụng quyết định cho cả track là việc của người duyệt (nút 'Áp dụng cho cả N frame')."
+    },
+    "tiers": {
+      "flagged": 30,
+      "high": 70,
+      "relabel_flagged": 5,
+      "relabel_high": 2
+    },
+    "rules_note": "Các quy tắc dưới đây chạy trên mọi nhãn. File của nhãn có quy tắc cùng check thì quy tắc ở đây không chạy trên nhãn đó (giống policy 2D).",
+    "rules": [
+      {
+        "id": "any.valid_cuboid",
+        "status": "proposed",
+        "check": "geometry3d.cuboid_validity",
+        "template": "valid_cuboid",
+        "params": {
+          "require": ["finite", "positive_size"]
+        },
+        "applies_to": "any",
+        "score": 100,
+        "error_type": "BBOX",
+        "text": "Cuboid phải có tâm, kích thước, hướng là số hữu hạn và ba cạnh dương.",
+        "source": "data_contract"
+      },
+      {
+        "id": "any.unknown_type",
+        "status": "proposed",
+        "check": "label.unknown_type",
+        "template": "allowed_labels",
+        "params": {
+          "labels": ["vehicle", "pedestrian", "cyclist", "sign"]
+        },
+        "applies_to": "any",
+        "score": 50,
+        "error_type": "CLASS",
+        "text": "Cuboid phải mang một trong bốn loại; UNKNOWN là chưa phân loại xong.",
+        "source": "waymo_spec"
+      },
+      {
+        "id": "any.ego_vehicle",
+        "status": "proposed",
+        "check": "context3d.ego_vehicle",
+        "template": "ego_overlap",
+        "params": {
+          "footprint_m": {
+            "x": [-1.0, 4.0],
+            "y": [-1.1, 1.1]
+          },
+          "point": "center"
+        },
+        "applies_to": "any",
+        "score": 70,
+        "error_type": "EXTRA_OBJECT",
+        "text": "Không gán chính xe ghi hình: tâm cuboid không được nằm trong thân xe.",
+        "note": "Khung thân xe tính từ gốc hệ xe; con số là ước lượng cho xe Waymo, cần đối chiếu với extrinsic của các lidar trong scene.json.",
+        "source": "physical"
+      },
+      {
+        "id": "any.beyond_range",
+        "status": "proposed",
+        "check": "lidar.beyond_range",
+        "template": "range_limit",
+        "params": {
+          "max_distance_m": 80
+        },
+        "applies_to": "any",
+        "score": 10,
+        "text": "Cuboid cách xe ghi hình trên 80 m: ngoài vùng gán nhãn thông thường.",
+        "level": "warning",
+        "note": "Cần đối chiếu tầm gán nhãn trong đặc tả Waymo trước khi dùng con số này.",
+        "source": "waymo_spec"
+      },
+      {
+        "id": "any.short_track",
+        "status": "proposed",
+        "check": "track3d.short_track",
+        "template": "min_track_length",
+        "params": {
+          "frames": 2,
+          "within_distance_m": 40,
+          "not_at_segment_edge_frames": 2
+        },
+        "applies_to": "any",
+        "score": 30,
+        "error_type": "EXTRA_OBJECT",
+        "text": "Track chỉ tồn tại 1–2 frame khi vật ở gần (trong 40 m) và không ở đầu hay cuối segment: nghi box thừa hoặc ID bị tách.",
+        "requires": ["track_id"],
+        "source": "physical"
+      },
+      {
+        "id": "any.track_gap",
+        "status": "proposed",
+        "check": "track3d.track_gap",
+        "template": "max_gap",
+        "params": {
+          "frames": 10,
+          "within_distance_m": 30
+        },
+        "applies_to": "any",
+        "score": 20,
+        "error_type": "TRACK",
+        "text": "Track biến mất quá 10 frame (1 giây) rồi hiện lại khi vật ở gần: nghi thiếu cuboid ở các frame giữa, hoặc hai vật bị gán chung ID.",
+        "requires": ["track_id"],
+        "level": "warning",
+        "exceptions": ["Vật bị che hoàn toàn trong thời gian đó."],
+        "source": "policy2d"
+      },
+      {
+        "id": "any.missing_object",
+        "status": "proposed",
+        "check": null,
+        "template": "manual",
+        "applies_to": "any",
+        "text": "Mọi vật thể thuộc bốn loại có điểm lidar trong vùng gán nhãn đều phải có cuboid.",
+        "note": "Cần khuôn mới. Kiểm được bằng dữ liệu: gom cụm điểm (sau khi bỏ mặt đường) không nằm trong cuboid nào. Hiện chỉ người duyệt thấy được.",
+        "source": "waymo_spec"
+      }
+    ],
+    "open_questions": [
+      "Chưa đo trên dữ liệu: mọi ngưỡng kích thước, tốc độ, số điểm là giá trị khởi điểm.",
+      "Waymo lidar_box có speed, acceleration và difficulty_level nhưng export_waymo.py chưa xuất; xuất thêm thì max_speed và heading_vs_motion bớt phụ thuộc vào vị trí hai frame kề.",
+      "Gốc hệ xe Waymo nằm ở đâu theo trục z: quyết định ego_vehicle và có dùng z = 0 làm mặt đường dự phòng được không.",
+      "Loại lỗi của review 3D dùng lại ENUM của 2D (lỗi cuboid lưu là BBOX)."
+    ]
+  }
+}

@@ -1,7 +1,7 @@
 {
   "dataset_policy": {
     "schema_version": "1.0.0",
-    "policy_version": "4.0.0",
+    "policy_version": "5.1.0",
     "sources": [
       {
         "id": "label_policy",
@@ -168,6 +168,31 @@
         "source": "engine"
       },
       {
+        "id": "any.rescore_low",
+        "status": "active",
+        "check": "confidence.rescore_low",
+        "template": "rescore_low",
+        "params": {
+          "below": 0.02,
+          "warning_side_below_px": 16
+        },
+        "applies_to": "any",
+        "requires": ["rescore"],
+        "family": "weak",
+        "score": 30,
+        "text": "Model chấm lại box do người vẽ và gần như không thấy vật mang nhãn của box ở đúng chỗ đó (rescore dưới 0,02): box có thể sai lớp, lệch chỗ hoặc vẽ vào chỗ không có vật. Box có cạnh ngắn dưới 16 px chỉ được cảnh báo.",
+        "principle": "N5",
+        "note": "rescore do ai-service/score_boxes.py ghi vào file CVAT hoặc COCO của annotator. Thang điểm khác confidence của box mô hình tự vẽ: box đúng của người có trung vị 0,27 (box nhỏ dưới 32 px chỉ 0,11), nên ngưỡng 0,5 của low_confidence sẽ gắn cờ oan hơn 60% box đúng. Với box có cạnh ngắn dưới 16 px, model gần như không phán xét được: ở mọi ngưỡng có từ 23% box đúng bị gắn cờ (41% ở 0,02), nên các box đó chỉ hiện ở danh sách cảnh báo, không vào hàng đợi và không chặn ảnh. Ngưỡng gắn với model chấm (mặc định YOLO11s); đổi model thì cần đo lại.",
+        "evidence": "400 ảnh BDD100K (tập test), 4586 box xe, 15,5% làm hỏng có chủ đích (đổi lớp, dịch lệch khoảng 45% cỡ box, thêm box ở chỗ trống). YOLO11s, độ khít IoU 0,5: AUROC 0,92. Dưới 0,02 trên box có cạnh ngắn từ 16 px: bắt 73% mọi box hỏng (cùng 23% nữa thành cảnh báo), gắn cờ 11% box đúng, 55% số box bị gắn cờ là hỏng thật. Box từ 32 px: bắt 88%, gắn cờ oan 10%.",
+        "source": "engine",
+        "measured": {
+          "caught_broken": 0.73,
+          "warned_broken": 0.23,
+          "flagged_correct": 0.11,
+          "precision": 0.55
+        }
+      },
+      {
         "id": "any.area_jump_in_track",
         "status": "active",
         "check": "geometry.bbox_area",
@@ -241,10 +266,11 @@
           "below": 0.5
         },
         "applies_to": "model",
-        "score": 20,
+        "score": 30,
         "family": "weak",
         "principle": "N5",
         "text": "Box của mô hình có confidence dưới 0,5.",
+        "note": "Từ policy 5.0.0 điểm 30, đủ vào hàng đợi (trước đó 20, cố ý đứng dưới ngưỡng). Benchmark BDD100K 1500 ảnh, YOLO11n, tập test: lỗi bắt được 18% → 71%, ca đúng là lỗi 82% → 64%, box sai lọt qua tự chấp nhận 505 → 33.",
         "source": "engine"
       },
       {

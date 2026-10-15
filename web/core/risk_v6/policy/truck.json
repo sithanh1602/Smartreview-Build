@@ -1,0 +1,904 @@
+{
+  "truck_policy": {
+    "schema_version": "1.0.0",
+    "label": "truck",
+    "group": "core",
+    "model_drafts": true,
+    "sources": [
+      {
+        "id": "label_policy",
+        "ref": "Build/Policy/label_policy/truck.md, 00_chung.md"
+      },
+      {
+        "id": "engine",
+        "ref": "SmartReview web/core/risk, engine 4.0.0, policy 2.0.0"
+      }
+    ],
+    "definition": {
+      "summary": "Xe chở hàng.",
+      "includes": [
+        "xe tải thùng",
+        "xe ben",
+        "xe bồn",
+        "xe container",
+        "xe cứu hộ",
+        "xe chở rác",
+        "xe bán tải (theo mặc định)"
+      ],
+      "excludes": [
+        "rơ-moóc đứng riêng, không đầu kéo",
+        "container đặt dưới đất",
+        "nhà xưởng, kho có cửa cuốn",
+        "tàu hỏa, tàu điện"
+      ],
+      "appearance": "Cao và dài hơn ô tô. Cabin tách khỏi thùng hàng; thùng là khối hộp, bồn tròn hoặc sàn phẳng. Nhìn từ sau thường là một hình chữ nhật đứng, phẳng, ít kính.",
+      "box": "Một box cho cả xe, gồm cabin và thùng. Đầu kéo đang nối rơ-moóc thì một box bao cả hai."
+    },
+    "defaults": [
+      {
+        "case": "Xe bán tải",
+        "decision": "truck"
+      },
+      {
+        "case": "Đầu kéo cùng rơ-moóc đang nối",
+        "decision": "một box truck bao cả hai"
+      },
+      {
+        "case": "Đầu kéo chạy không rơ-moóc",
+        "decision": "truck"
+      },
+      {
+        "case": "Rơ-moóc đứng riêng",
+        "decision": "không gán"
+      },
+      {
+        "case": "Xe van chở hàng thùng kín, không cửa sổ sau",
+        "decision": "truck"
+      },
+      {
+        "case": "Máy xúc, xe lu, máy kéo nông nghiệp",
+        "decision": "không gán"
+      }
+    ],
+    "confusable_with": [
+      {
+        "label": "bus",
+        "when": "nhìn từ sau"
+      },
+      {
+        "label": "car",
+        "when": "xe bán tải và van"
+      },
+      {
+        "label": "car",
+        "when": "chính cabin của xe tải bị vẽ thành một car riêng"
+      }
+    ],
+    "attributes": [
+      {
+        "name": "occluded",
+        "required": false,
+        "values": [true, false],
+        "when_absent": "skip",
+        "note": "Phần lớn bộ dữ liệu đưa vào không có attribute này. Theo số đo, 67,5% box truck mang occluded = true, nên giá trị true chỉ nói là có bị che, không nói bị che bao nhiêu."
+      },
+      {
+        "name": "truncated",
+        "required": false,
+        "values": [true, false],
+        "when_absent": "skip",
+        "note": "Theo số đo, 14,7% box truck mang truncated = true; 88,3% trong số đó chạm mép ảnh."
+      },
+      {
+        "name": "occlusion_pct",
+        "required": false,
+        "values": "0–100",
+        "when_absent": "skip",
+        "note": "Một số bộ dữ liệu ghi phần trăm bị che thay cho giá trị đúng/sai. Khi có, đây là nguồn tốt nhất cho visibility."
+      }
+    ],
+    "statistics": {
+      "boxes": 4243,
+      "images": 10000,
+      "image_size": [1280, 720],
+      "per_image": {
+        "images_with_truck": 0.273,
+        "note": "Tính trên các ảnh có ít nhất một truck.",
+        "median": 1,
+        "p95": 4,
+        "p99": 5,
+        "max": 10
+      },
+      "long_side_px": {
+        "p1": 15,
+        "p5": 22,
+        "p25": 46,
+        "p50": 87,
+        "p95": 441,
+        "p99": 631
+      },
+      "share_long_side_below": {
+        "10": 0.0009,
+        "16": 0.0148,
+        "20": 0.0365,
+        "32": 0.1334
+      },
+      "aspect_ratio": {
+        "all": {
+          "p1": 0.28,
+          "p5": 0.39,
+          "p50": 0.91,
+          "p95": 1.7,
+          "p99": 3.38
+        },
+        "not_occluded_not_truncated": {
+          "boxes": 1013,
+          "p1": 0.4,
+          "p5": 0.53,
+          "p50": 0.95,
+          "p95": 1.38,
+          "p99": 1.56
+        }
+      },
+      "bottom_edge_over_height": {
+        "p1": 0.26,
+        "p5": 0.35,
+        "p50": 0.528
+      },
+      "touches_image_edge": 0.132,
+      "largest_box": {
+        "width_over_image": 0.66,
+        "area_over_image": 0.623
+      },
+      "time_of_day": {
+        "daytime": 0.739,
+        "night": 0.176,
+        "dawn_dusk": 0.084
+      }
+    },
+    "visibility": {
+      "meaning": "Phần của chiếc xe còn thấy được trong ảnh, từ 0 đến 1. Dùng để quyết định một box có đủ căn cứ để tin là xe hay không.",
+      "sources_in_order": [
+        {
+          "from": "attribute occlusion_pct hoặc truncation_pct",
+          "use": "1 − phần trăm bị che hoặc bị cắt",
+          "trust": "high"
+        },
+        {
+          "from": "attribute occluded / truncated (đúng/sai)",
+          "use": "Chỉ biết là có bị che hoặc bị cắt; kết hợp với ước lượng từ box bên dưới",
+          "trust": "medium"
+        },
+        {
+          "from": "ước lượng từ box",
+          "use": "visibility = phần còn trong khung hình × (1 − phần bị box đứng gần camera hơn che)",
+          "trust": "low"
+        }
+      ],
+      "estimate_from_boxes": {
+        "frame_cut": "Box chạm mép trái/phải: rộng ÷ cao. Box chạm mép trên/dưới: cao ÷ rộng. Tỉ lệ cao/rộng trung vị của xe tải không bị che, không bị cắt là 0,95, nên lấy tròn là 1.",
+        "covered_by_nearer_boxes": "Phần diện tích box nằm dưới các box xe hoặc người có đáy thấp hơn (đứng gần camera hơn). Mỗi box che được thu nhỏ còn 80% quanh tâm trước khi tính, để bù cho việc hình chữ nhật rộng hơn vật thật.",
+        "caveat": "Ước lượng này không đo đúng mức che khuất: trên các box đúng, nó xếp 2,9% xe có occluded = true và 3,6% xe có occluded = false vào nhóm thấy dưới 50%. Thứ nó đo được là box bị các box khác chèn lên. Không được dùng để loại box.",
+        "occluder_shrink": 0.8,
+        "typical_ratio": 1,
+        "edge_px": 2,
+        "occluders": ["car", "truck", "bus", "two_wheeler", "person"]
+      },
+      "thresholds": {
+        "mostly_hidden": 0.5,
+        "barely_visible": 0.05
+      },
+      "measured": {
+        "note": "Tính bằng ước lượng từ box.",
+        "on_correct_boxes": {
+          "share_below_0_5": 0.031,
+          "share_below_0_05": 0.0014,
+          "occluded_true_below_0_5": 0.029,
+          "occluded_false_below_0_5": 0.036
+        },
+        "on_model_boxes": {
+          "share_below_0_5": 0.045,
+          "error_rate_below_0_5": 0.794,
+          "share_below_0_05": 0.0004
+        }
+      },
+      "percent_attributes": ["occlusion_pct", "truncation_pct"]
+    },
+    "confirmability": {
+      "meaning": "Có bao nhiêu dấu hiệu độc lập cho thấy khó xác nhận box này là xe.",
+      "weak_signals": [
+        {
+          "id": "low_confidence",
+          "when": "confidence < 0,5",
+          "requires": ["confidence"],
+          "confidence_below": 0.5
+        },
+        {
+          "id": "poor_image",
+          "when": "env_risk ≥ 0,5 (ảnh tối, mưa, mờ)",
+          "requires": ["env_risk"],
+          "env_risk_min": 0.5
+        },
+        {
+          "id": "small",
+          "when": "cạnh dài < 32 px",
+          "long_side_below_px": 32
+        },
+        {
+          "id": "second_label_close",
+          "when": "nhãn thứ hai cách dưới 0,15",
+          "requires": ["label_top2", "score_top2"],
+          "top2_margin_below": 0.15
+        }
+      ],
+      "unconfirmed_when": "từ 2 dấu hiệu trở lên",
+      "missing_data": "Dấu hiệu thiếu dữ liệu thì không tính, không coi là có.",
+      "measured": {
+        "note": "Đo trên box của mô hình, đối chiếu với nhãn đúng.",
+        "error_rate": {
+          "confidence_below_0_5": 0.848,
+          "confidence_from_0_5": 0.579,
+          "long_side_below_32": 0.662,
+          "low_confidence_and_small": 0.695,
+          "low_confidence_and_not_small": 0.853,
+          "low_confidence_in_poor_image": 0.87,
+          "low_confidence_in_good_image": 0.829
+        },
+        "reading": "Confidence vẫn là dấu hiệu mạnh nhất, nhưng yếu hơn nhiều so với car: box truck tự tin vẫn sai quá nửa, chủ yếu do sai tên. Box nhỏ hiếm gặp và không sai nhiều hơn. Ảnh xấu thêm rất ít."
+      }
+    },
+    "levels": [
+      {
+        "id": "ignore",
+        "meaning": "Box không được đánh giá: không đúng, không sai, không vào danh sách nào."
+      },
+      {
+        "id": "warning",
+        "meaning": "Cảnh báo: có trong danh sách xem thêm, người duyệt có thể xem hoặc bỏ qua. Không chặn ảnh khỏi tự chấp nhận và không tính vào hàng đợi chính."
+      },
+      {
+        "id": "queue",
+        "meaning": "Vào hàng đợi review khi tổng điểm từ 30."
+      },
+      {
+        "id": "high",
+        "meaning": "Mức cao khi tổng điểm từ 70."
+      }
+    ],
+    "rules": [
+      {
+        "id": "truck.min_side",
+        "status": "active",
+        "check": null,
+        "engine_note": "Không phải một check: engine xếp box vào trạng thái ignored (lý do bỏ qua below_minimum). label_policy gọi là size.below_minimum.",
+        "template": "min_size",
+        "params": {
+          "side": "long",
+          "px": 10,
+          "action": "ignore"
+        },
+        "text": "Box truck có cạnh dài dưới 10 px không được đánh giá: không đúng, không sai.",
+        "principle": null,
+        "source": "label_policy",
+        "evidence": "0,09% box truck có cạnh dài dưới 10 px; 3,7% dưới 20 px; 13,3% dưới 32 px. Xe tải hiếm khi nhỏ, nên ngưỡng này gần như không loại gì."
+      },
+      {
+        "id": "truck.mostly_hidden_unconfirmed",
+        "status": "active",
+        "check": "visibility.mostly_hidden",
+        "template": "visibility_risk",
+        "params": {
+          "visibility_below": 0.5,
+          "weak_signals_at_least": 2
+        },
+        "applies_to": "any",
+        "level": "queue",
+        "score": 30,
+        "error_type": "EXTRA_OBJECT",
+        "text": "Xe tải bị che hoặc nằm ngoài khung hình quá nửa, và có từ hai dấu hiệu khó xác nhận: không đủ căn cứ để tin đây là xe tải.",
+        "principle": "N5, N6",
+        "note": "Điểm thấp hơn luật tương ứng của car (50): với truck, việc bị che gần như không làm tăng thêm khả năng sai.",
+        "evidence": "Trên box của mô hình: 1,3% box truck bị gắn cờ, 88,5% trong số đó sai. Nhưng box có từ hai dấu hiệu mà không bị che cũng sai 85,8%, nên phần đóng góp của việc bị che là nhỏ. Chỉ có 61 box.",
+        "measured": {
+          "flagged_share": 0.0126,
+          "error_rate": 0.885,
+          "error_rate_not_hidden_with_two_signals": 0.858,
+          "boxes": 61
+        },
+        "source": "yêu cầu của chủ dự án, 2026-10-10"
+      },
+      {
+        "id": "truck.barely_visible",
+        "status": "active",
+        "check": "visibility.barely_visible",
+        "template": "min_visibility",
+        "params": {
+          "visibility_below": 0.05,
+          "action_when_measured": "ignore",
+          "action_when_estimated": "queue"
+        },
+        "applies_to": "any",
+        "level": "queue",
+        "score": 30,
+        "error_type": "EXTRA_OBJECT",
+        "text": "Xe tải chỉ còn thấy dưới 5%: không đủ để đánh giá. Có attribute phần trăm thì coi như không tồn tại; chỉ có ước lượng từ box thì đưa vào hàng đợi.",
+        "principle": "N5",
+        "note": "Theo quyết định đã chốt cho car. Với truck chưa có số đo riêng: chỉ 2 box rơi vào trường hợp này.",
+        "measured": {
+          "flagged_share": 0.0004,
+          "error_rate": null,
+          "boxes": 2
+        },
+        "source": "yêu cầu của chủ dự án, 2026-10-10"
+      },
+      {
+        "id": "truck.box_not_positive",
+        "status": "active",
+        "check": "geometry.bbox_validity",
+        "template": "valid_box",
+        "params": {
+          "require": "positive_size"
+        },
+        "applies_to": "any",
+        "score": 70,
+        "error_type": "BBOX",
+        "text": "Box có chiều rộng hoặc chiều cao không dương.",
+        "principle": null,
+        "source": "engine"
+      },
+      {
+        "id": "truck.box_outside_image",
+        "status": "active",
+        "check": "geometry.bbox_validity",
+        "template": "valid_box",
+        "params": {
+          "require": "inside_image",
+          "tolerance_px": 0.1
+        },
+        "applies_to": "any",
+        "score": 40,
+        "error_type": "BBOX",
+        "text": "Box vượt ra ngoài giới hạn ảnh.",
+        "principle": null,
+        "source": "engine"
+      },
+      {
+        "id": "truck.low_confidence",
+        "status": "active",
+        "check": "confidence.low_score",
+        "template": "low_confidence",
+        "params": {
+          "below": 0.5
+        },
+        "applies_to": "model",
+        "family": "weak",
+        "score": 20,
+        "text": "Mô hình kém tự tin với box này (confidence dưới 0,5).",
+        "principle": "N5",
+        "source": "label_policy",
+        "examples": ["TRUCK-3", "TRUCK-4", "TRUCK-5", "TRUCK-7"],
+        "note": "Điểm cố ý đặt dưới ngưỡng vào hàng đợi (30). Với truck, kiểu lỗi đổi theo confidence: dưới 0,5 phần lớn là box thừa, từ 0,5 trở lên gần như chỉ còn lỗi sai tên.",
+        "evidence": "Box truck dưới 0,5 sai 84,8%; từ 0,5 trở lên vẫn sai 57,9%. Ở khoảng 0,3–0,4 có 58,4% là box thừa; từ 0,8 trở lên box thừa chỉ còn 0,7% nhưng 29,3% vẫn là car trong nhãn đúng.",
+        "measured": {
+          "flagged_share": 0.407,
+          "error_rate": 0.848,
+          "share_of_all_errors": 0.501,
+          "error_rate_from_0_5": 0.579
+        }
+      },
+      {
+        "id": "truck.class_margin",
+        "status": "active",
+        "check": "confidence.class_margin",
+        "template": "class_margin",
+        "params": {
+          "margin": 0.15
+        },
+        "applies_to": "model",
+        "requires": ["label_top2", "score_top2"],
+        "score": 30,
+        "error_type": "CLASS",
+        "suggests": "label_top2",
+        "text": "Mô hình phân vân giữa truck và một nhãn khác: hai điểm cách nhau dưới 0,15.",
+        "principle": "N11",
+        "source": "label_policy",
+        "examples": ["TRUCK-5"]
+      },
+      {
+        "id": "truck.confused_with_car_or_bus",
+        "status": "active",
+        "check": "confidence.vehicle_confusion",
+        "template": "class_margin",
+        "params": {
+          "margin": 0.25,
+          "confusable_with": ["car", "bus"]
+        },
+        "applies_to": "model",
+        "requires": ["label_top2", "score_top2"],
+        "score": 20,
+        "error_type": "CLASS",
+        "suggests": "label_top2",
+        "text": "Nhãn thứ hai là car hoặc bus và cách nhãn truck dưới 0,25.",
+        "principle": "N11",
+        "source": "label_policy",
+        "examples": ["TRUCK-2", "TRUCK-5"],
+        "note": "Cộng dồn với truck.class_margin khi cả hai cùng bật. Đây là luật nhắm đúng lỗi phổ biến nhất của truck (sai tên) nhưng chưa đo được vì cần nhãn thứ hai của mô hình."
+      },
+      {
+        "id": "truck.duplicate_other_label",
+        "status": "active",
+        "check": "geometry.cross_class_overlap",
+        "template": "forbidden_overlap",
+        "params": {
+          "with": "other_labels",
+          "iou": 0.8,
+          "flag": "weaker",
+          "class_error_within_margin": 0.15
+        },
+        "applies_to": "model",
+        "score": 40,
+        "error_type": "EXTRA_OBJECT",
+        "text": "Box truck gần trùng với một box mang nhãn khác có confidence cao hơn: một vật bị vẽ hai lần dưới hai tên.",
+        "principle": "N3",
+        "source": "label_policy",
+        "examples": ["TRUCK-3"],
+        "note": "Điểm gắn vào box có confidence thấp hơn. Nếu hai confidence cách nhau dưới 0,15 thì lỗi nghi ngờ là CLASS và gợi ý nhãn của box kia.",
+        "evidence": "Luật có ích nhất cho truck: 18,4% box truck bị gắn cờ và toàn bộ đều sai; riêng luật này bắt 26,7% tổng số lỗi của truck.",
+        "measured": {
+          "flagged_share": 0.184,
+          "error_rate": 1,
+          "share_of_all_errors": 0.267
+        }
+      },
+      {
+        "id": "truck.same_object_as_weaker_box",
+        "status": "active",
+        "check": "geometry.stronger_duplicate",
+        "template": "forbidden_overlap",
+        "params": {
+          "with": "other_labels",
+          "iou": 0.8,
+          "flag": "stronger"
+        },
+        "applies_to": "model",
+        "score": 40,
+        "error_type": "CLASS",
+        "suggests": "nhãn của box kia",
+        "text": "Box truck gần trùng với một box mang nhãn khác có confidence thấp hơn: mô hình thắng về điểm nhưng vẫn thường sai tên.",
+        "principle": "N3, N11",
+        "note": "Check geometry.cross_class_overlap chỉ gắn cờ box yếu hơn trong cặp. Với nhãn này, box mạnh hơn cũng sai phần lớn. Cặp car–truck do car_truck.same_place_flag_truck xử lý.",
+        "evidence": "13,0% box truck rơi vào trường hợp này; chỉ 14,7% trong số đó đúng là truck, còn 78,0% là car trong nhãn đúng.",
+        "measured": {
+          "flagged_share": 0.13,
+          "error_rate": 0.853,
+          "gt_is_car": 0.78
+        },
+        "source": "số đo"
+      },
+      {
+        "id": "truck.duplicate_hand_drawn",
+        "status": "active",
+        "check": "geometry.manual_overlap",
+        "template": "forbidden_overlap",
+        "params": {
+          "with": "same",
+          "iou": 0.5,
+          "flag": "later"
+        },
+        "applies_to": "human",
+        "score": 30,
+        "error_type": "EXTRA_OBJECT",
+        "text": "Hai box truck vẽ tay chồng nhau quá nửa: box vẽ sau bị gắn cờ.",
+        "principle": "N3",
+        "source": "label_policy",
+        "evidence": "Trong 4.243 box truck đúng không có cặp truck–truck nào chồng nhau từ 0,8."
+      },
+      {
+        "id": "truck.inside_large_vehicle",
+        "status": "active",
+        "check": "context.vehicle_in_large_vehicle",
+        "template": "forbidden_inside",
+        "params": {
+          "container": ["truck", "bus"],
+          "containment": 0.9,
+          "not_duplicate_iou": 0.8
+        },
+        "applies_to": "any",
+        "score": 30,
+        "error_type": "EXTRA_OBJECT",
+        "text": "Box truck nằm trọn trong box của một truck hoặc bus khác: thường là cabin, thùng hoặc rơ-moóc của xe lớn bị vẽ thành một xe tải riêng.",
+        "principle": "N4",
+        "source": "label_policy",
+        "exceptions": [
+          "Xe đang được chở trên xe chuyên dụng.",
+          "Xe ở xa nhìn thấy qua khoảng hở của xe lớn."
+        ],
+        "examples": ["TRUCK-4"],
+        "evidence": "Trên nhãn đúng chỉ 11 box truck (0,26%) nằm trọn trong một truck hoặc bus khác. Trên box của mô hình: 1,6% bị gắn cờ, 84,6% trong số đó sai.",
+        "measured": {
+          "flagged_share": 0.0161,
+          "error_rate": 0.846
+        }
+      },
+      {
+        "id": "truck.ego_bonnet",
+        "status": "active",
+        "check": "context.ego_vehicle",
+        "template": "builtin",
+        "params": {
+          "check": "context.ego_vehicle",
+          "bottom_within_px_of_image_bottom": 2,
+          "min_width_over_image": 0.6,
+          "min_top_over_height": 0.7
+        },
+        "applies_to": "any",
+        "score": 40,
+        "error_type": "EXTRA_OBJECT",
+        "text": "Box rộng, dẹt, sát mép dưới ảnh: nắp ca-pô của chính xe gắn camera, không phải một xe trong cảnh.",
+        "principle": "N4",
+        "source": "label_policy",
+        "exceptions": [
+          "Xe thật ở ngay trước mặt cũng chạm mép dưới, nhưng đỉnh box vươn lên giữa ảnh."
+        ],
+        "evidence": "Không box truck nào thoả cả ba điều kiện, cả trong 4.243 box đúng lẫn 4.846 box của mô hình. Box rộng nhất chiếm 66% chiều rộng ảnh.",
+        "measured": {
+          "flagged_share": 0,
+          "error_rate": null
+        }
+      },
+      {
+        "id": "truck.above_road",
+        "status": "active",
+        "check": "geometry.vehicle_position",
+        "template": "builtin",
+        "params": {
+          "check": "geometry.vehicle_position",
+          "max_bottom_over_height": 0.3,
+          "horizon_from_other_vehicles": 3,
+          "horizon_slack_over_box_height": 0.25
+        },
+        "applies_to": "any",
+        "score": 30,
+        "error_type": "EXTRA_OBJECT",
+        "text": "Cả box nằm ở phần trên cùng của ảnh, phía trên mặt đường: thường là hình trên biển quảng cáo hoặc bóng trên kính.",
+        "principle": "N1",
+        "source": "label_policy",
+        "exceptions": [
+          "Xe trên cầu vượt hoặc trên dốc cao.",
+          "Camera chúi xuống: khi ảnh có từ 3 xe khác, đường chân trời của chính ảnh đó quyết định."
+        ],
+        "evidence": "2,5% box truck đúng có đáy cao hơn 30% chiều cao ảnh. Trên box của mô hình, phần điều chỉnh đường chân trời giảm số box bị gắn cờ từ 1,38% xuống 0,17% (8 box, 6 box sai); quá ít để kết luận.",
+        "measured": {
+          "flagged_share": 0.0017,
+          "error_rate": 0.75,
+          "boxes": 8,
+          "flagged_share_without_horizon": 0.0138,
+          "error_rate_without_horizon": 0.642
+        }
+      },
+      {
+        "id": "truck.aspect",
+        "status": "active",
+        "check": "geometry.vehicle_aspect",
+        "template": "aspect_ratio",
+        "params": {
+          "min": 0.2,
+          "max": 2
+        },
+        "applies_to": "any",
+        "score": 15,
+        "error_type": "BBOX",
+        "text": "Box cao hơn hẳn chiều rộng, hoặc dẹt như một vạch.",
+        "principle": "N2",
+        "source": "label_policy",
+        "unless": [
+          {
+            "attribute": "occluded",
+            "equals": true
+          },
+          {
+            "visibility_below": 0.5
+          }
+        ],
+        "exceptions": [
+          "Xe tải nhìn thẳng từ sau có thể cao hơn rộng một chút.",
+          "Xe chỉ lộ một dải hẹp sau vật che."
+        ],
+        "examples": ["TRUCK-7"],
+        "note": "Xe bị che hoặc bị cắt quá nửa không bị chấm theo tỉ lệ. Với truck, luật này chưa cho thấy tác dụng đo được.",
+        "evidence": "Trên nhãn đúng: 3,5% box truck có tỉ lệ cao/rộng trên 2 (60% trong số đó bị che, 51% bị cắt); với xe không bị che và không bị cắt chỉ 0,3%, khoảng p1–p99 là 0,40–1,56. Trên box của mô hình: 2,4% bị gắn cờ và 69,8% sai, gần bằng mức chung 68,9%; sau khi bỏ xe bị che chỉ còn 9 box.",
+        "measured": {
+          "flagged_share": 0.0239,
+          "error_rate": 0.698,
+          "boxes_when_not_hidden": 9
+        }
+      },
+      {
+        "id": "truck.edge_sliver",
+        "status": "active",
+        "check": "geometry.edge_truncated",
+        "template": "edge_sliver",
+        "params": {
+          "edge_px": 2,
+          "max_confidence": 0.5,
+          "normal_ratio": [0.35, 1.4],
+          "side_cut_ratio_over": 2.8,
+          "vertical_cut_ratio_under": 0.175
+        },
+        "applies_to": "model",
+        "family": "weak",
+        "score": 10,
+        "error_type": "BBOX",
+        "text": "Xe tải bị khung hình cắt quá nửa và mô hình kém tự tin.",
+        "principle": "N5",
+        "source": "label_policy",
+        "evidence": "13,2% box truck đúng chạm mép ảnh; 98,7% trong số đó được gán truncated = true. Khoảng tỉ lệ bình thường 0,35–1,4 khớp với xe không bị che, không bị cắt (p1 0,40, p95 1,38). Trên box của mô hình: 24 box bị gắn cờ, 83,3% sai.",
+        "measured": {
+          "flagged_share": 0.005,
+          "error_rate": 0.833,
+          "boxes": 24
+        }
+      },
+      {
+        "id": "truck.weak_in_poor_image",
+        "status": "active",
+        "check": "env.poor_condition",
+        "template": "builtin",
+        "params": {
+          "check": "env.poor_condition",
+          "min_env_risk": 0.5,
+          "max_confidence": 0.5
+        },
+        "applies_to": "model",
+        "family": "weak",
+        "requires": ["env_risk"],
+        "score": 10,
+        "text": "Box yếu trong ảnh điều kiện xấu (tối, mưa, mờ).",
+        "principle": "N6",
+        "source": "label_policy",
+        "examples": ["TRUCK-7"],
+        "note": "Box truck kém tự tin sai 87,0% trong ảnh xấu và 82,9% trong ảnh tốt: ảnh xấu chỉ thêm rất ít.",
+        "measured": {
+          "flagged_share": 0.189,
+          "error_rate": 0.87,
+          "error_rate_low_confidence_in_good_image": 0.829
+        }
+      },
+      {
+        "id": "truck.pickup_is_truck",
+        "status": "manual",
+        "template": "manual",
+        "text": "Xe bán tải gán truck.",
+        "note": "Chủ dự án xác nhận ngày 2026-10-10. Nhãn đúng dùng để đo có chỗ ghi bán tải là car, nhưng bán tải chỉ chiếm 3–7% các trường hợp lệch đã xem.",
+        "source": "label_policy"
+      },
+      {
+        "id": "truck.cargo_van_is_truck",
+        "status": "manual",
+        "template": "manual",
+        "text": "Xe van chở hàng thùng kín, không cửa sổ sau gán truck.",
+        "examples": ["TRUCK-5"],
+        "source": "label_policy"
+      },
+      {
+        "id": "truck.tractor_and_trailer_one_box",
+        "status": "manual",
+        "template": "manual",
+        "text": "Đầu kéo đang nối rơ-moóc: một box truck bao cả hai. Đầu kéo chạy không rơ-moóc vẫn là truck.",
+        "examples": ["TRUCK-4"],
+        "note": "Phần vẽ rơ-moóc thành xe thứ hai do truck.inside_large_vehicle bắt được khi box nhỏ nằm trọn trong box lớn.",
+        "source": "label_policy"
+      },
+      {
+        "id": "truck.lone_trailer_not_labelled",
+        "status": "manual",
+        "template": "manual",
+        "text": "Rơ-moóc đứng riêng, không đầu kéo: không gán.",
+        "examples": ["TRUCK-6"],
+        "note": "TRUCK-6 là trường hợp lọt lưới: cỡ, tỉ lệ và vị trí đều hợp lý nên không tín hiệu số nào bật.",
+        "source": "label_policy"
+      },
+      {
+        "id": "truck.not_a_vehicle",
+        "status": "manual",
+        "template": "manual",
+        "text": "Không gán container đặt dưới đất, nhà xưởng, kho có cửa cuốn.",
+        "principle": "N12",
+        "examples": ["TRUCK-7"],
+        "source": "label_policy"
+      },
+      {
+        "id": "truck.machines_and_trains_not_labelled",
+        "status": "manual",
+        "template": "manual",
+        "text": "Không gán máy xúc, xe lu, máy kéo nông nghiệp, tàu hỏa, tàu điện.",
+        "source": "label_policy"
+      },
+      {
+        "id": "truck.box_covers_whole_vehicle",
+        "status": "manual",
+        "template": "manual",
+        "text": "Một box cho cả xe, gồm cabin và thùng; xe bị che thì chỉ bao phần thấy được.",
+        "note": "Thiếu ngưỡng: chưa có con số cho mức dư hoặc thiếu được chấp nhận.",
+        "source": "label_policy"
+      },
+      {
+        "id": "truck.occlusion_attributes_valid",
+        "status": "active",
+        "check": "attribute.required",
+        "template": "required_attribute",
+        "params": {
+          "names": ["occluded", "truncated"],
+          "values": [true, false],
+          "only_when_dataset_has_them": true
+        },
+        "applies_to": "any",
+        "score": 30,
+        "error_type": "ATTRIBUTE",
+        "text": "Bộ dữ liệu có attribute occluded hoặc truncated thì mọi box truck phải mang giá trị đúng/sai cho attribute đó.",
+        "source": "yêu cầu của chủ dự án, 2026-10-10",
+        "note": "Bộ dữ liệu không có attribute này thì luật không chạy. Điểm 30 là đánh giá, chưa có số đo."
+      },
+      {
+        "id": "truck.truncated_matches_edge",
+        "status": "active",
+        "check": "attribute.truncated_edge",
+        "template": "attribute_matches_edge",
+        "text": "Box chạm mép ảnh thì truncated phải là true; box không chạm mép thì truncated phải là false.",
+        "source": "số đo",
+        "note": "Chỉ chạy trên box mang attribute truncated dạng đúng/sai. Điểm 10 là đánh giá, chưa có số đo: một mình nó không đưa box vào hàng đợi.",
+        "evidence": "Số đo: 98,7% box truck chạm mép ảnh có truncated = true, nhưng chỉ 88,3% box truncated = true chạm mép ảnh, nên chiều ngược lại không đủ chặt để làm luật.",
+        "params": {
+          "attribute": "truncated",
+          "edge_px": 2
+        },
+        "applies_to": "any",
+        "score": 10,
+        "error_type": "ATTRIBUTE"
+      },
+      {
+        "id": "truck.duplicate_same_label",
+        "status": "active",
+        "check": "geometry.duplicate_draft",
+        "template": "forbidden_overlap",
+        "params": {
+          "with": "same",
+          "iou": 0.6,
+          "flag": "weaker"
+        },
+        "applies_to": "model",
+        "score": 50,
+        "error_type": "EXTRA_OBJECT",
+        "text": "Hai box truck do mô hình sinh ra chồng nhau từ 60%: box có confidence thấp hơn là box thừa.",
+        "principle": "N3",
+        "source": "số đo",
+        "note": "Ngưỡng 0,8 không bao giờ bật vì bước lọc trùng của mô hình đã bỏ các cặp cùng nhãn chồng nhau trên 0,7.",
+        "evidence": "Hiếm với truck: 35 box (0,7%) bị gắn cờ, 97,1% trong số đó sai.",
+        "measured": {
+          "flagged_share": 0.0072,
+          "error_rate": 0.971,
+          "boxes": 35
+        }
+      }
+    ],
+    "scoring": {
+      "weak_family": "Các luật có family = weak (low_confidence, edge_sliver, weak_in_poor_image) cùng mô tả một box yếu: chỉ tính một lần, lấy điểm cao nhất. Các luật khác cộng dồn, tối đa 100.",
+      "queue_from": 30,
+      "severe_from_side_px": 32,
+      "severe_note": "13,3% box truck có cạnh dài dưới 32 px."
+    },
+    "frame_rules": [
+      {
+        "id": "coverage.grey_vehicles",
+        "text": "Từ 3 box vùng xám thuộc lớp xe (confidence 0,2–0,3, cạnh từ 32 px, không chồng box nháp nào): nghi sót nhiều xe.",
+        "blocking": true,
+        "evidence": "Quan trọng với truck: trong 3.437 xe tải của nhãn đúng, mô hình bỏ sót 44,1% (không có box nào từ 0,3 trở lên), gán đúng truck 43,9%, gán thành car 8,8% và bus 3,2%."
+      },
+      {
+        "id": "coverage.dense_traffic",
+        "text": "Từ 25 box nháp thuộc lớp xe trong một ảnh.",
+        "blocking": true
+      }
+    ],
+    "calibration": {
+      "what": "Đối chiếu box truck của mô hình với nhãn đúng để biết luật nào thật sự chỉ ra lỗi.",
+      "model_boxes": 4846,
+      "images": 8000,
+      "min_confidence": 0.3,
+      "min_long_side_px": 10,
+      "error_definition": "Box sai khi không khớp với box truck nào trong nhãn đúng ở mức chồng từ 0,5.",
+      "baseline_error_rate": 0.689,
+      "errors_extra_object": 0.256,
+      "errors_wrong_class": 0.433,
+      "wrong_class_breakdown": {
+        "car": 0.388,
+        "bus": 0.043
+      },
+      "by_confidence": [
+        {
+          "range": "0,3–0,4",
+          "correct": 0.138,
+          "gt_is_car": 0.231,
+          "extra": 0.584
+        },
+        {
+          "range": "0,4–0,5",
+          "correct": 0.166,
+          "gt_is_car": 0.338,
+          "extra": 0.45
+        },
+        {
+          "range": "0,5–0,6",
+          "correct": 0.251,
+          "gt_is_car": 0.513,
+          "extra": 0.189
+        },
+        {
+          "range": "0,6–0,7",
+          "correct": 0.329,
+          "gt_is_car": 0.557,
+          "extra": 0.067
+        },
+        {
+          "range": "0,7–0,8",
+          "correct": 0.43,
+          "gt_is_car": 0.489,
+          "extra": 0.016
+        },
+        {
+          "range": "từ 0,8",
+          "correct": 0.677,
+          "gt_is_car": 0.293,
+          "extra": 0.007
+        }
+      ],
+      "how_to_read": "measured.error_rate của một luật là tỉ lệ box sai trong số box luật đó gắn cờ. Với truck, mức chung đã là 68,9%, nên một luật chỉ có ích khi vượt rõ con số này.",
+      "limits": [
+        "Mức sai 68,9% tính theo nhãn đúng. 38,8% box truck của mô hình là car trong nhãn đúng. Xem ảnh 60 box loại này cho thấy phần lớn là SUV bị mô hình gọi là truck (lỗi thật); bán tải chỉ 3–7%, van chở hàng khoảng một phần tư ở nhóm box tự tin. Chi tiết ở car_truck.json, mục visual_check.",
+        "Chỉ một mô hình và một bộ ảnh; mô hình hoặc camera khác sẽ cho con số khác.",
+        "Nhãn đúng cũng có chỗ sót, nên một phần box bị tính là sai thật ra đúng.",
+        "Các luật cần nhãn thứ hai của mô hình (truck.class_margin, truck.confused_with_car_or_bus) chưa đo được, trong khi chúng nhắm đúng lỗi phổ biến nhất.",
+        "Nhiều luật chỉ gắn cờ vài chục box truck, nên tỉ lệ sai của chúng còn dao động."
+      ]
+    },
+    "decisions": [
+      {
+        "question": "Điểm của truck.duplicate_same_label và truck.occlusion_attributes_valid.",
+        "decision": "Như car: trùng nhãn 50 điểm với ngưỡng chồng 0,6; attribute 30 điểm.",
+        "basis": "Luật trùng nhãn sai 97,1% nhưng chỉ có 35 box. Điểm cho attribute là đánh giá, chưa có số đo."
+      },
+      {
+        "question": "truck.above_road sau khi tính đường chân trời.",
+        "decision": "Giữ luật và giữ 30 điểm theo car.",
+        "basis": "Chỉ còn 8 box bị gắn cờ (6 box sai); không đủ để hiệu chỉnh riêng cho truck."
+      },
+      {
+        "question": "Các ngưỡng chưa được hiệu chỉnh trên tỉ lệ lỗi thật.",
+        "decision": "Giữ điểm các luật đang chạy. Đề xuất thêm truck.same_object_as_weaker_box (40 điểm). truck.aspect được giữ nhưng ghi rõ là chưa có tác dụng đo được.",
+        "basis": "Các luật vượt rõ mức chung 68,9%: trùng với nhãn khác (100%), nằm trong xe lớn (84,6%), kém tự tin (84,8%). truck.aspect chỉ đạt 69,8%. Box truck trùng với một box nhãn khác yếu hơn sai 85,3%, mà engine hiện không gắn cờ."
+      },
+      {
+        "question": "Ngưỡng 5% và luật xe gần như không thấy.",
+        "decision": "Theo quyết định của car: có attribute phần trăm thì bỏ qua, chỉ có ước lượng thì vào hàng đợi với 30 điểm.",
+        "basis": "Chỉ 2 box truck rơi vào trường hợp này, nên không có số đo riêng."
+      },
+      {
+        "question": "Mức thấy được ước lượng từ box.",
+        "decision": "Dùng cùng cách tính với car, chỉ để chấm rủi ro.",
+        "basis": "Ước lượng không phân biệt được xe có và không có occluded (2,9% so với 3,6%). Box bị xếp vào nhóm khuất sai 79,4%, cao hơn mức chung 68,9% khoảng 10 điểm."
+      },
+      {
+        "question": "Điểm của truck.mostly_hidden_unconfirmed.",
+        "decision": "30 điểm, thấp hơn car (50).",
+        "basis": "Luật sai 88,5% nhưng nhóm có hai dấu hiệu mà không bị che cũng sai 85,8%, nên việc bị che đóng góp ít. Chỉ có 61 box."
+      }
+    ],
+    "open_questions": [
+      "Lỗi sai tên chính của truck là SUV bị gọi là truck, không phải bán tải. Mức sai thật theo bảng đặt tên của policy thấp hơn 68,9%, vì một phần box mà nhãn đúng ghi car là van chở hàng, bán tải hoặc xe tải thật; với box tự tin đứng một mình, ước lượng đúng khoảng 73% thay vì 58%.",
+      "truck.class_margin và truck.confused_with_car_or_bus chưa đo được: cần dự đoán có nhãn thứ hai.",
+      "Mô hình bỏ sót 44,1% xe tải của nhãn đúng. Các luật trong file này chỉ chấm box đã có; việc bắt xe sót phụ thuộc vào luật mức ảnh và người duyệt.",
+      "truck.ego_bonnet chưa từng bật trên dữ liệu đã đo.",
+      "Số đo đến từ một mô hình và một bộ ảnh. Nên đo lại khi đổi mô hình hoặc nguồn ảnh."
+    ]
+  }
+}

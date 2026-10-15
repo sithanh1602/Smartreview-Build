@@ -1,0 +1,110 @@
+{
+  "frame_policy": {
+    "schema_version": "1.0.0",
+    "purpose": "Quy tắc mức frame: frame có được tự chấp nhận không, và dữ liệu của frame có dùng được để review không.",
+    "sources": [
+      {
+        "id": "physical",
+        "ref": "Kích thước và tốc độ vật lý của vật thể trên đường; giá trị khởi điểm, chưa đo trên dữ liệu"
+      },
+      {
+        "id": "waymo_spec",
+        "ref": "Waymo Open Dataset v2, đặc tả nhãn lidar_box (cần đối chiếu lại từng điểm với bản đặc tả)"
+      },
+      {
+        "id": "policy2d",
+        "ref": "SmartReview web/policy, policy 5.0.0: quy tắc 2D tương ứng"
+      },
+      {
+        "id": "data_contract",
+        "ref": "SmartReview web/docs/projects-3d.md: scene.json do server/projects3d/export_waymo.py sinh ra"
+      },
+      {
+        "id": "waymo_test_10frames",
+        "ref": "waymo-test-10frames: 10 frame đầu của segment 10203656353524179475_7625_000_7645_000 (104 cuboid VEHICLE, 147 SIGN), đo ngày 2026-10-15"
+      }
+    ],
+    "rules": [
+      {
+        "id": "frame.lidar_missing",
+        "status": "proposed",
+        "check": "data3d.lidar_missing",
+        "template": "lidar_count",
+        "params": {
+          "lasers": "all",
+          "min_points": 1
+        },
+        "applies_to": "any",
+        "text": "Mọi lidar trong lasers của scene phải có điểm ở frame này; thiếu một lidar thì không xác nhận được cuboid ở vùng nó phủ.",
+        "blocking": true,
+        "reason": "Dữ liệu frame không đủ để review.",
+        "source": "data_contract"
+      },
+      {
+        "id": "frame.pose_jump",
+        "status": "proposed",
+        "check": "data3d.pose_jump",
+        "template": "pose_jump",
+        "params": {
+          "max_m_per_frame": 5.0
+        },
+        "applies_to": "any",
+        "text": "Vị trí xe ghi hình giữa hai frame kề không được nhảy quá 5 m (50 m/s): pose hỏng làm mọi quy tắc theo track sai.",
+        "blocking": true,
+        "reason": "Pose hỏng; các quy tắc theo track của frame này không đáng tin.",
+        "source": "data_contract"
+      },
+      {
+        "id": "frame.no_boxes",
+        "status": "proposed",
+        "check": "coverage3d.no_boxes",
+        "template": "frame_count",
+        "params": {
+          "labels": "any",
+          "op": "==",
+          "value": 0
+        },
+        "applies_to": "any",
+        "text": "Frame không có cuboid nào: hiếm trên đường có xe cộ, cần người xem có bị bỏ sót cả frame không.",
+        "blocking": true,
+        "source": "physical"
+      },
+      {
+        "id": "frame.crowd",
+        "status": "proposed",
+        "check": "coverage3d.crowd",
+        "template": "frame_count",
+        "params": {
+          "labels": ["pedestrian"],
+          "op": ">=",
+          "value": 30
+        },
+        "applies_to": "any",
+        "text": "Frame có từ 30 người: dễ sót người và dễ gán một cuboid cho hai người.",
+        "blocking": true,
+        "note": "Ngưỡng khởi điểm, chưa đo.",
+        "source": "physical"
+      },
+      {
+        "id": "frame.many_empty_boxes",
+        "status": "proposed",
+        "check": "coverage3d.empty_boxes",
+        "template": "frame_count",
+        "params": {
+          "labels": "any",
+          "points_below": 1,
+          "within_distance_m": 50,
+          "op": ">=",
+          "value": 3
+        },
+        "applies_to": "any",
+        "text": "Frame có từ 3 cuboid gần mà không có điểm lidar: nghi cuboid bị lệch khỏi vật hàng loạt (sai pose hoặc sai frame).",
+        "blocking": true,
+        "source": "physical"
+      }
+    ],
+    "auto_accept": {
+      "note": "Frame chỉ được tự chấp nhận khi không quy tắc mức frame nào chặn và không cuboid core nào từ 30 điểm. Với nhãn người gán (không có confidence), đây là cách duy nhất để một frame được bỏ qua."
+    }
+  }
+}

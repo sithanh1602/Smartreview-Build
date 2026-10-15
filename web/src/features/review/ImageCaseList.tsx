@@ -82,6 +82,11 @@ export function ImageCaseList({
                 </span>
                 <span className="min-w-0 flex-1 truncate text-sm font-semibold">
                   {c.class_name}
+                  {c.missing_object && (
+                    <span className="ml-1.5 rounded bg-violet-100 px-1 text-[10px] font-normal text-violet-800">
+                      Thiếu box
+                    </span>
+                  )}
                 </span>
                 <RiskBadge level={c.risk_level} score={c.risk_score} />
               </button>

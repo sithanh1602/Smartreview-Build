@@ -1,0 +1,709 @@
+{
+  "traffic_light_policy": {
+    "schema_version": "1.0.0",
+    "label": "traffic_light",
+    "group": "bonus",
+    "model_drafts": true,
+    "sources": [
+      {
+        "id": "label_policy",
+        "ref": "Build/Policy/label_policy/traffic_light.md, 00_chung.md"
+      },
+      {
+        "id": "engine",
+        "ref": "SmartReview web/core/risk, engine 4.0.0, policy 2.0.0"
+      }
+    ],
+    "definition": {
+      "summary": "Cụm đèn tín hiệu điều khiển giao thông: hộp đèn có các bóng đỏ, vàng, xanh.",
+      "includes": [
+        "đèn tín hiệu cho xe",
+        "đèn dành cho người đi bộ",
+        "đèn vàng nhấp nháy cảnh báo",
+        "đèn tắt hoặc quay lưng về phía camera"
+      ],
+      "excludes": [
+        "đèn hậu, đèn phanh, đèn xi-nhan của xe",
+        "đèn đường chiếu sáng",
+        "bóng đèn phản chiếu trên mặt đường ướt, nắp ca-pô, kính",
+        "biển hiệu neon, đèn trang trí"
+      ],
+      "appearance": "Hộp tối màu, hình chữ nhật đứng (đôi khi nằm ngang), có một bóng đang sáng. Treo trên cột bên đường hoặc trên tay vươn, dây cáp phía trên lòng đường. Gần như luôn ở nửa trên ảnh. Nhỏ: thường chỉ vài chục pixel. Hiếm khi bị che.",
+      "box": "Mỗi hộp đèn một box, bao hộp đèn, không bao cột hay tay vươn.",
+      "special": "Đây là nhãn nhỏ nhất, nên mốc cỡ thấp hơn các nhãn khác. Ban đêm, nguồn nhầm lẫn chính là đèn của xe và bóng phản chiếu; cả hai nằm thấp trong ảnh, nên vị trí là tín hiệu mạnh nhất."
+    },
+    "defaults": [
+      {
+        "case": "Đèn quay lưng về phía camera, không thấy bóng sáng",
+        "decision": "có gán"
+      },
+      {
+        "case": "Đèn tắt",
+        "decision": "có gán"
+      },
+      {
+        "case": "Đèn dành cho người đi bộ",
+        "decision": "có gán"
+      },
+      {
+        "case": "Đèn vàng nhấp nháy cảnh báo",
+        "decision": "có gán"
+      },
+      {
+        "case": "Màu đèn đang sáng",
+        "decision": "không ghi"
+      }
+    ],
+    "confusable_with": [
+      {
+        "label": "traffic_sign",
+        "when": "biển báo nhỏ hình chữ nhật đứng"
+      },
+      {
+        "label": null,
+        "when": "mọi đốm sáng đỏ hoặc xanh trong ảnh đêm"
+      }
+    ],
+    "attributes": [
+      {
+        "name": "occluded",
+        "required": false,
+        "values": [true, false],
+        "when_absent": "skip",
+        "note": "Theo số đo, 3,5% box traffic_light mang occluded = true."
+      },
+      {
+        "name": "truncated",
+        "required": false,
+        "values": [true, false],
+        "when_absent": "skip",
+        "note": "Theo số đo, 2,7% box traffic_light mang truncated = true; 80,3% trong số đó chạm mép ảnh."
+      },
+      {
+        "name": "occlusion_pct",
+        "required": false,
+        "values": "0–100",
+        "when_absent": "skip",
+        "note": "Một số bộ dữ liệu ghi phần trăm bị che thay cho giá trị đúng/sai. Khi có, đây là nguồn tốt nhất cho visibility."
+      }
+    ],
+    "statistics": {
+      "boxes": 26884,
+      "images": 10000,
+      "image_size": [1280, 720],
+      "per_image": {
+        "images_with_traffic_light": 0.565,
+        "note": "Tính trên các ảnh có ít nhất một traffic_light.",
+        "median": 4,
+        "p90": 9,
+        "p95": 11,
+        "p99": 14,
+        "max": 19
+      },
+      "long_side_px": {
+        "p1": 9,
+        "p5": 11,
+        "p25": 15,
+        "p50": 21,
+        "p95": 59,
+        "p99": 81
+      },
+      "share_long_side_below": {
+        "10": 0.0401,
+        "16": 0.3029,
+        "20": 0.4711,
+        "32": 0.7459
+      },
+      "aspect_ratio": {
+        "all": {
+          "p1": 0.54,
+          "p5": 0.75,
+          "p50": 1.64,
+          "p95": 3,
+          "p99": 3.9
+        },
+        "not_occluded_not_truncated": {
+          "boxes": 25242,
+          "p1": 0.55,
+          "p5": 0.75,
+          "p50": 1.64,
+          "p95": 3,
+          "p99": 3.83
+        }
+      },
+      "bottom_edge_over_height": {
+        "p1": 0.059,
+        "p5": 0.143,
+        "p50": 0.383,
+        "p95": 0.579,
+        "p99": 0.696
+      },
+      "center_over_height": {
+        "p1": 0.031,
+        "p5": 0.109,
+        "p50": 0.369,
+        "p95": 0.568,
+        "p99": 0.68
+      },
+      "touches_image_edge": 0.0251,
+      "largest_box": {
+        "width_over_image": 0.2,
+        "area_over_image": 0.044
+      },
+      "time_of_day": {
+        "daytime": 0.4793,
+        "night": 0.4411,
+        "dawn_dusk": 0.0792
+      },
+      "share_wider_than_tall": 0.18
+    },
+    "levels": [
+      {
+        "id": "ignore",
+        "meaning": "Box không được đánh giá: không đúng, không sai, không vào danh sách nào."
+      },
+      {
+        "id": "warning",
+        "meaning": "Cảnh báo: có trong danh sách xem thêm, người duyệt có thể xem hoặc bỏ qua. Không chặn ảnh khỏi tự chấp nhận và không tính vào hàng đợi chính."
+      },
+      {
+        "id": "queue",
+        "meaning": "Vào hàng đợi review khi tổng điểm từ 30."
+      },
+      {
+        "id": "high",
+        "meaning": "Mức cao khi tổng điểm từ 70."
+      }
+    ],
+    "rules": [
+      {
+        "id": "traffic_light.min_side",
+        "status": "active",
+        "check": null,
+        "engine_note": "Không phải một check: engine xếp box vào trạng thái ignored (lý do bỏ qua below_minimum). label_policy gọi là size.below_minimum.",
+        "template": "min_size",
+        "params": {
+          "side": "long",
+          "px": 10,
+          "action": "ignore"
+        },
+        "text": "Box traffic_light có cạnh dài dưới 10 px không được đánh giá: không đúng, không sai.",
+        "principle": "N8",
+        "source": "label_policy",
+        "examples": ["LIGHT-11"],
+        "evidence": "4,01% box traffic_light đúng có cạnh dài dưới 10 px; 47,1% dưới 20 px; 74,6% dưới 32 px."
+      },
+      {
+        "id": "traffic_light.box_not_positive",
+        "status": "active",
+        "check": "geometry.bbox_validity",
+        "template": "valid_box",
+        "params": {
+          "require": "positive_size"
+        },
+        "applies_to": "any",
+        "score": 70,
+        "error_type": "BBOX",
+        "text": "Box có chiều rộng hoặc chiều cao không dương.",
+        "principle": null,
+        "source": "engine"
+      },
+      {
+        "id": "traffic_light.box_outside_image",
+        "status": "active",
+        "check": "geometry.bbox_validity",
+        "template": "valid_box",
+        "params": {
+          "require": "inside_image",
+          "tolerance_px": 0.1
+        },
+        "applies_to": "any",
+        "score": 40,
+        "error_type": "BBOX",
+        "text": "Box vượt ra ngoài giới hạn ảnh.",
+        "principle": null,
+        "source": "engine"
+      },
+      {
+        "id": "traffic_light.low_confidence",
+        "status": "active",
+        "check": "confidence.low_score",
+        "template": "low_confidence",
+        "params": {
+          "below": 0.5
+        },
+        "applies_to": "model",
+        "family": "weak",
+        "score": 30,
+        "text": "Mô hình kém tự tin với box này (confidence dưới 0,5).",
+        "principle": "N5",
+        "source": "label_policy",
+        "examples": ["LIGHT-8"],
+        "note": "Từ policy 5.0.0 điểm 30, đủ vào hàng đợi (trước đó 20, cố ý đứng dưới ngưỡng). Benchmark BDD100K 1500 ảnh, YOLO11n, tập test: lỗi bắt được 18% → 71%, ca đúng là lỗi 82% → 64%, box sai lọt qua tự chấp nhận 505 → 33.",
+        "evidence": "Box traffic_light dưới 0,5 sai 50,0%; từ 0,5 trở lên sai 16,8%. Theo khoảng confidence, tỉ lệ đúng là 50,0% (0,3–0,5), 78,9% (0,5–0,7) và 94,3% (từ 0,7).",
+        "measured": {
+          "flagged_share": 0.6441,
+          "error_rate": 0.5,
+          "boxes": 5295,
+          "share_of_all_errors": 0.843,
+          "error_rate_from_0_5": 0.168
+        }
+      },
+      {
+        "id": "traffic_light.class_margin",
+        "status": "active",
+        "check": "confidence.class_margin",
+        "template": "class_margin",
+        "params": {
+          "margin": 0.15
+        },
+        "applies_to": "model",
+        "requires": ["label_top2", "score_top2"],
+        "score": 30,
+        "error_type": "CLASS",
+        "suggests": "label_top2",
+        "text": "Mô hình phân vân giữa traffic_light và một nhãn khác: hai điểm cách nhau dưới 0,15.",
+        "principle": "N11",
+        "source": "label_policy",
+        "examples": [],
+        "note": "Chưa đo được vì cần nhãn thứ hai của mô hình."
+      },
+      {
+        "id": "traffic_light.duplicate_other_label",
+        "status": "active",
+        "check": "geometry.cross_class_overlap",
+        "template": "forbidden_overlap",
+        "params": {
+          "with": "other_labels",
+          "iou": 0.8,
+          "flag": "weaker",
+          "class_error_within_margin": 0.15
+        },
+        "applies_to": "model",
+        "score": 40,
+        "error_type": "EXTRA_OBJECT",
+        "text": "Box traffic_light gần trùng với một box mang nhãn khác có confidence cao hơn: một vật bị vẽ hai lần dưới hai tên.",
+        "principle": "N3",
+        "source": "label_policy",
+        "examples": [],
+        "note": "Điểm gắn vào box có confidence thấp hơn. Nếu hai confidence cách nhau dưới 0,15 thì lỗi nghi ngờ là CLASS và gợi ý nhãn của box kia.",
+        "evidence": "Không box traffic_light nào của mô hình gần trùng với một box nhãn khác mạnh hơn, nên chưa có số đo.",
+        "measured": {
+          "flagged_share": 0,
+          "error_rate": null,
+          "boxes": 0
+        }
+      },
+      {
+        "id": "traffic_light.duplicate_hand_drawn",
+        "status": "active",
+        "check": "geometry.manual_overlap",
+        "template": "forbidden_overlap",
+        "params": {
+          "with": "same",
+          "iou": 0.5,
+          "flag": "later"
+        },
+        "applies_to": "human",
+        "score": 30,
+        "error_type": "EXTRA_OBJECT",
+        "text": "Hai box traffic_light vẽ tay chồng nhau quá nửa: box vẽ sau bị gắn cờ.",
+        "principle": "N3",
+        "source": "label_policy",
+        "examples": ["LIGHT-6"],
+        "evidence": "Trong 26.884 box traffic_light đúng có 13 cặp cùng nhãn chồng nhau từ 0,5 và 0 cặp từ 0,8."
+      },
+      {
+        "id": "traffic_light.inside_vehicle",
+        "status": "active",
+        "check": "context.light_in_vehicle",
+        "template": "forbidden_inside",
+        "params": {
+          "container": ["car", "truck", "bus", "two_wheeler"],
+          "containment": 0.9,
+          "not_duplicate_iou": 0.8
+        },
+        "applies_to": "any",
+        "score": 40,
+        "error_type": "EXTRA_OBJECT",
+        "text": "Box đèn tín hiệu nằm trọn trong box của một car, truck, bus hoặc two_wheeler: thường là đèn hậu, đèn phanh hoặc đèn xi-nhan của xe đó.",
+        "exceptions": ["Đèn tín hiệu thật ở xa phía sau một xe lớn lọt vào box xe đó."],
+        "principle": "N4",
+        "examples": ["LIGHT-2", "LIGHT-3", "LIGHT-7"],
+        "note": "LIGHT-3 là báo động giả. Box xe đã bị nghi là box thừa (lỗi nghi ngờ EXTRA_OBJECT) không được dùng làm căn cứ, đúng như label_policy ghi.",
+        "evidence": "Trên nhãn đúng, 2,79% đèn thật (751 box) nằm trọn trong một box xe. Trên box của mô hình: 88 box bị gắn cờ, 51,1% sai, so với mức chung 38,2%.",
+        "measured": {
+          "flagged_share": 0.0107,
+          "error_rate": 0.511,
+          "boxes": 88,
+          "false_alarm_share_on_correct_boxes": 0.0279
+        },
+        "source": "label_policy"
+      },
+      {
+        "id": "traffic_light.near_road",
+        "status": "active",
+        "check": "geometry.light_position",
+        "template": "position_band",
+        "params": {
+          "anchor": "center",
+          "max_y": 0.65,
+          "relative_to": "image"
+        },
+        "applies_to": "any",
+        "score": 30,
+        "error_type": "EXTRA_OBJECT",
+        "text": "Tâm box đèn tín hiệu nằm thấp hơn 65% chiều cao ảnh: phần đó là mặt đường và nắp ca-pô, đèn ở đó là đèn xe hoặc bóng phản chiếu.",
+        "principle": "N1",
+        "examples": ["LIGHT-2", "LIGHT-4"],
+        "evidence": "Trên nhãn đúng, 1,47% đèn thật có tâm thấp hơn 65%; tâm trung vị ở 37% chiều cao ảnh, p99 ở 68%. Trên box của mô hình: 187 box bị gắn cờ (2,3%), 85,0% sai.",
+        "measured": {
+          "flagged_share": 0.0227,
+          "error_rate": 0.85,
+          "boxes": 187,
+          "share_of_all_errors": 0.051,
+          "false_alarm_share_on_correct_boxes": 0.0147
+        },
+        "source": "label_policy"
+      },
+      {
+        "id": "traffic_light.below_vehicles",
+        "status": "active",
+        "check": "geometry.light_below_vehicles",
+        "template": "below_objects",
+        "params": {
+          "objects": ["car", "truck", "bus", "two_wheeler"],
+          "anchor": "center",
+          "their_edge": "top",
+          "min_share": 0.75,
+          "min_objects": 1
+        },
+        "applies_to": "any",
+        "score": 40,
+        "error_type": "EXTRA_OBJECT",
+        "text": "Tâm box đèn nằm thấp hơn mép trên của ít nhất ba phần tư số xe trong ảnh: đèn tín hiệu thật treo cao hơn nóc xe. Thường là đèn hậu, đèn phanh, hoặc bóng đèn phản chiếu trên nắp ca-pô.",
+        "exceptions": [
+          "Ảnh chụp khi xe đang lên dốc hoặc camera chúc xuống: đèn ở xa có thể nằm ngang tầm xe ở gần."
+        ],
+        "principle": "N1",
+        "measured": {
+          "flagged_share": 0.0254,
+          "error_rate": 0.914,
+          "boxes": 209,
+          "share_of_all_errors": 0.064,
+          "false_alarm_share_on_correct_boxes": 0.0034,
+          "not_already_flagged_by_near_road": {
+            "boxes": 80,
+            "error_rate": 0.8
+          },
+          "with_all_vehicles_and_at_least_two": {
+            "boxes": 139,
+            "error_rate": 0.993
+          }
+        },
+        "evidence": "Trên box của mô hình: 209 box bị gắn cờ (2,5%), 91,4% sai; chỉ 0,34% số box đúng bị gắn cờ nhầm. 80 box trong đó không bị traffic_light.near_road bắt, 80% sai.",
+        "note": "Bổ sung cho traffic_light.near_road, vốn chỉ nhìn vị trí trong ảnh: luật này so với chính các xe trong ảnh nên bắt được đèn hậu ở nửa trên ảnh. Ảnh không có box xe nào thì luật không chạy.",
+        "source": "số đo"
+      },
+      {
+        "id": "traffic_light.shape",
+        "status": "active",
+        "check": "geometry.light_aspect",
+        "template": "aspect_ratio",
+        "params": {
+          "min": 0.25,
+          "max": 5
+        },
+        "applies_to": "any",
+        "score": 15,
+        "error_type": "BBOX",
+        "text": "Box rất dẹt hoặc rất cao (tỉ lệ cao/rộng dưới 0,25 hoặc trên 5): không giống hộp đèn.",
+        "exceptions": ["Đèn nằm ngang là có thật; chỉ hình dạng cực đoan mới bị gắn cờ."],
+        "principle": "N2",
+        "examples": ["LIGHT-5"],
+        "note": "label_policy ghi khoảng 0,5–4; check của engine (bản 2.0.0) đã nới thành 0,25–5. File này chép theo engine. Mẫu quá nhỏ để kết luận.",
+        "evidence": "Trên nhãn đúng: 0,21% đèn thật nằm ngoài 0,25–5 (57 box) và 1,63% nằm ngoài 0,5–4; 18% đèn thật rộng hơn cao. Trên box của mô hình: 10 box bị gắn cờ, 90,0% sai; với khoảng 0,5–4 là 68 box, 63,2% sai.",
+        "measured": {
+          "flagged_share": 0.0012,
+          "error_rate": 0.9,
+          "boxes": 10,
+          "boxes_with_range_0_5_to_4": 68,
+          "error_rate_with_range_0_5_to_4": 0.632
+        },
+        "source": "label_policy"
+      },
+      {
+        "id": "traffic_light.duplicate_same_label",
+        "status": "active",
+        "check": "geometry.light_overlap",
+        "template": "forbidden_overlap",
+        "params": {
+          "with": "same",
+          "iou": 0.6,
+          "min_area_ratio": 0.6,
+          "flag": "weaker"
+        },
+        "applies_to": "any",
+        "score": 30,
+        "error_type": "EXTRA_OBJECT",
+        "text": "Hai box đèn tín hiệu gần trùng nhau (chồng từ 0,6 và diện tích không lệch quá 40%): một hộp đèn bị vẽ hai lần.",
+        "exceptions": [
+          "Một box bao hai hộp đèn sát nhau kèm một box cho từng hộp không bị coi là trùng."
+        ],
+        "principle": "N3",
+        "examples": ["LIGHT-6"],
+        "note": "label_policy ghi ngưỡng 0,3; check của engine (bản 2.0.0) dùng 0,6 kèm điều kiện diện tích. Box không có confidence là box người vẽ và luôn được coi là mạnh hơn box của mô hình. Điểm 30 (trước là 20): 86,2% box bị gắn cờ là sai, nên luật này đủ để tự đưa box vào hàng đợi.",
+        "evidence": "Trên nhãn đúng có 8 cặp thoả điều kiện trong 26.884 box. Trên box của mô hình: 247 box bị gắn cờ (3,0%), 86,2% sai, chiếm 6,8% tổng số lỗi. Với ngưỡng 0,3 không kèm điều kiện diện tích: 477 box, 75,9% sai.",
+        "measured": {
+          "flagged_share": 0.03,
+          "error_rate": 0.862,
+          "boxes": 247,
+          "share_of_all_errors": 0.068,
+          "boxes_at_iou_0_3": 477,
+          "error_rate_at_iou_0_3": 0.759
+        },
+        "source": "label_policy"
+      },
+      {
+        "id": "traffic_light.edge_sliver",
+        "status": "active",
+        "check": "geometry.edge_truncated",
+        "template": "edge_sliver",
+        "params": {
+          "edge_px": 2,
+          "max_confidence": 0.5,
+          "normal_ratio": [0.4, 3.2],
+          "side_cut_ratio_over": 6.4,
+          "vertical_cut_ratio_under": 0.2
+        },
+        "applies_to": "model",
+        "family": "weak",
+        "score": 10,
+        "error_type": "BBOX",
+        "text": "Đèn tín hiệu bị khung hình cắt quá nửa và mô hình kém tự tin.",
+        "principle": "N5",
+        "source": "label_policy",
+        "evidence": "2,5% box traffic_light đúng chạm mép ảnh; 87,2% trong số đó được gán truncated = true. Khoảng tỉ lệ bình thường 0,4–3,2 so với vật không bị che, không bị cắt: p1 0,55, p99 3,83. Trên box của mô hình: 2 box bị gắn cờ. Mẫu quá nhỏ để kết luận.",
+        "measured": {
+          "flagged_share": 0.0002,
+          "error_rate": 1,
+          "boxes": 2
+        }
+      },
+      {
+        "id": "traffic_light.weak_in_poor_image",
+        "status": "active",
+        "check": "env.poor_condition",
+        "template": "builtin",
+        "params": {
+          "check": "env.poor_condition",
+          "min_env_risk": 0.5,
+          "max_confidence": 0.5
+        },
+        "applies_to": "model",
+        "family": "weak",
+        "requires": ["env_risk"],
+        "score": 10,
+        "text": "Box yếu trong ảnh điều kiện xấu (tối, mưa, mờ).",
+        "principle": "N6",
+        "source": "label_policy",
+        "note": "Box traffic_light kém tự tin sai 53,3% trong ảnh xấu (3324 box) và 44,4% trong ảnh tốt (1971 box).",
+        "measured": {
+          "flagged_share": 0.4043,
+          "error_rate": 0.533,
+          "boxes": 3324,
+          "error_rate_low_confidence_in_good_image": 0.444
+        }
+      },
+      {
+        "id": "traffic_light.vehicle_lamp_not_labelled",
+        "status": "manual",
+        "template": "manual",
+        "text": "Không gán đèn hậu, đèn phanh, đèn xi-nhan của xe.",
+        "principle": "N4",
+        "examples": ["LIGHT-2"],
+        "note": "Phần bắt được bằng số: traffic_light.inside_vehicle và traffic_light.near_road.",
+        "source": "label_policy"
+      },
+      {
+        "id": "traffic_light.street_lamp_not_labelled",
+        "status": "manual",
+        "template": "manual",
+        "text": "Không gán đèn đường chiếu sáng, biển hiệu neon, đèn trang trí.",
+        "examples": ["LIGHT-9"],
+        "note": "LIGHT-9 là trường hợp lọt lưới: đèn đường treo cao, cỡ và tỉ lệ giống hộp đèn nên không tín hiệu số nào bật.",
+        "source": "label_policy"
+      },
+      {
+        "id": "traffic_light.reflection_not_labelled",
+        "status": "manual",
+        "template": "manual",
+        "text": "Không gán bóng đèn phản chiếu trên mặt đường ướt, nắp ca-pô, kính.",
+        "principle": "N12",
+        "examples": ["LIGHT-4", "LIGHT-7"],
+        "source": "label_policy"
+      },
+      {
+        "id": "traffic_light.unlit_or_back_facing_is_labelled",
+        "status": "manual",
+        "template": "manual",
+        "text": "Đèn tắt và đèn quay lưng về phía camera vẫn gán.",
+        "source": "label_policy"
+      },
+      {
+        "id": "traffic_light.pedestrian_and_flashing_are_labelled",
+        "status": "manual",
+        "template": "manual",
+        "text": "Đèn dành cho người đi bộ và đèn vàng nhấp nháy cảnh báo vẫn gán.",
+        "source": "label_policy"
+      },
+      {
+        "id": "traffic_light.colour_not_recorded",
+        "status": "manual",
+        "template": "manual",
+        "text": "Mặc định không ghi màu đèn đang sáng.",
+        "note": "Guideline có attribute màu thì viết thành bản vá thêm quy tắc required_attribute.",
+        "source": "label_policy"
+      },
+      {
+        "id": "traffic_light.one_box_per_head",
+        "status": "manual",
+        "template": "manual",
+        "text": "Mỗi hộp đèn một box, bao hộp đèn, không bao cột hay tay vươn.",
+        "examples": ["LIGHT-1", "LIGHT-6"],
+        "note": "Thiếu ngưỡng cho mức dư được chấp nhận. Phần trùng box do traffic_light.duplicate_same_label bắt.",
+        "source": "label_policy"
+      },
+      {
+        "id": "traffic_light.occlusion_attributes_valid",
+        "status": "active",
+        "check": "attribute.required",
+        "template": "required_attribute",
+        "params": {
+          "names": ["occluded", "truncated"],
+          "values": [true, false],
+          "only_when_dataset_has_them": true
+        },
+        "applies_to": "any",
+        "score": 30,
+        "error_type": "ATTRIBUTE",
+        "text": "Bộ dữ liệu có attribute occluded hoặc truncated thì mọi box traffic_light phải mang giá trị đúng/sai cho attribute đó.",
+        "source": "yêu cầu của chủ dự án, 2026-10-10",
+        "note": "Bộ dữ liệu không có attribute này thì luật không chạy. Điểm 30 là đánh giá, chưa có số đo."
+      },
+      {
+        "id": "traffic_light.truncated_matches_edge",
+        "status": "active",
+        "check": "attribute.truncated_edge",
+        "template": "attribute_matches_edge",
+        "text": "Box chạm mép ảnh thì truncated phải là true; box không chạm mép thì truncated phải là false.",
+        "source": "số đo",
+        "note": "Chỉ chạy trên box mang attribute truncated dạng đúng/sai. Điểm 10 là đánh giá, chưa có số đo: một mình nó không đưa box vào hàng đợi.",
+        "evidence": "Số đo: 87,2% box traffic_light chạm mép ảnh có truncated = true, nhưng chỉ 80,3% box truncated = true chạm mép ảnh.",
+        "params": {
+          "attribute": "truncated",
+          "edge_px": 2
+        },
+        "applies_to": "any",
+        "score": 10,
+        "error_type": "ATTRIBUTE"
+      }
+    ],
+    "scoring": {
+      "weak_family": "Các luật có family = weak (low_confidence, edge_sliver, weak_in_poor_image) cùng mô tả một box yếu: chỉ tính một lần, lấy điểm cao nhất. Các luật khác cộng dồn, tối đa 100.",
+      "queue_from": 30,
+      "severe_from_side_px": 16,
+      "severe_note": "30,3% box traffic_light có cạnh dài dưới 16 px."
+    },
+    "frame_rules": [
+      {
+        "id": "coverage.many_lights",
+        "text": "Hơn 12 box nháp traffic_light trong một ảnh: vượt số đèn của một giao lộ thường gặp, nghi có box trùng hoặc đốm sáng bị nhận nhầm.",
+        "blocking": false,
+        "examples": ["LIGHT-10"],
+        "evidence": "Luật chỉ bật ở 2 trong 8.000 ảnh. Trên nhãn đúng, 1% số ảnh có đèn chứa từ 14 đèn thật trở lên (nhiều nhất 19), nên ngưỡng 12 sẽ bật cả ở giao lộ lớn có thật nếu mô hình tìm đủ đèn.",
+        "measured": {
+          "images": 2,
+          "images_share": 0.0003
+        }
+      }
+    ],
+    "calibration": {
+      "what": "Đối chiếu box traffic_light của mô hình với nhãn đúng để biết luật nào thật sự chỉ ra lỗi.",
+      "model_boxes": 8221,
+      "images": 8000,
+      "min_confidence": 0.3,
+      "min_long_side_px": 10,
+      "error_definition": "Box sai khi không khớp với box traffic_light nào trong nhãn đúng ở mức chồng từ 0,5.",
+      "baseline_error_rate": 0.382,
+      "errors_extra_object": 0.358,
+      "errors_wrong_class": 0.024,
+      "wrong_class_breakdown": {
+        "traffic_sign": 0.023,
+        "car": 0.001
+      },
+      "by_confidence": [
+        {
+          "range": "0,3–0,5",
+          "boxes": 5295,
+          "correct": 0.5,
+          "extra": 0.473,
+          "wrong_class": 0.027
+        },
+        {
+          "range": "0,5–0,7",
+          "boxes": 2115,
+          "correct": 0.789,
+          "extra": 0.188,
+          "wrong_class": 0.023
+        },
+        {
+          "range": "từ 0,7",
+          "boxes": 811,
+          "correct": 0.943,
+          "extra": 0.048,
+          "wrong_class": 0.009
+        }
+      ],
+      "ground_truth_objects": {
+        "boxes": 20825,
+        "found_as_traffic_light": 0.244,
+        "missed": 0.756
+      },
+      "how_to_read": "measured.error_rate của một luật là tỉ lệ box sai trong số box luật đó gắn cờ. Mức chung của traffic_light là 38,2%.",
+      "limits": [
+        "Chỉ một mô hình và một bộ ảnh; mô hình hoặc camera khác sẽ cho con số khác.",
+        "Nhãn đúng cũng có chỗ sót, nên một phần box bị tính là sai thật ra đúng.",
+        "Đèn nhỏ nên mức chồng 0,5 là điều kiện khắt khe: box lệch vài pixel đã bị tính là sai. Tỉ lệ sai thật thấp hơn con số ở đây.",
+        "traffic_light.class_margin chưa đo được: cần nhãn thứ hai của mô hình.",
+        "traffic_light.shape và phần cắt ở mép ảnh chỉ gắn cờ vài box."
+      ]
+    },
+    "decisions": [
+      {
+        "question": "Khoảng tỉ lệ của traffic_light.shape: 0,5–4 theo label_policy hay 0,25–5 theo engine?",
+        "decision": "0,25–5, theo engine.",
+        "basis": "Khoảng 0,5–4 gắn cờ 1,63% đèn thật; khoảng 0,25–5 chỉ 0,21%. Trên box của mô hình, khoảng rộng hơn chính xác hơn (90,0% so với 63,2%) nhưng chỉ bắt 10 box."
+      },
+      {
+        "question": "Ngưỡng của traffic_light.duplicate_same_label: 0,3 theo label_policy hay 0,6 kèm điều kiện diện tích theo engine?",
+        "decision": "0,6 kèm điều kiện diện tích, theo engine.",
+        "basis": "Ngưỡng của engine: 247 box, 86,2% sai. Ngưỡng 0,3: 477 box, 75,9% sai."
+      },
+      {
+        "question": "Các ngưỡng chưa được hiệu chỉnh trên tỉ lệ lỗi thật.",
+        "decision": "Giữ nguyên điểm của các luật đang chạy.",
+        "basis": "Các luật đo được đều vượt mức chung 38,2%: sát mặt đường (85,0%), trùng box (86,2%), nằm trong xe (51,1%), kém tự tin (50,0%)."
+      }
+    ],
+    "open_questions": [
+      "Mô hình bỏ sót 75,6% đèn của nhãn đúng (cạnh từ 10 px). Nhãn này là bonus nên việc sót không chặn ảnh; cần một lượt gán tay nếu dự án cần đủ đèn.",
+      "traffic_light.inside_vehicle có 40 điểm nhưng chỉ sai 51,1%, và 2,79% đèn thật nằm trọn trong một box xe. Chưa chốt có hạ điểm hoặc thêm điều kiện vị trí hay không.",
+      "64,4% box đèn của mô hình có confidence dưới 0,5 và một nửa trong số đó đúng; ngưỡng 0,5 dùng chung với các nhãn lớn có thể không hợp với nhãn nhỏ này.",
+      "Chưa có luật về mức thấy được cho nhãn này: ước lượng từ box dựa vào box đứng gần camera hơn, không dùng được cho vật treo cao.",
+      "Số đo đến từ một mô hình và một bộ ảnh. Nên đo lại khi đổi mô hình hoặc nguồn ảnh.",
+      "84% số box đèn sai là box có confidence dưới 0,5, và trong nhóm đó đúng sai gần như ngang nhau (47% sai). Chỉ từ toạ độ box thì không tách được chúng: cần tín hiệu từ ảnh (màu, độ sáng vùng box) hoặc mô hình thứ hai.",
+      "Đèn cho người đi bộ, mặt sau của hộp đèn và đèn bị mô hình bỏ sót không có dấu hiệu nào trong dữ liệu box; chúng vẫn cần người xem."
+    ]
+  }
+}

@@ -342,7 +342,7 @@ Python hoặc chưa migrate.
 ## Chưa làm
 
 - Engine chấm rủi ro 3D: chưa có điểm, chưa có hàng đợi "case đáng nghi"; người review tự đi qua
-  từng frame.
+  từng frame. Policy cho engine đó đã viết ở trạng thái đề xuất: [Policy 3D](policy-3d.md).
 - Đánh dấu đối tượng thiếu cuboid (`frame_reviews_3d`), hoàn thành và gửi cho Annotator
   (`project_handoffs_3d`), sửa cuboid ngay trong viewer, ảnh camera.
 - Loại lỗi dùng lại ENUM của 2D, nên lỗi cuboid được lưu trong DB là `BBOX`.

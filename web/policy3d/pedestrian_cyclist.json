@@ -1,0 +1,68 @@
+{
+  "pedestrian_cyclist_policy": {
+    "schema_version": "1.0.0",
+    "pair": ["pedestrian", "cyclist"],
+    "purpose": "Người đang lái xe đạp hoặc xe máy chỉ nằm trong cuboid cyclist; gán thêm cuboid pedestrian cho chính người đó là gán trùng.",
+    "sources": [
+      {
+        "id": "physical",
+        "ref": "Kích thước và tốc độ vật lý của vật thể trên đường; giá trị khởi điểm, chưa đo trên dữ liệu"
+      },
+      {
+        "id": "waymo_spec",
+        "ref": "Waymo Open Dataset v2, đặc tả nhãn lidar_box (cần đối chiếu lại từng điểm với bản đặc tả)"
+      },
+      {
+        "id": "policy2d",
+        "ref": "SmartReview web/policy, policy 5.0.0: quy tắc 2D tương ứng"
+      },
+      {
+        "id": "data_contract",
+        "ref": "SmartReview web/docs/projects-3d.md: scene.json do server/projects3d/export_waymo.py sinh ra"
+      },
+      {
+        "id": "waymo_test_10frames",
+        "ref": "waymo-test-10frames: 10 frame đầu của segment 10203656353524179475_7625_000_7645_000 (104 cuboid VEHICLE, 147 SIGN), đo ngày 2026-10-15"
+      }
+    ],
+    "what_to_do": [
+      {
+        "situation": "Cuboid pedestrian nằm gần trọn trong cuboid cyclist",
+        "action": "Xoá cuboid pedestrian."
+      },
+      {
+        "situation": "Người dắt xe đạp đi bộ",
+        "action": "Gán pedestrian; không gán cyclist cho chiếc xe đang dắt."
+      }
+    ],
+    "rules": [
+      {
+        "id": "pedestrian_cyclist.rider_twice",
+        "status": "proposed",
+        "check": "context3d.rider_twice",
+        "template": "overlap_3d",
+        "params": {
+          "between": ["pedestrian", "cyclist"],
+          "bev_iou": 0.3,
+          "min_z_overlap_m": 0.5,
+          "flag": "pedestrian"
+        },
+        "applies_to": "any",
+        "score": 50,
+        "error_type": "EXTRA_OBJECT",
+        "text": "Cuboid pedestrian chồng cuboid cyclist quá 0,3 (BEV IoU): người lái đã được tính trong cuboid cyclist.",
+        "source": "waymo_spec"
+      },
+      {
+        "id": "pedestrian_cyclist.walking_beside",
+        "status": "manual",
+        "check": null,
+        "template": "manual",
+        "applies_to": "any",
+        "text": "Người đi bộ sát cạnh người đi xe (không phải người lái) vẫn gán pedestrian riêng.",
+        "note": "Phân biệt người lái với người đi cạnh cần nhìn point cloud; quy tắc trên chỉ dựa vào mức chồng.",
+        "source": "waymo_spec"
+      }
+    ]
+  }
+}

@@ -17,6 +17,7 @@ import type {
   FrameList,
   FrameReview,
   FrameSummary,
+  FrameTriage,
   MissingRegion,
 } from '../types.ts';
 
@@ -26,6 +27,11 @@ export function FrameReviewPage() {
 }
 type Id = { projectId: string | undefined };
 const NO_FINDINGS: AiFindingView[] = [];
+const TIERS: Record<FrameTriage['tier'], string> = {
+  auto_accept: 'Tự chấp nhận',
+  verify: 'Cần xem',
+  relabel: 'Vẽ lại',
+};
 
 function Workspace({ projectId }: Id) {
   const { frameId } = useParams(),
@@ -79,6 +85,8 @@ function Workspace({ projectId }: Id) {
         (filter === 'unreviewed' && f.review?.status !== 'REVIEWED') ||
         (filter === 'reviewed' && f.review?.status === 'REVIEWED') ||
         (filter === 'empty' && f.annotation_count === 0) ||
+        (filter === 'risk' && !!f.triage && f.triage.tier !== 'auto_accept') ||
+        (filter === 'hints' && f.missing_hints.length > 0) ||
         (filter === 'missing' && (f.review?.missing_count ?? 0) > 0)) &&
       `${f.media_name} ${f.index}`.toLowerCase().includes(query.toLowerCase()),
   );
@@ -170,6 +178,12 @@ function Workspace({ projectId }: Id) {
               <option value="reviewed">Đã kiểm tra</option>
               <option value="empty">Chưa có annotation</option>
               <option value="missing">Có vùng thiếu đã lưu</option>
+              {data.frames.some((f) => f.triage) && (
+                <option value="risk">Engine: cần xem hoặc vẽ lại</option>
+              )}
+              {data.frames.some((f) => f.missing_hints.length > 0) && (
+                <option value="hints">Có vật nghi bị sót</option>
+              )}
               {aiByFrame.size > 0 && <option value="ai">Có gợi ý AI</option>}
             </select>
           </label>
@@ -210,6 +224,8 @@ function Workspace({ projectId }: Id) {
                       ? 'Đang kiểm tra'
                       : 'Chưa kiểm tra'}
                   {!f.image_url ? ' · Chưa có ảnh' : ''}
+                  {f.triage ? ` · ${TIERS[f.triage.tier]}` : ''}
+                  {f.missing_hints.length > 0 ? ` · Nghi sót ${f.missing_hints.length}` : ''}
                   {aiByFrame.has(f.id) ? ` · AI ${aiByFrame.get(f.id)!.length}` : ''}
                 </span>
               </Link>
@@ -430,6 +446,22 @@ function FrameEditor({
           </button>
         </div>
       </div>
+      {data.triage && (
+        <div
+          className={`mb-4 rounded-xl border p-3 text-sm ${data.triage.tier === 'auto_accept' ? 'border-teal-300 bg-teal-50' : data.triage.tier === 'relabel' ? 'border-rose-300 bg-rose-50' : 'border-amber-300 bg-amber-50'}`}
+          aria-label="Kết luận của engine"
+        >
+          <strong>Engine: {TIERS[data.triage.tier]}</strong>
+          {data.triage.reason && <span> · {data.triage.reason}</span>}
+          {data.triage.rules
+            .filter((r) => !r.blocking)
+            .map((r) => (
+              <span key={r.rule_id} className="block text-xs text-muted">
+                Chỉ báo cáo: {r.reason}
+              </span>
+            ))}
+        </div>
+      )}
       <WholeFrameViewer
         frame={data.frame}
         annotations={data.annotations}

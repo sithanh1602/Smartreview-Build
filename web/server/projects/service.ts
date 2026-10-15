@@ -1,4 +1,5 @@
 import { AiService } from '../ai/service.ts';
+import { rescoreDataset } from '../ai/rescore.ts';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -485,7 +486,9 @@ export class ProjectService {
       id,
     ]);
   }
-  async import(id: string, req: Req) {
+  // How far an import that scores its boxes has come, for the import status the page polls.
+  progress = new Map<string, string>();
+  async import(id: string, req: Req, { rescore = false }: { rescore?: boolean } = {}) {
     const row = await this.row(id);
     const [claimed] = await this.pool.execute<Result>(
       "UPDATE projects SET status='UPLOADING',error_message=NULL WHERE id=? AND status IN ('CREATED','FAILED')",
@@ -526,6 +529,7 @@ export class ProjectService {
         throw new ReviewError(422, 'MVP hỗ trợ tối đa 100000 annotations và 10000 frames.');
       await this.status(id, 'NORMALIZING');
       const used = new Set<string>();
+      const images = new Map<string, string>();
       const mediaById = new Map(data.media.map((m) => [m.id, m]));
       for (const f of data.frames) {
         if (!f.image) throw new ReviewError(422, `Frame ${f.id} thiếu image reference.`);
@@ -541,6 +545,7 @@ export class ProjectService {
             `Kích thước ảnh ${ref} không khớp annotation (${actual.width}×${actual.height} thực tế).`,
           );
         used.add(key);
+        images.set(f.id, uploaded.media.get(key)!);
         f.image = 'media/' + key;
       }
       if (used.size !== uploaded.media.size)
@@ -566,6 +571,16 @@ export class ProjectService {
             }),
           },
         };
+      // Scored before labels are merged, so the model reads the names the annotators used.
+      if (rescore) {
+        try {
+          await rescoreDataset(data, images, directory, (done, total) =>
+            this.progress.set(id, `Đang chấm điểm box bằng model: ${done}/${total} ảnh…`),
+          );
+        } finally {
+          this.progress.delete(id);
+        }
+      }
       // Labels the policy merged (motorcycle, bicycle) are stored under their one name.
       data = mergeLabels(normalizeDataset(data));
       const datasetPath = path.join(directory, 'dataset.json');

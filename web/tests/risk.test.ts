@@ -47,15 +47,18 @@ test('clean car is auto-accepted; a doubtful name is flagged, except car against
     'confidence.class_margin',
     'confidence.vehicle_confusion',
   ]);
-  assert.equal(box(0).score, 70);
+  assert.equal(box(0).score, 80);
   assert.equal(box(0).suggested_label, 'bus');
   assert.equal(frame.tier, 'verify');
 
-  // car_truck.car_keeps_name: with truck as the runner-up, car is nearly always right.
+  // car_truck.car_keeps_name: with truck as the runner-up, car is nearly always right, so only
+  // the low confidence remains, and from policy 5.0.0 that alone is a case.
   ({ frame, box } = run([['car', 0.48, 500, 360, 680, 480, ['truck', 0.4]]]));
   assert.deepEqual(box(0).check_ids, ['confidence.low_score']);
-  assert.equal((box(0).evaluations[5] as any).reason, 'policy_waived');
-  assert.equal(frame.tier, 'auto_accept');
+  const margin = box(0).evaluations.find((e) => e.check_id === 'confidence.class_margin');
+  assert.equal((margin as any).reason, 'policy_waived');
+  assert.equal(box(0).score, 30);
+  assert.equal(frame.tier, 'verify');
 });
 
 test('a weak box is one finding counted once; only a sliver at the frame edge adds to it', () => {
@@ -69,9 +72,9 @@ test('a weak box is one finding counted once; only a sliver at the frame edge ad
     ],
     { env: 0.62 },
   );
-  // Cut by the frame but still car-shaped: weak, not a case, even in a poor image.
+  // Cut by the frame but still car-shaped: weak, scored once, as a lone low confidence is.
   assert.deepEqual(box(0).check_ids, ['confidence.weak_box']);
-  assert.equal(box(0).score, 20);
+  assert.equal(box(0).score, 30);
   assert.deepEqual(
     box(0).findings[0].evidence.signals.map((s) => s.check_id),
     ['confidence.low_score', 'env.poor_condition'],
@@ -85,7 +88,7 @@ test('a weak box is one finding counted once; only a sliver at the frame edge ad
     'excepted',
   );
   assert.deepEqual(box(1).findings[1].evidence.weak_signals, ['low_confidence', 'poor_image']);
-  assert.equal(box(1).score, 70);
+  assert.equal(box(1).score, 80);
   // Bonnet of the camera car.
   assert.deepEqual(box(2).check_ids, [
     'confidence.weak_box',
@@ -94,14 +97,14 @@ test('a weak box is one finding counted once; only a sliver at the frame edge ad
   ]);
   assert.equal(box(2).score, 100);
   assert.equal(box(3).findings[0].evidence.signals.length, 3);
-  assert.equal(box(3).score, 70);
-  assert.equal(box(4).score, 20);
+  assert.equal(box(3).score, 80);
+  assert.equal(box(4).score, 30);
   assert.deepEqual(
     report.cases.map((c) => c.id),
-    ['b2', 'b1', 'b3'],
+    ['b2', 'b1', 'b3', 'b0', 'b4'],
   );
   assert.equal(frame.tier, 'relabel');
-  assert.equal(run([['car', 0.45, 500, 360, 680, 480]], { env: 0.62 }).frame.tier, 'auto_accept');
+  assert.equal(run([['car', 0.45, 500, 360, 680, 480]], { env: 0.62 }).frame.tier, 'verify');
 });
 
 test('vehicle rules: containment, duplicates, and floating judged against the frame horizon', () => {
@@ -114,7 +117,7 @@ test('vehicle rules: containment, duplicates, and floating judged against the fr
     ['car', 0.33, 900, 600, 908, 606],
   ]);
   assert.deepEqual(box(1).check_ids, ['confidence.low_score', 'context.vehicle_in_large_vehicle']);
-  assert.equal(box(1).score, 50);
+  assert.equal(box(1).score, 60);
   // Near-identical boxes are a duplicate, never "a vehicle inside a large vehicle".
   // The weaker truck is the extra box; its name also lacks a second opinion from the model.
   assert.deepEqual(box(3).check_ids, ['geometry.cross_class_overlap', 'pair.unsupported_name']);
@@ -225,7 +228,8 @@ test('frame tiers follow IMG-1..6 and the person/vehicle asymmetry', () => {
 
   const pickup = (x) => ['car', 0.48, x, 360, x + 180, 480, ['bus', 0.4]];
   assert.equal(tier([pickup(100), pickup(400)]).tier, 'relabel');
-  assert.equal(tier([['car', 0.45, 500, 360, 680, 480]]).tier, 'auto_accept');
+  // A low confidence alone is a case from policy 5.0.0, so the frame is no longer auto-accepted.
+  assert.equal(tier([['car', 0.45, 500, 360, 680, 480]]).tier, 'verify');
 });
 
 test('human boxes skip model rules; unsupported geometry cannot be auto-accepted', () => {

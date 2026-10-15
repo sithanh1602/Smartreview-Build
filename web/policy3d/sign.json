@@ -1,0 +1,210 @@
+{
+  "sign_policy": {
+    "schema_version": "1.0.0",
+    "label": "sign",
+    "group": "bonus",
+    "model_drafts": false,
+    "model_drafts_note": "Waymo là nhãn người gán, không có confidence. Quy tắc applies_to model chỉ chạy khi dự án nhập cuboid của một mô hình 3D.",
+    "sources": [
+      {
+        "id": "physical",
+        "ref": "Kích thước và tốc độ vật lý của vật thể trên đường; giá trị khởi điểm, chưa đo trên dữ liệu"
+      },
+      {
+        "id": "waymo_spec",
+        "ref": "Waymo Open Dataset v2, đặc tả nhãn lidar_box (cần đối chiếu lại từng điểm với bản đặc tả)"
+      },
+      {
+        "id": "policy2d",
+        "ref": "SmartReview web/policy, policy 5.0.0: quy tắc 2D tương ứng"
+      },
+      {
+        "id": "data_contract",
+        "ref": "SmartReview web/docs/projects-3d.md: scene.json do server/projects3d/export_waymo.py sinh ra"
+      },
+      {
+        "id": "waymo_test_10frames",
+        "ref": "waymo-test-10frames: 10 frame đầu của segment 10203656353524179475_7625_000_7645_000 (104 cuboid VEHICLE, 147 SIGN), đo ngày 2026-10-15"
+      }
+    ],
+    "definition": {
+      "summary": "Biển báo giao thông.",
+      "includes": ["biển báo cố định trên cột", "biển báo tạm thời trên giá"],
+      "excludes": ["biển quảng cáo", "đèn giao thông", "cột không có biển"],
+      "box": "Cuboid ôm mặt biển; thường mỏng theo một chiều."
+    },
+    "confusable_with": ["vehicle"],
+    "attributes": [
+      {
+        "name": "points",
+        "required": true,
+        "values": "0–",
+        "when_absent": "flag",
+        "note": "num_lidar_points_in_box của Waymo"
+      },
+      {
+        "name": "speed",
+        "required": false,
+        "values": "m/s",
+        "when_absent": "skip",
+        "note": "Waymo có trong lidar_box nhưng export_waymo.py chưa xuất; hiện tính từ vị trí hai frame kề"
+      }
+    ],
+    "confirmability": {
+      "meaning": "Có bao nhiêu dấu hiệu độc lập cho thấy khó xác nhận cuboid này.",
+      "weak_signals": [
+        {
+          "id": "few_points",
+          "when": "1–5 điểm lidar trong cuboid",
+          "points_below": 6
+        },
+        {
+          "id": "far",
+          "when": "cách xe ghi hình trên 50 m",
+          "distance_over_m": 50
+        },
+        {
+          "id": "low_confidence",
+          "when": "confidence < 0,5",
+          "requires": ["confidence"],
+          "confidence_below": 0.5
+        },
+        {
+          "id": "occluded_bev",
+          "when": "nhìn từ xe ghi hình (BEV), hơn một nửa bề ngang bị cuboid gần hơn che",
+          "occluded_share_over": 0.5
+        }
+      ]
+    },
+    "rules": [
+      {
+        "id": "sign.valid_cuboid",
+        "status": "proposed",
+        "check": "geometry3d.cuboid_validity",
+        "template": "valid_cuboid",
+        "params": {
+          "require": ["finite", "positive_size"]
+        },
+        "applies_to": "any",
+        "score": 100,
+        "error_type": "BBOX",
+        "text": "Cuboid phải có tâm, kích thước, hướng là số hữu hạn và ba cạnh dương.",
+        "source": "data_contract"
+      },
+      {
+        "id": "sign.size_range",
+        "status": "proposed",
+        "check": "geometry3d.size_range",
+        "template": "size_range",
+        "params": {
+          "length_m": [0.02, 1.0],
+          "width_m": [0.1, 4.0],
+          "height_m": [0.1, 4.0]
+        },
+        "applies_to": "any",
+        "score": 30,
+        "error_type": "BBOX",
+        "text": "Cuboid biển báo mỏng theo length (không quá 1 m); width và height từ 0,1 m tới 4 m.",
+        "evidence": "waymo_test_10frames: cả 147 cuboid SIGN mỏng nhất theo length (0,048–0,27 m); width 0,23–1,42 m; height 0,37–1,48 m. Bản trước đặt cạnh tối thiểu 0,05 m và gắn cờ nhầm 10 cuboid-frame của một biển dày 0,048 m.",
+        "note": "Ngưỡng width và height vẫn là khởi điểm: mới thấy biển tới 1,48 m.",
+        "source": "physical"
+      },
+      {
+        "id": "sign.no_points",
+        "status": "proposed",
+        "check": "lidar.no_points",
+        "template": "lidar_points",
+        "params": {
+          "below": 1,
+          "within_distance_m": 50
+        },
+        "applies_to": "any",
+        "score": 30,
+        "error_type": "EXTRA_OBJECT",
+        "text": "Cuboid sign trong vòng 50 m mà không chứa điểm lidar nào: có thể là box trên khoảng trống.",
+        "exceptions": [
+          "Vật bị che hoàn toàn nhưng được giữ theo track (người gán nội suy). Khi đó track_gap hoặc ghi chú của người gán giải thích."
+        ],
+        "note": "Ngoài 50 m, cuboid ít điểm là bình thường nên quy tắc không chấm.",
+        "source": "physical"
+      },
+      {
+        "id": "sign.few_points",
+        "status": "proposed",
+        "check": "lidar.few_points",
+        "template": "lidar_points",
+        "params": {
+          "below": 6
+        },
+        "applies_to": "any",
+        "score": 10,
+        "text": "Cuboid sign có từ 1 đến 5 điểm lidar: khó xác nhận, là dấu hiệu yếu.",
+        "family": "weak",
+        "level": "warning",
+        "note": "Waymo xếp box có không quá 5 điểm vào độ khó LEVEL_2. Chỉ cộng vào confirmability, không tự đưa box vào hàng đợi.",
+        "source": "waymo_spec"
+      },
+      {
+        "id": "sign.static",
+        "status": "proposed",
+        "check": "track3d.static_object",
+        "template": "static_object",
+        "params": {
+          "max_speed_m_per_s": 1.0,
+          "frame": "global",
+          "min_track_frames": 3
+        },
+        "applies_to": "any",
+        "score": 50,
+        "error_type": "TRACK",
+        "text": "Biển báo đứng yên: vị trí trong hệ toàn cục không được trôi quá 1 m/s.",
+        "requires": ["track_id", "pose"],
+        "note": "Biển trôi theo xe ghi hình là dấu hiệu cuboid được gán theo hệ xe mà không đổi theo frame.",
+        "source": "physical"
+      },
+      {
+        "id": "sign.rigid_size",
+        "status": "proposed",
+        "check": "track3d.rigid_size",
+        "template": "rigid_size",
+        "params": {
+          "axes": ["length", "width", "height"],
+          "max_relative_change": 0.2,
+          "compare_to": "track_median",
+          "min_track_frames": 5
+        },
+        "applies_to": "any",
+        "score": 30,
+        "error_type": "BBOX",
+        "text": "Kích thước của cùng một biển báo không đổi quá 20% so với trung vị track.",
+        "requires": ["track_id"],
+        "source": "physical"
+      },
+      {
+        "id": "sign.mounted",
+        "status": "proposed",
+        "check": "geometry3d.ground_contact",
+        "template": "ground_contact",
+        "params": {
+          "min_clearance_m": 0.3,
+          "ground_from": ["vehicle", "pedestrian", "cyclist"],
+          "radius_m": 20,
+          "min_neighbours": 3,
+          "fallback_ground_z_m": 0.0,
+          "fallback_within_distance_m": 50
+        },
+        "applies_to": "any",
+        "score": 20,
+        "error_type": "BBOX",
+        "text": "Đáy cuboid biển báo thường cao hơn mặt đường ít nhất 0,3 m (gắn trên cột).",
+        "level": "warning",
+        "exceptions": ["Biển tạm đặt dưới đất ở công trường."],
+        "source": "physical"
+      }
+    ],
+    "scoring": {
+      "queue_from": 30,
+      "weak_family": "few_points, low_confidence: chỉ tính một lần, lấy điểm cao nhất."
+    }
+  }
+}

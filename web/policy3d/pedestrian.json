@@ -1,0 +1,297 @@
+{
+  "pedestrian_policy": {
+    "schema_version": "1.0.0",
+    "label": "pedestrian",
+    "group": "core",
+    "model_drafts": false,
+    "model_drafts_note": "Waymo là nhãn người gán, không có confidence. Quy tắc applies_to model chỉ chạy khi dự án nhập cuboid của một mô hình 3D.",
+    "sources": [
+      {
+        "id": "physical",
+        "ref": "Kích thước và tốc độ vật lý của vật thể trên đường; giá trị khởi điểm, chưa đo trên dữ liệu"
+      },
+      {
+        "id": "waymo_spec",
+        "ref": "Waymo Open Dataset v2, đặc tả nhãn lidar_box (cần đối chiếu lại từng điểm với bản đặc tả)"
+      },
+      {
+        "id": "policy2d",
+        "ref": "SmartReview web/policy, policy 5.0.0: quy tắc 2D tương ứng"
+      },
+      {
+        "id": "data_contract",
+        "ref": "SmartReview web/docs/projects-3d.md: scene.json do server/projects3d/export_waymo.py sinh ra"
+      },
+      {
+        "id": "waymo_test_10frames",
+        "ref": "waymo-test-10frames: 10 frame đầu của segment 10203656353524179475_7625_000_7645_000 (104 cuboid VEHICLE, 147 SIGN), đo ngày 2026-10-15"
+      }
+    ],
+    "definition": {
+      "summary": "Người đi bộ, đứng hoặc ngồi ngoài phương tiện.",
+      "includes": [
+        "người đi bộ, chạy",
+        "người đứng chờ, ngồi trên ghế đá",
+        "trẻ em",
+        "người đẩy xe đẩy, đi xe lăn"
+      ],
+      "excludes": [
+        "người đang đi xe đạp, xe máy (thuộc cuboid cyclist)",
+        "người ngồi trong ô tô",
+        "tượng, ma-nơ-canh, hình người in"
+      ],
+      "box": "Cuboid ôm người kể cả tay chân đang vung; height từ mặt đất tới đỉnh đầu."
+    },
+    "confusable_with": ["cyclist"],
+    "attributes": [
+      {
+        "name": "points",
+        "required": true,
+        "values": "0–",
+        "when_absent": "flag",
+        "note": "num_lidar_points_in_box của Waymo"
+      },
+      {
+        "name": "speed",
+        "required": false,
+        "values": "m/s",
+        "when_absent": "skip",
+        "note": "Waymo có trong lidar_box nhưng export_waymo.py chưa xuất; hiện tính từ vị trí hai frame kề"
+      }
+    ],
+    "confirmability": {
+      "meaning": "Có bao nhiêu dấu hiệu độc lập cho thấy khó xác nhận cuboid này.",
+      "weak_signals": [
+        {
+          "id": "few_points",
+          "when": "1–5 điểm lidar trong cuboid",
+          "points_below": 6
+        },
+        {
+          "id": "far",
+          "when": "cách xe ghi hình trên 50 m",
+          "distance_over_m": 50
+        },
+        {
+          "id": "low_confidence",
+          "when": "confidence < 0,5",
+          "requires": ["confidence"],
+          "confidence_below": 0.5
+        },
+        {
+          "id": "occluded_bev",
+          "when": "nhìn từ xe ghi hình (BEV), hơn một nửa bề ngang bị cuboid gần hơn che",
+          "occluded_share_over": 0.5
+        }
+      ]
+    },
+    "rules": [
+      {
+        "id": "pedestrian.valid_cuboid",
+        "status": "proposed",
+        "check": "geometry3d.cuboid_validity",
+        "template": "valid_cuboid",
+        "params": {
+          "require": ["finite", "positive_size"]
+        },
+        "applies_to": "any",
+        "score": 100,
+        "error_type": "BBOX",
+        "text": "Cuboid phải có tâm, kích thước, hướng là số hữu hạn và ba cạnh dương.",
+        "source": "data_contract"
+      },
+      {
+        "id": "pedestrian.size_range",
+        "status": "proposed",
+        "check": "geometry3d.size_range",
+        "template": "size_range",
+        "params": {
+          "length_m": [0.2, 1.6],
+          "width_m": [0.2, 1.6],
+          "height_m": [0.7, 2.3]
+        },
+        "applies_to": "any",
+        "score": 30,
+        "error_type": "BBOX",
+        "text": "Kích thước cuboid pedestrian nằm ngoài khoảng của vật thật.",
+        "note": "Ngưỡng khởi điểm theo kích thước vật lý, chưa đo trên segment Waymo nào; đo lại trước khi đổi sang active.",
+        "source": "physical"
+      },
+      {
+        "id": "pedestrian.no_points",
+        "status": "proposed",
+        "check": "lidar.no_points",
+        "template": "lidar_points",
+        "params": {
+          "below": 1,
+          "within_distance_m": 50
+        },
+        "applies_to": "any",
+        "score": 50,
+        "error_type": "EXTRA_OBJECT",
+        "text": "Cuboid pedestrian trong vòng 50 m mà không chứa điểm lidar nào: có thể là box trên khoảng trống.",
+        "exceptions": [
+          "Vật bị che hoàn toàn nhưng được giữ theo track (người gán nội suy). Khi đó track_gap hoặc ghi chú của người gán giải thích."
+        ],
+        "note": "Ngoài 50 m, cuboid ít điểm là bình thường nên quy tắc không chấm.",
+        "source": "physical"
+      },
+      {
+        "id": "pedestrian.few_points",
+        "status": "proposed",
+        "check": "lidar.few_points",
+        "template": "lidar_points",
+        "params": {
+          "below": 6
+        },
+        "applies_to": "any",
+        "score": 10,
+        "text": "Cuboid pedestrian có từ 1 đến 5 điểm lidar: khó xác nhận, là dấu hiệu yếu.",
+        "family": "weak",
+        "level": "warning",
+        "note": "Waymo xếp box có không quá 5 điểm vào độ khó LEVEL_2. Chỉ cộng vào confirmability, không tự đưa box vào hàng đợi.",
+        "source": "waymo_spec"
+      },
+      {
+        "id": "pedestrian.ground_contact",
+        "status": "proposed",
+        "check": "geometry3d.ground_contact",
+        "template": "ground_contact",
+        "params": {
+          "max_float_m": 0.5,
+          "max_sink_m": 0.4,
+          "ground_from": ["vehicle", "pedestrian", "cyclist"],
+          "radius_m": 20,
+          "min_neighbours": 3,
+          "fallback_ground_z_m": 0.0,
+          "fallback_within_distance_m": 50
+        },
+        "applies_to": "any",
+        "score": 30,
+        "error_type": "BBOX",
+        "text": "Đáy cuboid pedestrian phải chạm mặt đường: không lơ lửng quá 0.5 m, không chìm quá 0.4 m.",
+        "note": "Mặt đường tại chỗ = trung vị đáy (center.z − height/2) của các cuboid khác trong bán kính radius_m. Ít hơn min_neighbours cuboid thì dùng fallback_ground_z_m (hệ xe) nếu cuboid trong fallback_within_distance_m; xa hơn thì bỏ qua.",
+        "evidence": "waymo_test_10frames: đáy cuboid VEHICLE có trung vị −0,05 m (trong 30 m, 41 cuboid) và −0,04 m (30–50 m, 33 cuboid) trong hệ xe, nên mặt đường gần xe ghi hình nằm ở z ≈ 0. Không cuboid nào có đủ 3 cuboid khác trong 20 m để ước lượng tại chỗ.",
+        "exceptions": [
+          "Đường dốc, cầu vượt nhiều tầng: các cuboid gần nhau có thể ở hai mặt đường khác nhau."
+        ],
+        "source": "physical"
+      },
+      {
+        "id": "pedestrian.rigid_size",
+        "status": "proposed",
+        "check": "track3d.rigid_size",
+        "template": "rigid_size",
+        "params": {
+          "axes": ["height"],
+          "max_relative_change": 0.15,
+          "compare_to": "track_median",
+          "min_track_frames": 5
+        },
+        "applies_to": "any",
+        "score": 30,
+        "error_type": "BBOX",
+        "text": "Kích thước (height) của cùng một pedestrian không được đổi quá 15% so với trung vị của track.",
+        "requires": ["track_id"],
+        "note": "Ngưỡng khởi điểm theo kích thước vật lý, chưa đo trên segment Waymo nào; đo lại trước khi đổi sang active.",
+        "source": "physical"
+      },
+      {
+        "id": "pedestrian.max_speed",
+        "status": "proposed",
+        "check": "track3d.max_speed",
+        "template": "max_speed",
+        "params": {
+          "m_per_s": 10,
+          "frame": "global",
+          "max_frame_gap": 3
+        },
+        "applies_to": "any",
+        "score": 50,
+        "error_type": "TRACK",
+        "text": "Vị trí pedestrian giữa hai frame kề (hệ toàn cục) không được ứng với tốc độ trên 10 m/s: nhiều khả năng ID bị gán nhầm sang vật khác.",
+        "requires": ["track_id", "pose"],
+        "source": "physical"
+      },
+      {
+        "id": "pedestrian.low_confidence",
+        "status": "proposed",
+        "check": "confidence.low_score",
+        "template": "low_confidence",
+        "params": {
+          "below": 0.5
+        },
+        "applies_to": "model",
+        "score": 30,
+        "text": "Cuboid pedestrian do mô hình sinh có confidence dưới 0,5.",
+        "family": "weak",
+        "requires": ["confidence"],
+        "note": "Giữ như policy 2D 5.0.0: confidence thấp một mình đủ vào hàng đợi. Nhãn Waymo do người gán không có confidence nên quy tắc chỉ chạy với cuboid của mô hình 3D.",
+        "source": "policy2d"
+      },
+      {
+        "id": "pedestrian.inside_vehicle",
+        "status": "proposed",
+        "check": "context3d.pedestrian_in_vehicle",
+        "template": "inside_3d",
+        "params": {
+          "container": ["vehicle"],
+          "point": "center",
+          "shrink_m": 0.2
+        },
+        "applies_to": "any",
+        "score": 30,
+        "error_type": "EXTRA_OBJECT",
+        "text": "Không gán người ngồi trong ô tô: tâm cuboid người không được nằm trong cuboid xe (đã thu nhỏ 0,2 m mỗi phía).",
+        "exceptions": ["Người đứng trên thùng xe tải hở hoặc bậc lên xuống của xe buýt."],
+        "source": "policy2d"
+      },
+      {
+        "id": "pedestrian.overlap_pedestrian",
+        "status": "proposed",
+        "check": "geometry3d.interpenetration",
+        "template": "overlap_3d",
+        "params": {
+          "with": "same",
+          "bev_iou": 0.5,
+          "min_z_overlap_m": 0.5,
+          "duplicate_iou": 0.7,
+          "flag": "smaller"
+        },
+        "applies_to": "any",
+        "score": 30,
+        "error_type": "EXTRA_OBJECT",
+        "text": "Hai cuboid người chồng nhau quá 0,5 (BEV IoU): gán trùng một người, hoặc một cuboid ôm hai người.",
+        "note": "Người đứng sát nhau có thể chạm nhau nên ngưỡng cao hơn xe.",
+        "source": "physical"
+      },
+      {
+        "id": "pedestrian.class_change_in_track",
+        "status": "proposed",
+        "check": "track3d.class_change",
+        "template": "constant_in_track",
+        "params": {
+          "field": "type",
+          "mode": "any_change"
+        },
+        "applies_to": "any",
+        "score": 30,
+        "error_type": "TRACK",
+        "text": "Một track người giữ cùng một loại, trừ khi người đó lên xe đạp (đổi sang cyclist).",
+        "requires": ["track_id"],
+        "exceptions": [
+          "Người dắt xe đạp rồi lên xe: đổi pedestrian → cyclist một lần là hợp lệ. Điểm thấp hơn vehicle vì lý do này."
+        ],
+        "source": "policy2d"
+      }
+    ],
+    "scoring": {
+      "queue_from": 30,
+      "weak_family": "few_points, low_confidence: chỉ tính một lần, lấy điểm cao nhất."
+    },
+    "open_questions": [
+      "Người đẩy xe đẩy, đi xe lăn: Waymo ôm cả xe vào cuboid pedestrian? Nếu có, length tối đa 1,6 m có thể hẹp.",
+      "Heading của người đổi nhanh khi quay người nên không có quy tắc heading_jump; cần xem dữ liệu có nhiều cuboid người quay 180° giữa hai frame không."
+    ]
+  }
+}

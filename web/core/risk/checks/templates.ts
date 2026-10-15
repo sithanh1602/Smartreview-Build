@@ -46,6 +46,8 @@ const REASONS: Record<string, (details: Details) => string> = {
   'geometry.bbox_position': ({ ratio }) =>
     `BBox position bất thường: ${ratio.toFixed(2)}x bbox diagonal`,
   'confidence.low_score': ({ box }) => `Confidence thấp: ${box.confidence.toFixed(2)}`,
+  'confidence.rescore_low': ({ value }) =>
+    `Model chấm lại box này rất thấp cho nhãn của nó: ${value.toFixed(3)}`,
   'confidence.class_margin': (d) => `Model phân vân giữa hai nhãn: ${versus(d)}`,
   'confidence.vehicle_confusion': (d) => `Phân vân với nhãn xe gần giống: ${versus(d)}`,
   'confidence.person_vs_two_wheeler': (d) => `Phân vân giữa người và xe hai bánh: ${versus(d)}`,
@@ -304,6 +306,29 @@ export const TEMPLATES: Record<string, Template> = {
         { box: context.box },
         { confidence: context.box.confidence, threshold: rule.params.below },
       ),
+  },
+  // A model's score for a box a person drew (attributes.rescore, ai-service/score_boxes.py): how
+  // sure it is that an object of the box's label sits there. A right box often scores 0.1 to
+  // 0.3 on this scale, so its threshold sits far below a draft's low_confidence. The model can
+  // hardly judge a box whose short side is under `warning_side_below_px`: there it only warns.
+  rescore_low: {
+    scope: 'box',
+    test(rule, { current, box }: StaticContext) {
+      const value = current.attributes?.rescore;
+      if (typeof value !== 'number') return skip('missing_rescore');
+      const { below, warning_side_below_px: tiny = 0 } = rule.params;
+      return (
+        value < below &&
+        hit(
+          rule,
+          { value },
+          { rescore: value, threshold: below },
+          rule.error_type,
+          rule.suggests ?? null,
+          Math.min(box.width, box.height) < tiny ? { level: 'warning' } : {},
+        )
+      );
+    },
   },
   // The model saw an object but is unsure which; the right name is most likely the runner-up.
   // With `confusable_with` only a runner-up from that list counts. A pair file asks about one

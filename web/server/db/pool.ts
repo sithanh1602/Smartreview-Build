@@ -16,7 +16,12 @@ export function createPool({ database = databaseName() } = {}) {
     database: databaseName(database),
     connectionLimit: 5,
     waitForConnections: true,
-    connectTimeout: 5000,
+    // Through the dev SSH tunnel a handshake now and then takes over 5 s, so it is given 20 s,
+    // and idle connections are kept alive and reused rather than opened again.
+    connectTimeout: 20000,
+    enableKeepAlive: true,
+    keepAliveInitialDelay: 10000,
+    idleTimeout: 300000,
     timezone: 'Z',
     dateStrings: true,
     charset: 'utf8mb4',

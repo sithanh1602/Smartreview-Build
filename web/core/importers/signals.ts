@@ -14,6 +14,9 @@ const TOP2_SCORE = [
   'second_score',
 ];
 const ENV_RISK = ['env_risk', 'envrisk', 'environment_risk'];
+// A model's score for a box a person drew (ai-service/score_boxes.py). Its scale is not that of a
+// model's own box, so it is kept apart from the confidence and never makes the box model output.
+const RESCORE = ['rescore'];
 const FILE_NAME = ['file_name', 'filename', 'file', 'image', 'name'];
 
 // Exporter records are foreign input: nothing about their shape is known until it is read.
@@ -104,6 +107,7 @@ export function locateSignals(...sources: unknown[]) {
     top2_score:
       find(sources, TOP2_SCORE, probability) ?? find(sources, CONFIDENCE, probability, 'only'),
     env_risk: find(sources, ENV_RISK, probability),
+    rescore: find(sources, RESCORE, probability),
   };
 }
 // The signal a single field name stands for, for sources that only list names (CVAT attributes).
@@ -117,22 +121,26 @@ export function signalOf(name: string) {
         ? 'top2_score'
         : ENV_RISK.includes(k)
           ? 'env_risk'
-          : undefined;
+          : RESCORE.includes(k)
+            ? 'rescore'
+            : undefined;
 }
 // Sources are searched in order, so a field on the annotation wins over its attributes.
 export function readSignals(...sources: unknown[]) {
   const found = locateSignals(...sources);
   const confidence = found.confidence?.value,
     label = found.top2_label?.value,
-    score = found.top2_score?.value;
+    score = found.top2_score?.value,
+    rescore = found.rescore?.value;
   return {
     ...(confidence !== undefined && { confidence }),
+    ...(rescore !== undefined && { rescore }),
     ...(label !== undefined &&
       score !== undefined && { top2: { label_top2: label, score_top2: score } }),
   };
 }
 export const readEnvRisk = (...sources: unknown[]) => find(sources, ENV_RISK, probability)?.value;
-// Fills confidence and top-2 on a normalized annotation from its own attributes.
+// Fills confidence, top-2 and rescore on a normalized annotation from its own attributes.
 export function applySignals<
   T extends { confidence?: number | null; attributes?: Record<string, unknown> },
 >(annotation: T, ...sources: unknown[]): T {
@@ -140,6 +148,8 @@ export function applySignals<
   if (annotation.confidence == null && signals.confidence !== undefined)
     annotation.confidence = signals.confidence;
   if (signals.top2) annotation.attributes = { ...annotation.attributes, ...signals.top2 };
+  if (signals.rescore !== undefined)
+    annotation.attributes = { ...annotation.attributes, rescore: signals.rescore };
   return annotation;
 }
 
@@ -179,6 +189,46 @@ export function parseImageTable(text: string) {
     if (row[file] && risk !== undefined) result.set(row[file].trim(), risk);
   }
   return result;
+}
+// Objects a model found that no drawn box covers (ai-service/score_boxes.py). They are hints
+// for the frame rule coverage.model_missing, kept by frame in the dataset metadata, never labels.
+export const MISSING_HINTS = 'smartreview_missing';
+export interface MissingHint {
+  label: string;
+  confidence: number;
+  geometry: { type: 'bbox'; x: number; y: number; width: number; height: number };
+}
+// `frameOf` names the frame of a hint, `box` gives [x, y, width, height]. A hint that names no
+// known frame, label or usable box is left out.
+export function readMissingHints(
+  objects: unknown,
+  frameOf: (hint: Loose) => string,
+  box: (hint: Loose) => unknown[],
+  labelOf: (hint: Loose) => string | undefined = (hint) => text(hint.label),
+) {
+  const hints: Record<string, MissingHint[]> = {};
+  for (const hint of Array.isArray(objects) ? objects : objects == null ? [] : [objects]) {
+    if (!object(hint)) continue;
+    const [x, y, width, height] = box(hint).map(Number),
+      label = labelOf(hint),
+      confidence = probability(hint.score);
+    if (!label || confidence === undefined || ![x, y, width, height].every(Number.isFinite))
+      continue;
+    if (width <= 0 || height <= 0) continue;
+    (hints[frameOf(hint)] ??= []).push({
+      label,
+      confidence,
+      geometry: { type: 'bbox', x, y, width, height },
+    });
+  }
+  return hints;
+}
+export function applyMissingHints(data: Dataset, hints: Record<string, MissingHint[]>) {
+  const frames = new Set(data.frames.map((f) => f.id));
+  const kept = Object.fromEntries(Object.entries(hints).filter(([frame]) => frames.has(frame)));
+  if (Object.keys(kept).length)
+    data.dataset.metadata = { ...data.dataset.metadata, missing_hints: kept };
+  return data;
 }
 // Rows are matched to media by exact name, then by a basename that is unique on both sides.
 export function applyEnvRisk(data: Dataset, byName: Map<string, number>) {

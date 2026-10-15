@@ -1,0 +1,347 @@
+{
+  "dataset_policy": {
+    "schema_version": "1.0.0",
+    "policy_version": "5.0.0",
+    "sources": [
+      {
+        "id": "label_policy",
+        "ref": "Build/Policy/label_policy/00_chung.md"
+      },
+      {
+        "id": "engine",
+        "ref": "SmartReview web/core/risk_v4, engine 4.0.0, policy 2.0.0"
+      },
+      {
+        "id": "previous",
+        "ref": "SmartReview web/core/risk_v5/policy, engine 5.0.0, policy 3.0.0"
+      }
+    ],
+    "labels": [
+      "car",
+      "truck",
+      "bus",
+      "two_wheeler",
+      "person",
+      "traffic_light",
+      "traffic_sign",
+      "barrier",
+      "pole"
+    ],
+    "groups": {
+      "core": ["car", "truck", "bus", "two_wheeler", "person"],
+      "bonus": ["traffic_light", "traffic_sign", "barrier", "pole"],
+      "flagged_bonus_boxes": "queue",
+      "meaning": "core: box bị gắn cờ chặn ảnh khỏi tự chấp nhận, và vật bị sót cũng chặn ảnh (quy tắc mức ảnh). bonus: mô hình sinh box cho các nhãn này kém, nên việc thiếu box không chặn ảnh và quy tắc mức ảnh về chúng chỉ báo cáo.",
+      "flagged_bonus_boxes_note": "queue: một box bonus đã bị gắn cờ từ 30 điểm là một lỗi cụ thể cần sửa, nên vào hàng đợi chính và chặn ảnh như box core. advisory: chỉ liệt kê ở danh sách phụ (hành vi của engine 4.0.0)."
+    },
+    "pairs": ["car_truck"],
+    "merged_labels": {
+      "two_wheeler": ["motorcycle", "bicycle"],
+      "note": "Các nhãn bên phải đã gộp vào nhãn bên trái. Khi import, annotation mang tên cũ (hoặc một tên khác của nó trong aliases) được đổi thành tên mới, nên dữ liệu lưu và dữ liệu xuất ra chỉ còn nhãn mới. Lý do gộp motorcycle và bicycle: trong 147 box motorcycle của mô hình, 16,3% thực ra là xe đạp, và không tín hiệu nào từ box bắt được lỗi đó."
+    },
+    "label_normalisation": "Tên nhãn được đưa về chữ thường, bỏ khoảng trắng đầu cuối, khoảng trắng và gạch nối đổi thành '_', rồi tra bảng aliases.",
+    "aliases": {
+      "stop_sign": "traffic_sign",
+      "motorcycle": "two_wheeler",
+      "bicycle": "two_wheeler",
+      "motor": "two_wheeler",
+      "motorbike": "two_wheeler",
+      "bike": "two_wheeler",
+      "two_wheel": "two_wheeler",
+      "two_wheels": "two_wheeler",
+      "pedestrian": "person",
+      "rider": "person"
+    },
+    "unknown_label": "score_as_core",
+    "unknown_label_note": "Nhãn ngoài danh sách không có luật riêng và không bị gắn cờ chỉ vì lạ. Các luật chung vẫn chạy trên nó, không có cỡ tối thiểu, và box bị gắn cờ chặn ảnh như nhãn core.",
+    "thresholds": {
+      "working_score": 0.3,
+      "grey_floor": 0.1,
+      "low_score": 0.5,
+      "class_margin": 0.15,
+      "confusion_margin": 0.25,
+      "containment": 0.9,
+      "duplicate_iou": 0.8,
+      "edge_px": 2,
+      "poor_env": 0.5
+    },
+    "min_side_px": {
+      "car": 10,
+      "truck": 10,
+      "bus": 10,
+      "two_wheeler": 10,
+      "person": 16,
+      "traffic_light": 10,
+      "traffic_sign": 10,
+      "barrier": 32,
+      "pole": 32,
+      "note": "Cạnh dài của box; riêng pole tính theo chiều cao. Box nhỏ hơn không được đánh giá."
+    },
+    "normal_ratio": {
+      "car": [0.3, 1.1],
+      "truck": [0.35, 1.4],
+      "bus": [0.35, 1.5],
+      "person": [1.5, 4.5],
+      "two_wheeler": [0.7, 2.5],
+      "traffic_light": [0.4, 3.2],
+      "traffic_sign": [0.6, 1.6],
+      "note": "Khoảng tỉ lệ cao/rộng của vật thấy trọn, dùng cho khuôn edge_sliver. Nhãn không có trong bảng dùng 0,2–5."
+    },
+    "box_states": [
+      {
+        "id": "draft",
+        "meaning": "Box của mô hình có confidence từ working_score: là nhãn nháp và được mọi luật chấm."
+      },
+      {
+        "id": "manual",
+        "meaning": "Box không có confidence: do người vẽ. Các luật applies_to = model bỏ qua nó."
+      },
+      {
+        "id": "grey",
+        "meaning": "Box của mô hình có confidence dưới working_score: không phải nhãn, chỉ dùng cho luật mức ảnh và luật theo track."
+      },
+      {
+        "id": "ignored",
+        "meaning": "Box nhỏ hơn cỡ tối thiểu của nhãn: không đúng, không sai."
+      },
+      {
+        "id": "invalid",
+        "meaning": "Box có chiều rộng hoặc chiều cao không dương."
+      },
+      {
+        "id": "unsupported",
+        "meaning": "Annotation không phải bbox: chưa đánh giá được, và chặn ảnh khỏi tự chấp nhận."
+      }
+    ],
+    "scoring": {
+      "sum": "Điểm của một box là tổng điểm các luật bắt lỗi, tối đa 100.",
+      "weak_family": "Các luật có family = weak (low_confidence, edge_sliver, weak_in_poor_image) cùng mô tả một box yếu: chỉ tính một lần, lấy điểm cao nhất. Các luật khác cộng dồn, tối đa 100.",
+      "error_type": "Khi hai luật cho lỗi nghi ngờ khác nhau, ghi lỗi của luật có điểm cao hơn."
+    },
+    "tiers": {
+      "flagged": 30,
+      "high": 70,
+      "relabel_flagged": 5,
+      "relabel_high": 2
+    },
+    "auto_accept": {
+      "min_confidence": 0.3,
+      "note": "Ảnh chỉ được tự chấp nhận khi không luật mức ảnh nào chặn, không box core nào từ 30 điểm, và không box nháp core nào dưới min_confidence. Mức 0,3 trùng với working_score nên điều kiện thứ ba hiện chưa loại ảnh nào."
+    },
+    "rules_note": "Các quy tắc dưới đây chạy trên mọi nhãn, kể cả nhãn ngoài danh sách. Bốn quy tắc theo track chỉ chạy khi box có track_id và có frame kề trước và sau cách không quá 3 frame. Các quy tắc mức box là quy tắc dự phòng: chúng chạy trên nhãn nào mà file của nhãn đó không có quy tắc cho cùng check.",
+    "rules": [
+      {
+        "id": "any.label_blip_in_track",
+        "status": "active",
+        "check": "temporal.class_inconsistency",
+        "template": "constant_in_track",
+        "params": {
+          "field": "label",
+          "mode": "blip",
+          "max_frame_gap": 3
+        },
+        "applies_to": "any",
+        "requires": ["track_id"],
+        "score": 50,
+        "text": "Trong một track, frame giữa mang nhãn khác hai frame trước và sau, trong khi hai frame đó cùng nhãn.",
+        "error_type": "CLASS",
+        "suggests": "nhãn của hai frame kề",
+        "principle": "N11",
+        "source": "engine"
+      },
+      {
+        "id": "any.confidence_drop_in_track",
+        "status": "active",
+        "check": "confidence.neighbor_drop",
+        "template": "smooth_in_track",
+        "params": {
+          "quantity": "confidence",
+          "max_change": 0.2,
+          "direction": "drop",
+          "max_frame_gap": 3
+        },
+        "applies_to": "any",
+        "requires": ["track_id", "confidence"],
+        "score": 20,
+        "text": "Confidence của một frame thấp hơn trung bình hai frame kề từ 0,2 trở lên.",
+        "principle": "N5",
+        "source": "engine"
+      },
+      {
+        "id": "any.area_jump_in_track",
+        "status": "active",
+        "check": "geometry.bbox_area",
+        "template": "smooth_in_track",
+        "params": {
+          "quantity": "area",
+          "max_change": 0.5,
+          "relative_to": "mean_of_neighbours",
+          "max_frame_gap": 3
+        },
+        "applies_to": "any",
+        "requires": ["track_id"],
+        "score": 15,
+        "text": "Diện tích box lệch từ 50% so với trung bình hai frame kề trong cùng track.",
+        "error_type": "BBOX",
+        "source": "engine"
+      },
+      {
+        "id": "any.position_jump_in_track",
+        "status": "active",
+        "check": "geometry.bbox_position",
+        "template": "smooth_in_track",
+        "params": {
+          "quantity": "position",
+          "max_change": 0.5,
+          "relative_to": "box_diagonal",
+          "max_frame_gap": 3
+        },
+        "applies_to": "any",
+        "requires": ["track_id"],
+        "score": 15,
+        "text": "Tâm box lệch khỏi điểm giữa của hai frame kề từ nửa đường chéo box trở lên.",
+        "error_type": "BBOX",
+        "source": "engine"
+      },
+      {
+        "id": "any.box_not_positive",
+        "status": "active",
+        "check": "geometry.bbox_validity",
+        "template": "valid_box",
+        "params": {
+          "require": "positive_size"
+        },
+        "applies_to": "any",
+        "score": 70,
+        "error_type": "BBOX",
+        "text": "Box có chiều rộng hoặc chiều cao không dương.",
+        "source": "engine"
+      },
+      {
+        "id": "any.box_outside_image",
+        "status": "active",
+        "check": "geometry.bbox_validity",
+        "template": "valid_box",
+        "params": {
+          "require": "inside_image",
+          "tolerance_px": 0.1
+        },
+        "applies_to": "any",
+        "score": 40,
+        "error_type": "BBOX",
+        "text": "Box vượt ra ngoài ảnh quá 0,1 px.",
+        "source": "engine"
+      },
+      {
+        "id": "any.low_confidence",
+        "status": "active",
+        "check": "confidence.low_score",
+        "template": "low_confidence",
+        "params": {
+          "below": 0.5
+        },
+        "applies_to": "model",
+        "score": 30,
+        "family": "weak",
+        "principle": "N5",
+        "text": "Box của mô hình có confidence dưới 0,5.",
+        "note": "Từ policy 5.0.0 điểm 30, đủ vào hàng đợi (trước đó 20, cố ý đứng dưới ngưỡng). Benchmark BDD100K 1500 ảnh, YOLO11n, tập test: lỗi bắt được 18% → 71%, ca đúng là lỗi 82% → 64%, box sai lọt qua tự chấp nhận 505 → 33.",
+        "source": "engine"
+      },
+      {
+        "id": "any.class_margin",
+        "status": "active",
+        "check": "confidence.class_margin",
+        "template": "class_margin",
+        "params": {
+          "margin": 0.15
+        },
+        "applies_to": "model",
+        "score": 30,
+        "requires": ["label_top2", "score_top2"],
+        "error_type": "CLASS",
+        "suggests": "label_top2",
+        "principle": "N11",
+        "text": "Mô hình phân vân giữa hai nhãn: hai điểm cách nhau dưới 0,15.",
+        "source": "engine"
+      },
+      {
+        "id": "any.duplicate_other_label",
+        "status": "active",
+        "check": "geometry.cross_class_overlap",
+        "template": "forbidden_overlap",
+        "params": {
+          "with": "other_labels",
+          "iou": 0.8,
+          "flag": "weaker",
+          "class_error_within_margin": 0.15
+        },
+        "applies_to": "model",
+        "score": 40,
+        "error_type": "EXTRA_OBJECT",
+        "principle": "N3",
+        "text": "Box gần trùng với một box mang nhãn khác có confidence cao hơn: một vật bị vẽ hai lần dưới hai tên.",
+        "source": "engine"
+      },
+      {
+        "id": "any.edge_sliver",
+        "status": "active",
+        "check": "geometry.edge_truncated",
+        "template": "edge_sliver",
+        "params": {
+          "edge_px": 2,
+          "max_confidence": 0.5,
+          "normal_ratio": [0.2, 5],
+          "side_cut_ratio_over": 10,
+          "vertical_cut_ratio_under": 0.1
+        },
+        "applies_to": "model",
+        "score": 10,
+        "family": "weak",
+        "error_type": "BBOX",
+        "principle": "N5",
+        "text": "Box sát mép ảnh chỉ còn một dải hẹp và có confidence dưới 0,5.",
+        "source": "engine"
+      },
+      {
+        "id": "any.weak_in_poor_image",
+        "status": "active",
+        "check": "env.poor_condition",
+        "template": "builtin",
+        "params": {
+          "check": "env.poor_condition",
+          "min_env_risk": 0.5,
+          "max_confidence": 0.5
+        },
+        "applies_to": "model",
+        "score": 10,
+        "family": "weak",
+        "requires": ["env_risk"],
+        "principle": "N6",
+        "text": "Box có confidence dưới 0,5 trong ảnh có điều kiện xấu (env_risk từ 0,5).",
+        "source": "engine"
+      },
+      {
+        "id": "any.duplicate_hand_drawn",
+        "status": "active",
+        "check": "geometry.manual_overlap",
+        "template": "forbidden_overlap",
+        "params": {
+          "with": "same",
+          "iou": 0.5,
+          "flag": "later"
+        },
+        "applies_to": "human",
+        "score": 30,
+        "error_type": "EXTRA_OBJECT",
+        "principle": "N3",
+        "text": "Hai box người vẽ cùng nhãn chồng nhau từ 0,5: box vẽ sau bị gắn cờ.",
+        "source": "engine"
+      }
+    ],
+    "open_questions": [
+      "Bốn quy tắc theo track chưa có số đo: bộ ảnh đã đo là ảnh rời, không có track_id.",
+      "Chưa có bảng ánh xạ nhãn theo dự án cho bộ nhãn khác hẳn (ví dụ Vehicle, Pedestrian)."
+    ]
+  }
+}

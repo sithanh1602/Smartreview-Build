@@ -4,8 +4,9 @@ import path from 'node:path';
 import { normalizeDataset } from '../core/schema/normalize.ts';
 import { analyzeDataset, supportsWaivers, severity } from '../core/risk/engine.ts';
 import { canonicalWaivers, type Waivers } from '../shared/guideline-waivers.ts';
-import type { Source } from '../core/schema/types.ts';
-import type { CheckStat, ContextPosition, RiskResult } from '../core/risk/types.ts';
+import type { Annotation, Source } from '../core/schema/types.ts';
+import type { MissingHint } from '../core/importers/signals.ts';
+import type { CheckStat, ContextPosition, FrameReport, RiskResult } from '../core/risk/types.ts';
 
 export const riskLevel = severity;
 export interface DatasetMeta {
@@ -24,6 +25,10 @@ export interface DatasetMeta {
   media_count: number;
   total_annotations: number;
   total_cases: number;
+  // Boxes the engine only warns about (shown, never scored); absent on datasets loaded before.
+  total_warnings?: number;
+  // Cases that are objects the model found and nobody drew; part of total_cases.
+  total_missing?: number;
   total_tracks: number;
   levels: Record<string, number>;
   checks: Record<string, CheckStat>;
@@ -85,6 +90,57 @@ export async function buildDataset(
   const frames = new Map(normalized.frames.map((f) => [f.id, f]));
   const media = new Map(normalized.media.map((m) => [m.id, m]));
   const annotations = new Map(normalized.annotations.map((a) => [a.id, a]));
+  // An object the model found that nobody drew (frame rule coverage.model_missing) is a review
+  // case like an error: the reviewer confirms the miss (Annotation Error, Missing Object) or
+  // dismisses the hint. Its box is the model's, kept apart from the dataset's annotations.
+  const missing: RiskResult[] = [];
+  for (const f of 'frames' in report ? (report.frames as FrameReport[]) : [])
+    for (const rule of f.image_rules.filter((r) => r.rule_id === 'coverage.model_missing'))
+      (rule.evidence.objects as MissingHint[]).forEach((hint, i) => {
+        const id = `missing:${f.frame_id}:${i}`,
+          percent = Math.round(hint.confidence * 100),
+          score = Math.round(40 + 40 * hint.confidence),
+          reason = `Model thấy “${hint.label}” (${percent}%) nhưng chưa có box nào ở đây: annotator có thể đã bỏ sót.`;
+        annotations.set(id, {
+          id,
+          frame_id: f.frame_id,
+          label: hint.label,
+          geometry: hint.geometry,
+          source: { kind: 'model', name: 'Gợi ý vật bị sót' },
+          attributes: { model_confidence: hint.confidence },
+        } as Annotation);
+        missing.push({
+          id,
+          dataset_id: normalized.dataset.id,
+          reference: {
+            annotation_id: id,
+            frame_id: f.frame_id,
+            frame_index: f.frame_index,
+            media_id: f.media_id,
+          },
+          score,
+          severity: severity(score),
+          suspected_error: 'MISSING_OBJECT',
+          suggested_label: hint.label,
+          reasons: [reason],
+          findings: [
+            {
+              check_id: 'coverage.model_missing',
+              check_version: '1.0.0',
+              status: 'flagged',
+              score,
+              reason,
+              evidence: { confidence: hint.confidence, bbox: hint.geometry },
+              error_type: 'MISSING_OBJECT',
+              suggested_label: hint.label,
+            },
+          ],
+          check_ids: ['coverage.model_missing'],
+          evaluations: [],
+          context: { current: id },
+        });
+      });
+  const missingIds = new Set(missing.map((r) => r.id));
   const assets = new Map<string, string>();
   for (const f of normalized.frames) {
     if (!f.image) continue;
@@ -138,14 +194,21 @@ export async function buildDataset(
       score: result.score,
       risk_score: result.score,
       risk_level: result.severity,
+      // A suggested missing object, not an annotation of the dataset.
+      missing_object: missingIds.has(result.id),
       source: current.source || normalized.dataset.source,
       context: Object.fromEntries(
         Object.entries(result.context).map(([position, id]) => [position, observation(id)]),
       ) as Partial<Record<ContextPosition, ReturnType<typeof observation>>>,
     };
   }
-  const cases = report.cases.map(project),
-    allCases = report.results.map(project);
+  const byRisk = (a: RiskResult, b: RiskResult) =>
+    b.score - a.score ||
+    a.reference.frame_index - b.reference.frame_index ||
+    a.id.localeCompare(b.id);
+  const cases = [...report.cases, ...missing].sort(byRisk).map(project),
+    allCases = [...report.results, ...missing].map(project),
+    warningCases = (('warning_cases' in report && report.warning_cases) || []).map(project);
   const firstMedia = normalized.media[0];
   const meta: DatasetMeta = {
     dataset_id: datasetId,
@@ -161,6 +224,8 @@ export async function buildDataset(
     media_count: normalized.media.length,
     total_annotations: normalized.annotations.length,
     total_cases: cases.length,
+    total_warnings: warningCases.length,
+    total_missing: missing.length,
     total_tracks: new Set(
       normalized.annotations
         .filter((a) => a.track_id !== undefined)
@@ -178,5 +243,15 @@ export async function buildDataset(
   };
   const readAsset = async (frameId: string) =>
     assets.has(frameId) ? source.read(assets.get(frameId)!) : null;
-  return { normalized, report, assets, readAsset, remote: source.remote, cases, allCases, meta };
+  return {
+    normalized,
+    report,
+    assets,
+    readAsset,
+    remote: source.remote,
+    cases,
+    allCases,
+    warningCases,
+    meta,
+  };
 }

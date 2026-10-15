@@ -15,6 +15,7 @@ const CHECKS: [id: string, version?: string][] = [
   ['geometry.bbox_area'],
   ['geometry.bbox_position'],
   ['confidence.low_score'],
+  ['confidence.rescore_low'],
   ['confidence.class_margin'],
   ['confidence.vehicle_confusion'],
   ['confidence.person_vs_two_wheeler'],

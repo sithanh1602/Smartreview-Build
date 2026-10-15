@@ -1,0 +1,350 @@
+{
+  "vehicle_policy": {
+    "schema_version": "1.0.0",
+    "label": "vehicle",
+    "group": "core",
+    "model_drafts": false,
+    "model_drafts_note": "Waymo là nhãn người gán, không có confidence. Quy tắc applies_to model chỉ chạy khi dự án nhập cuboid của một mô hình 3D.",
+    "sources": [
+      {
+        "id": "physical",
+        "ref": "Kích thước và tốc độ vật lý của vật thể trên đường; giá trị khởi điểm, chưa đo trên dữ liệu"
+      },
+      {
+        "id": "waymo_spec",
+        "ref": "Waymo Open Dataset v2, đặc tả nhãn lidar_box (cần đối chiếu lại từng điểm với bản đặc tả)"
+      },
+      {
+        "id": "policy2d",
+        "ref": "SmartReview web/policy, policy 5.0.0: quy tắc 2D tương ứng"
+      },
+      {
+        "id": "data_contract",
+        "ref": "SmartReview web/docs/projects-3d.md: scene.json do server/projects3d/export_waymo.py sinh ra"
+      },
+      {
+        "id": "waymo_test_10frames",
+        "ref": "waymo-test-10frames: 10 frame đầu của segment 10203656353524179475_7625_000_7645_000 (104 cuboid VEHICLE, 147 SIGN), đo ngày 2026-10-15"
+      }
+    ],
+    "definition": {
+      "summary": "Phương tiện có động cơ: ô tô, xe tải, xe buýt, xe máy không người lái đứng đỗ, xe công trình.",
+      "includes": [
+        "ô tô con, SUV, bán tải",
+        "xe tải, đầu kéo, rơ-moóc",
+        "xe buýt, xe buýt nối toa",
+        "xe đang đỗ bên đường",
+        "xe máy đỗ không có người"
+      ],
+      "excludes": [
+        "xe có người đang lái xe đạp hoặc xe máy (là cyclist)",
+        "chính xe ghi hình",
+        "xe in trên biển quảng cáo, mô hình xe"
+      ],
+      "box": "Cuboid ôm sát thân xe; length theo hướng đầu xe (heading), width ngang, height từ mặt đường tới nóc."
+    },
+    "confusable_with": ["cyclist"],
+    "attributes": [
+      {
+        "name": "points",
+        "required": true,
+        "values": "0–",
+        "when_absent": "flag",
+        "note": "num_lidar_points_in_box của Waymo"
+      },
+      {
+        "name": "speed",
+        "required": false,
+        "values": "m/s",
+        "when_absent": "skip",
+        "note": "Waymo có trong lidar_box nhưng export_waymo.py chưa xuất; hiện tính từ vị trí hai frame kề"
+      }
+    ],
+    "confirmability": {
+      "meaning": "Có bao nhiêu dấu hiệu độc lập cho thấy khó xác nhận cuboid này.",
+      "weak_signals": [
+        {
+          "id": "few_points",
+          "when": "1–5 điểm lidar trong cuboid",
+          "points_below": 6
+        },
+        {
+          "id": "far",
+          "when": "cách xe ghi hình trên 50 m",
+          "distance_over_m": 50
+        },
+        {
+          "id": "low_confidence",
+          "when": "confidence < 0,5",
+          "requires": ["confidence"],
+          "confidence_below": 0.5
+        },
+        {
+          "id": "occluded_bev",
+          "when": "nhìn từ xe ghi hình (BEV), hơn một nửa bề ngang bị cuboid gần hơn che",
+          "occluded_share_over": 0.5
+        }
+      ]
+    },
+    "rules": [
+      {
+        "id": "vehicle.valid_cuboid",
+        "status": "proposed",
+        "check": "geometry3d.cuboid_validity",
+        "template": "valid_cuboid",
+        "params": {
+          "require": ["finite", "positive_size"]
+        },
+        "applies_to": "any",
+        "score": 100,
+        "error_type": "BBOX",
+        "text": "Cuboid phải có tâm, kích thước, hướng là số hữu hạn và ba cạnh dương.",
+        "source": "data_contract"
+      },
+      {
+        "id": "vehicle.size_range",
+        "status": "proposed",
+        "check": "geometry3d.size_range",
+        "template": "size_range",
+        "params": {
+          "length_m": [2.0, 25.0],
+          "width_m": [1.2, 3.2],
+          "height_m": [1.0, 4.8]
+        },
+        "applies_to": "any",
+        "score": 30,
+        "error_type": "BBOX",
+        "text": "Kích thước cuboid vehicle nằm ngoài khoảng của vật thật.",
+        "note": "Ngưỡng khởi điểm theo kích thước vật lý, chưa đo trên segment Waymo nào; đo lại trước khi đổi sang active.",
+        "source": "physical"
+      },
+      {
+        "id": "vehicle.axis_order",
+        "status": "proposed",
+        "check": "geometry3d.axis_order",
+        "template": "axis_order",
+        "params": {
+          "longer": "length",
+          "shorter": "width",
+          "min_ratio": 1.1
+        },
+        "applies_to": "any",
+        "score": 50,
+        "error_type": "BBOX",
+        "text": "Với xe, length (theo heading) phải dài hơn width ít nhất 1,1 lần; ngược lại là heading lệch 90°.",
+        "note": "Xe con có length/width khoảng 2,3; xe buýt khoảng 4–7.",
+        "source": "physical"
+      },
+      {
+        "id": "vehicle.no_points",
+        "status": "proposed",
+        "check": "lidar.no_points",
+        "template": "lidar_points",
+        "params": {
+          "below": 1,
+          "within_distance_m": 50
+        },
+        "applies_to": "any",
+        "score": 50,
+        "error_type": "EXTRA_OBJECT",
+        "text": "Cuboid vehicle trong vòng 50 m mà không chứa điểm lidar nào: có thể là box trên khoảng trống.",
+        "exceptions": [
+          "Vật bị che hoàn toàn nhưng được giữ theo track (người gán nội suy). Khi đó track_gap hoặc ghi chú của người gán giải thích."
+        ],
+        "note": "Ngoài 50 m, cuboid ít điểm là bình thường nên quy tắc không chấm.",
+        "source": "physical"
+      },
+      {
+        "id": "vehicle.few_points",
+        "status": "proposed",
+        "check": "lidar.few_points",
+        "template": "lidar_points",
+        "params": {
+          "below": 6
+        },
+        "applies_to": "any",
+        "score": 10,
+        "text": "Cuboid vehicle có từ 1 đến 5 điểm lidar: khó xác nhận, là dấu hiệu yếu.",
+        "family": "weak",
+        "level": "warning",
+        "note": "Waymo xếp box có không quá 5 điểm vào độ khó LEVEL_2. Chỉ cộng vào confirmability, không tự đưa box vào hàng đợi.",
+        "source": "waymo_spec"
+      },
+      {
+        "id": "vehicle.ground_contact",
+        "status": "proposed",
+        "check": "geometry3d.ground_contact",
+        "template": "ground_contact",
+        "params": {
+          "max_float_m": 0.6,
+          "max_sink_m": 0.5,
+          "ground_from": ["vehicle", "pedestrian", "cyclist"],
+          "radius_m": 20,
+          "min_neighbours": 3,
+          "fallback_ground_z_m": 0.0,
+          "fallback_within_distance_m": 50
+        },
+        "applies_to": "any",
+        "score": 30,
+        "error_type": "BBOX",
+        "text": "Đáy cuboid vehicle phải chạm mặt đường: không lơ lửng quá 0.6 m, không chìm quá 0.5 m.",
+        "note": "Mặt đường tại chỗ = trung vị đáy (center.z − height/2) của các cuboid khác trong bán kính radius_m. Ít hơn min_neighbours cuboid thì dùng fallback_ground_z_m (hệ xe) nếu cuboid trong fallback_within_distance_m; xa hơn thì bỏ qua.",
+        "evidence": "waymo_test_10frames: đáy cuboid VEHICLE có trung vị −0,05 m (trong 30 m, 41 cuboid) và −0,04 m (30–50 m, 33 cuboid) trong hệ xe, nên mặt đường gần xe ghi hình nằm ở z ≈ 0. Không cuboid nào có đủ 3 cuboid khác trong 20 m để ước lượng tại chỗ.",
+        "exceptions": [
+          "Đường dốc, cầu vượt nhiều tầng: các cuboid gần nhau có thể ở hai mặt đường khác nhau."
+        ],
+        "source": "physical"
+      },
+      {
+        "id": "vehicle.rigid_size",
+        "status": "proposed",
+        "check": "track3d.rigid_size",
+        "template": "rigid_size",
+        "params": {
+          "axes": ["length", "width", "height"],
+          "max_relative_change": 0.15,
+          "compare_to": "track_median",
+          "min_track_frames": 5
+        },
+        "applies_to": "any",
+        "score": 30,
+        "error_type": "BBOX",
+        "text": "Kích thước (length, width, height) của cùng một vehicle không được đổi quá 15% so với trung vị của track.",
+        "requires": ["track_id"],
+        "note": "Ngưỡng khởi điểm theo kích thước vật lý, chưa đo trên segment Waymo nào; đo lại trước khi đổi sang active.",
+        "source": "physical"
+      },
+      {
+        "id": "vehicle.max_speed",
+        "status": "proposed",
+        "check": "track3d.max_speed",
+        "template": "max_speed",
+        "params": {
+          "m_per_s": 60,
+          "frame": "global",
+          "max_frame_gap": 3
+        },
+        "applies_to": "any",
+        "score": 50,
+        "error_type": "TRACK",
+        "text": "Vị trí vehicle giữa hai frame kề (hệ toàn cục) không được ứng với tốc độ trên 60 m/s: nhiều khả năng ID bị gán nhầm sang vật khác.",
+        "requires": ["track_id", "pose"],
+        "source": "physical"
+      },
+      {
+        "id": "vehicle.heading_jump",
+        "status": "proposed",
+        "check": "track3d.heading_jump",
+        "template": "heading_jump",
+        "params": {
+          "max_rad_per_frame": 0.5,
+          "frame": "global",
+          "flip_within_rad": 0.35,
+          "max_frame_gap": 1
+        },
+        "applies_to": "any",
+        "score": 30,
+        "error_type": "BBOX",
+        "text": "Hướng vehicle không được quay quá 0.5 rad trong một frame (0,1 s). Quay gần π là đầu và đuôi bị đảo.",
+        "requires": ["track_id", "pose"],
+        "note": "Hướng so trong hệ toàn cục để trừ phần xe ghi hình tự quay. Lệch gần π (trong flip_within_rad) ghi riêng là đảo đầu đuôi.",
+        "source": "physical"
+      },
+      {
+        "id": "vehicle.heading_vs_motion",
+        "status": "proposed",
+        "check": "track3d.heading_vs_motion",
+        "template": "heading_vs_motion",
+        "params": {
+          "min_speed_m_per_s": 3.0,
+          "max_angle_rad": 0.6,
+          "frame": "global",
+          "window_frames": 5
+        },
+        "applies_to": "any",
+        "score": 30,
+        "error_type": "BBOX",
+        "text": "Vehicle đang chạy từ 3.0 m/s thì hướng cuboid phải gần hướng chuyển động (lệch không quá 0.6 rad).",
+        "requires": ["track_id", "pose"],
+        "exceptions": [
+          "Xe lùi: lệch gần π. Quy tắc vẫn chấm vì xe lùi nhanh hiếm; người duyệt xác nhận."
+        ],
+        "note": "Hướng chuyển động lấy từ vị trí tâm trong window_frames frame liên tiếp để bớt nhiễu.",
+        "source": "physical"
+      },
+      {
+        "id": "vehicle.low_confidence",
+        "status": "proposed",
+        "check": "confidence.low_score",
+        "template": "low_confidence",
+        "params": {
+          "below": 0.5
+        },
+        "applies_to": "model",
+        "score": 30,
+        "text": "Cuboid vehicle do mô hình sinh có confidence dưới 0,5.",
+        "family": "weak",
+        "requires": ["confidence"],
+        "note": "Giữ như policy 2D 5.0.0: confidence thấp một mình đủ vào hàng đợi. Nhãn Waymo do người gán không có confidence nên quy tắc chỉ chạy với cuboid của mô hình 3D.",
+        "source": "policy2d"
+      },
+      {
+        "id": "vehicle.overlap_vehicle",
+        "status": "proposed",
+        "check": "geometry3d.interpenetration",
+        "template": "overlap_3d",
+        "params": {
+          "with": "same",
+          "bev_iou": 0.1,
+          "min_z_overlap_m": 0.3,
+          "duplicate_iou": 0.7,
+          "flag": "smaller"
+        },
+        "applies_to": "any",
+        "score": 50,
+        "error_type": "BBOX",
+        "text": "Hai cuboid xe không được lồng vào nhau: vật rắn không xuyên qua nhau. Chồng từ 0,7 (BEV IoU) là gán trùng một xe.",
+        "note": "Từ duplicate_iou trở lên thì error_type là EXTRA_OBJECT (box thừa) thay vì BBOX.",
+        "exceptions": ["Xe được chở trên xe chuyên chở: cuboid nằm trên nóc, z không chồng."],
+        "source": "physical"
+      },
+      {
+        "id": "vehicle.class_change_in_track",
+        "status": "proposed",
+        "check": "track3d.class_change",
+        "template": "constant_in_track",
+        "params": {
+          "field": "type",
+          "mode": "any_change"
+        },
+        "applies_to": "any",
+        "score": 50,
+        "error_type": "TRACK",
+        "text": "Một track phải giữ cùng một loại trong cả segment.",
+        "requires": ["track_id"],
+        "source": "policy2d"
+      },
+      {
+        "id": "vehicle.door_open",
+        "status": "manual",
+        "check": null,
+        "template": "manual",
+        "applies_to": "any",
+        "text": "Cửa xe đang mở: cuboid có ôm cả cánh cửa hay không theo Guideline của dự án.",
+        "note": "Cần nhìn point cloud; không có con số trong dữ liệu.",
+        "source": "waymo_spec"
+      }
+    ],
+    "scoring": {
+      "queue_from": 30,
+      "weak_family": "few_points, low_confidence: chỉ tính một lần, lấy điểm cao nhất."
+    },
+    "statistics": {
+      "note": "Chưa đo. Đo trên ít nhất một segment: phân bố length, width, height, points theo khoảng cách, tốc độ lớn nhất theo track."
+    },
+    "open_questions": [
+      "Waymo gán rơ-moóc chung cuboid với đầu kéo hay tách riêng? Nếu tách, length tối đa nên hạ về khoảng 13 m và cần quy tắc cặp đầu kéo – rơ-moóc.",
+      "Xe máy đỗ không người lái: Waymo xếp vào VEHICLE hay CYCLIST? Ảnh hưởng tới axis_order và size_range."
+    ]
+  }
+}

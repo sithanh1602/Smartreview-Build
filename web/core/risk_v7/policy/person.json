@@ -1,0 +1,897 @@
+{
+  "person_policy": {
+    "schema_version": "1.0.0",
+    "label": "person",
+    "group": "core",
+    "model_drafts": true,
+    "sources": [
+      {
+        "id": "label_policy",
+        "ref": "Build/Policy/label_policy/person.md, 00_chung.md"
+      },
+      {
+        "id": "engine",
+        "ref": "SmartReview web/core/risk, engine 4.0.0, policy 2.0.0"
+      }
+    ],
+    "definition": {
+      "summary": "Con người có mặt thật trong cảnh, ở ngoài trời hoặc trên phương tiện hở.",
+      "includes": [
+        "người đi bộ",
+        "người đứng chờ, người chạy",
+        "người ngồi trên xe máy hoặc xe đạp",
+        "người đẩy xe"
+      ],
+      "excludes": [
+        "người ngồi trong ô tô, xe buýt, xe tải",
+        "hình người trên áp phích, biển quảng cáo, thân xe",
+        "ma-nơ-canh, tượng",
+        "bóng người phản chiếu trên kính hoặc mặt nước"
+      ],
+      "appearance": "Hình dáng thẳng đứng, cao hơn rộng khoảng hai đến ba lần khi đứng. Chân chạm mặt đất hoặc chạm xe hai bánh. Thường ở nửa dưới và giữa ảnh: trên vỉa hè, lối sang đường, mép đường. Hay bị che một phần bởi xe, cột, người khác.",
+      "box": "Bao phần nhìn thấy được của người, từ đỉnh đầu đến bàn chân, kể cả tay đang dang. Không bao xe người đó đang ngồi, không bao đồ mang theo cỡ lớn (xe đẩy, ô).",
+      "special": "Bỏ sót người nặng hơn bỏ sót vật khác (N7). Vì vậy chỉ một box vùng xám person đủ lớn cũng đưa cả ảnh cho người xem, trong khi với xe phải có từ ba box."
+    },
+    "defaults": [
+      {
+        "case": "Người ngồi trong ô tô, xe buýt, xe tải",
+        "decision": "không gán"
+      },
+      {
+        "case": "Người đang lái xe hai bánh",
+        "decision": "gán person, box riêng với xe"
+      },
+      {
+        "case": "Nhóm người đứng sát không tách được từng người",
+        "decision": "mỗi người phân biệt được một box; phần còn lại không gán"
+      },
+      {
+        "case": "Trẻ em trong xe đẩy",
+        "decision": "gán nếu thấy rõ"
+      }
+    ],
+    "confusable_with": [
+      {
+        "label": "two_wheeler",
+        "when": "người lái bị gộp với xe, hoặc xe dựng không người"
+      },
+      {
+        "label": "pole",
+        "when": "người đứng yên ở xa"
+      },
+      {
+        "label": null,
+        "when": "hòm thư, thân cây, đốm sáng dọc trong ảnh đêm"
+      }
+    ],
+    "attributes": [
+      {
+        "name": "occluded",
+        "required": false,
+        "values": [true, false],
+        "when_absent": "skip",
+        "note": "Theo số đo, 60,0% box person mang occluded = true."
+      },
+      {
+        "name": "truncated",
+        "required": false,
+        "values": [true, false],
+        "when_absent": "skip",
+        "note": "Theo số đo, 3,1% box person mang truncated = true; 78,1% trong số đó chạm mép ảnh."
+      },
+      {
+        "name": "occlusion_pct",
+        "required": false,
+        "values": "0–100",
+        "when_absent": "skip",
+        "note": "Một số bộ dữ liệu ghi phần trăm bị che thay cho giá trị đúng/sai. Khi có, đây là nguồn tốt nhất cho visibility."
+      }
+    ],
+    "statistics": {
+      "boxes": 14084,
+      "images": 10000,
+      "image_size": [1280, 720],
+      "per_image": {
+        "images_with_person": 0.344,
+        "note": "Tính trên các ảnh có ít nhất một person.",
+        "median": 2,
+        "p90": 10,
+        "p95": 14,
+        "p99": 22,
+        "max": 40
+      },
+      "long_side_px": {
+        "p1": 13,
+        "p5": 18,
+        "p25": 34,
+        "p50": 52,
+        "p95": 165,
+        "p99": 294
+      },
+      "share_long_side_below": {
+        "10": 0.0027,
+        "16": 0.0305,
+        "20": 0.0718,
+        "32": 0.228
+      },
+      "aspect_ratio": {
+        "all": {
+          "p1": 0.82,
+          "p5": 1.18,
+          "p50": 2.41,
+          "p95": 4,
+          "p99": 5.3
+        },
+        "not_occluded_not_truncated": {
+          "boxes": 5359,
+          "p1": 1.36,
+          "p5": 1.71,
+          "p50": 2.5,
+          "p95": 3.63,
+          "p99": 4.33
+        }
+      },
+      "bottom_edge_over_height": {
+        "p1": 0.261,
+        "p5": 0.357,
+        "p50": 0.533,
+        "p95": 0.753,
+        "p99": 0.891
+      },
+      "center_over_height": {
+        "p1": 0.231,
+        "p5": 0.32,
+        "p50": 0.49,
+        "p95": 0.676,
+        "p99": 0.797
+      },
+      "touches_image_edge": 0.026,
+      "largest_box": {
+        "width_over_image": 0.37,
+        "area_over_image": 0.207
+      },
+      "time_of_day": {
+        "daytime": 0.707,
+        "night": 0.2139,
+        "dawn_dusk": 0.0786
+      },
+      "kinds": {
+        "on_foot": 0.953,
+        "riding_a_two_wheeler": 0.047,
+        "aspect_ratio_on_foot": {
+          "p1": 0.83,
+          "p5": 1.2,
+          "p50": 2.44,
+          "p95": 4,
+          "p99": 5.33
+        },
+        "aspect_ratio_riding": {
+          "p1": 0.79,
+          "p5": 1,
+          "p50": 1.82,
+          "p95": 2.78,
+          "p99": 3.78
+        }
+      },
+      "rider": {
+        "share_with_a_two_wheeler_box": 0.866,
+        "overlap_with_two_wheeler_box": {
+          "p50": 0.354,
+          "p95": 0.549
+        },
+        "share_overlapping_from_0_5": 0.094,
+        "note": "Mức chồng (IoU) giữa box người lái và box xe trong nhãn đúng."
+      }
+    },
+    "visibility": {
+      "meaning": "Phần của người còn thấy được trong ảnh, từ 0 đến 1. Dùng để quyết định một box có đủ căn cứ để tin là người hay không.",
+      "sources_in_order": [
+        {
+          "from": "attribute occlusion_pct hoặc truncation_pct",
+          "use": "1 − phần trăm bị che hoặc bị cắt",
+          "trust": "high"
+        },
+        {
+          "from": "attribute occluded / truncated (đúng/sai)",
+          "use": "Chỉ biết là có bị che hoặc bị cắt; kết hợp với ước lượng từ box bên dưới",
+          "trust": "medium"
+        },
+        {
+          "from": "ước lượng từ box",
+          "use": "visibility = phần còn trong khung hình × (1 − phần bị box đứng gần camera hơn che)",
+          "trust": "low"
+        }
+      ],
+      "estimate_from_boxes": {
+        "frame_cut": "Box chạm mép trái/phải: rộng ÷ (cao ÷ 2,5). Box chạm mép trên/dưới: cao ÷ (rộng × 2,5). 2,5 là tỉ lệ cao/rộng trung vị của người không bị che, không bị cắt.",
+        "covered_by_nearer_boxes": "Phần diện tích box nằm dưới các box car, truck, bus hoặc person có đáy thấp hơn (đứng gần camera hơn). Box xe hai bánh không được tính: người lái luôn chồng lên xe. Mỗi box che được thu nhỏ còn 80% quanh tâm trước khi tính.",
+        "caveat": "Ước lượng này không đo đúng mức che khuất: trên các box đúng, nó xếp 9,0% người có occluded = true và 2,1% người có occluded = false vào nhóm thấy dưới 50%. Không được dùng để loại box.",
+        "occluder_shrink": 0.8,
+        "typical_ratio": 2.5,
+        "edge_px": 2,
+        "occluders": ["car", "truck", "bus", "person"]
+      },
+      "thresholds": {
+        "mostly_hidden": 0.5,
+        "barely_visible": 0.05
+      },
+      "measured": {
+        "note": "Tính bằng ước lượng từ box.",
+        "on_correct_boxes": {
+          "share_below_0_5": 0.0623,
+          "share_below_0_05": 0.0156,
+          "occluded_true_below_0_5": 0.09,
+          "occluded_false_below_0_5": 0.021
+        },
+        "on_model_boxes": {
+          "share_below_0_5": 0.0451,
+          "error_rate_below_0_5": 0.49,
+          "boxes_below_0_5": 294
+        }
+      },
+      "percent_attributes": ["occlusion_pct", "truncation_pct"]
+    },
+    "confirmability": {
+      "meaning": "Có bao nhiêu dấu hiệu độc lập cho thấy khó xác nhận box này là người.",
+      "weak_signals": [
+        {
+          "id": "low_confidence",
+          "when": "confidence < 0,5",
+          "requires": ["confidence"],
+          "confidence_below": 0.5
+        },
+        {
+          "id": "poor_image",
+          "when": "env_risk ≥ 0,5 (ảnh tối, mưa, mờ)",
+          "requires": ["env_risk"],
+          "env_risk_min": 0.5
+        },
+        {
+          "id": "small",
+          "when": "cạnh dài < 32 px",
+          "long_side_below_px": 32
+        },
+        {
+          "id": "second_label_close",
+          "when": "nhãn thứ hai cách dưới 0,15",
+          "requires": ["label_top2", "score_top2"],
+          "top2_margin_below": 0.15
+        }
+      ],
+      "unconfirmed_when": "từ 2 dấu hiệu trở lên",
+      "missing_data": "Dấu hiệu thiếu dữ liệu thì không tính, không coi là có.",
+      "measured": {
+        "note": "Đo trên box của mô hình, đối chiếu với nhãn đúng.",
+        "error_rate": {
+          "confidence_below_0_5": 0.418,
+          "confidence_from_0_5": 0.069,
+          "long_side_below_32": 0.393,
+          "low_confidence_and_small": 0.457,
+          "low_confidence_in_poor_image": 0.402,
+          "low_confidence_in_good_image": 0.43
+        },
+        "reading": "Confidence là dấu hiệu mạnh nhất: box person từ 0,7 đúng 97,9%, dưới 0,5 chỉ đúng 58,2%. Ảnh xấu không làm box kém tự tin sai nhiều hơn."
+      }
+    },
+    "levels": [
+      {
+        "id": "ignore",
+        "meaning": "Box không được đánh giá: không đúng, không sai, không vào danh sách nào."
+      },
+      {
+        "id": "warning",
+        "meaning": "Cảnh báo: có trong danh sách xem thêm, người duyệt có thể xem hoặc bỏ qua. Không chặn ảnh khỏi tự chấp nhận và không tính vào hàng đợi chính."
+      },
+      {
+        "id": "queue",
+        "meaning": "Vào hàng đợi review khi tổng điểm từ 30."
+      },
+      {
+        "id": "high",
+        "meaning": "Mức cao khi tổng điểm từ 70."
+      }
+    ],
+    "rules": [
+      {
+        "id": "person.min_side",
+        "status": "active",
+        "check": null,
+        "engine_note": "Không phải một check: engine xếp box vào trạng thái ignored (lý do bỏ qua below_minimum). label_policy gọi là size.below_minimum.",
+        "template": "min_size",
+        "params": {
+          "side": "long",
+          "px": 16,
+          "action": "ignore"
+        },
+        "text": "Box person có cạnh dài dưới 16 px không được đánh giá: không đúng, không sai.",
+        "principle": "N8",
+        "source": "label_policy",
+        "examples": ["PERSON-14"],
+        "evidence": "3,05% box person đúng có cạnh dài dưới 16 px; 7,2% dưới 20 px; 22,8% dưới 32 px."
+      },
+      {
+        "id": "person.box_not_positive",
+        "status": "active",
+        "check": "geometry.bbox_validity",
+        "template": "valid_box",
+        "params": {
+          "require": "positive_size"
+        },
+        "applies_to": "any",
+        "score": 70,
+        "error_type": "BBOX",
+        "text": "Box có chiều rộng hoặc chiều cao không dương.",
+        "principle": null,
+        "source": "engine"
+      },
+      {
+        "id": "person.box_outside_image",
+        "status": "active",
+        "check": "geometry.bbox_validity",
+        "template": "valid_box",
+        "params": {
+          "require": "inside_image",
+          "tolerance_px": 0.1
+        },
+        "applies_to": "any",
+        "score": 40,
+        "error_type": "BBOX",
+        "text": "Box vượt ra ngoài giới hạn ảnh.",
+        "principle": null,
+        "source": "engine"
+      },
+      {
+        "id": "person.mostly_hidden_unconfirmed",
+        "status": "active",
+        "check": "visibility.mostly_hidden",
+        "template": "visibility_risk",
+        "params": {
+          "visibility_below": 0.5,
+          "weak_signals_at_least": 2
+        },
+        "applies_to": "any",
+        "level": "queue",
+        "score": 50,
+        "error_type": "EXTRA_OBJECT",
+        "text": "Người bị che hoặc nằm ngoài khung hình quá nửa, và có từ hai dấu hiệu khó xác nhận (mô hình kém tự tin, ảnh tối, box nhỏ, phân vân nhãn): không đủ căn cứ để tin đây là người.",
+        "principle": "N5, N6",
+        "note": "Xe hai bánh không được tính là vật che: người lái luôn chồng lên xe của mình. Điểm 50 theo car, vì số đo của hai nhãn gần nhau.",
+        "evidence": "Trên box của mô hình: 93 box bị gắn cờ, 63,4% sai. Box có từ hai dấu hiệu mà không bị che: 1.252 box, 39,5% sai. Mức chung 20,2%.",
+        "measured": {
+          "flagged_share": 0.0143,
+          "error_rate": 0.634,
+          "boxes": 93,
+          "error_rate_not_hidden_with_two_signals": 0.395
+        },
+        "source": "yêu cầu của chủ dự án, 2026-10-10"
+      },
+      {
+        "id": "person.barely_visible",
+        "status": "active",
+        "check": "visibility.barely_visible",
+        "template": "min_visibility",
+        "params": {
+          "visibility_below": 0.05,
+          "action_when_measured": "ignore",
+          "action_when_estimated": "queue"
+        },
+        "applies_to": "any",
+        "level": "queue",
+        "score": 30,
+        "error_type": "EXTRA_OBJECT",
+        "text": "Người chỉ còn thấy dưới 5%: không đủ để đánh giá. Có attribute phần trăm thì coi như không tồn tại; chỉ có ước lượng từ box thì đưa vào hàng đợi.",
+        "principle": "N5",
+        "note": "Theo quyết định đã chốt cho car.",
+        "evidence": "Trên box của mô hình: 58 box, 67,2% sai.",
+        "measured": {
+          "flagged_share": 0.0089,
+          "error_rate": 0.672,
+          "boxes": 58
+        },
+        "source": "yêu cầu của chủ dự án, 2026-10-10"
+      },
+      {
+        "id": "person.low_confidence",
+        "status": "active",
+        "check": "confidence.low_score",
+        "template": "low_confidence",
+        "params": {
+          "below": 0.5
+        },
+        "applies_to": "model",
+        "family": "weak",
+        "score": 30,
+        "text": "Mô hình kém tự tin với box này (confidence dưới 0,5).",
+        "principle": "N5",
+        "source": "label_policy",
+        "examples": ["PERSON-2", "PERSON-3"],
+        "note": "Từ policy 5.0.0 điểm 30, đủ vào hàng đợi (trước đó 20, cố ý đứng dưới ngưỡng). Benchmark BDD100K 1500 ảnh, YOLO11n, tập test: lỗi bắt được 18% → 71%, ca đúng là lỗi 82% → 64%, box sai lọt qua tự chấp nhận 505 → 33.",
+        "evidence": "Box person dưới 0,5 sai 41,8%; từ 0,5 trở lên sai 6,9%. Theo khoảng confidence, tỉ lệ đúng là 58,2% (0,3–0,5), 88,3% (0,5–0,7) và 97,9% (từ 0,7).",
+        "measured": {
+          "flagged_share": 0.3802,
+          "error_rate": 0.418,
+          "boxes": 2478,
+          "share_of_all_errors": 0.787,
+          "error_rate_from_0_5": 0.069
+        }
+      },
+      {
+        "id": "person.class_margin",
+        "status": "active",
+        "check": "confidence.class_margin",
+        "template": "class_margin",
+        "params": {
+          "margin": 0.15
+        },
+        "applies_to": "model",
+        "requires": ["label_top2", "score_top2"],
+        "score": 30,
+        "error_type": "CLASS",
+        "suggests": "label_top2",
+        "text": "Mô hình phân vân giữa person và một nhãn khác: hai điểm cách nhau dưới 0,15.",
+        "principle": "N11",
+        "source": "label_policy",
+        "examples": ["PERSON-9"],
+        "note": "Chưa đo được vì cần nhãn thứ hai của mô hình."
+      },
+      {
+        "id": "person.confused_with_two_wheeler",
+        "status": "active",
+        "check": "confidence.person_vs_two_wheeler",
+        "template": "class_margin",
+        "params": {
+          "margin": 0.25,
+          "confusable_with": ["two_wheeler"]
+        },
+        "applies_to": "model",
+        "requires": ["label_top2", "score_top2"],
+        "score": 20,
+        "error_type": "CLASS",
+        "suggests": "label_top2",
+        "text": "Nhãn thứ hai là two_wheeler và cách nhãn person dưới 0,25: mô hình dao động giữa người lái và xe.",
+        "principle": "N11",
+        "examples": ["PERSON-9"],
+        "note": "Cộng dồn với person.class_margin khi cả hai cùng bật. Chưa đo được vì cần nhãn thứ hai của mô hình.",
+        "source": "label_policy"
+      },
+      {
+        "id": "person.duplicate_other_label",
+        "status": "active",
+        "check": "geometry.cross_class_overlap",
+        "template": "forbidden_overlap",
+        "params": {
+          "with": "other_labels",
+          "except_with": ["two_wheeler"],
+          "iou": 0.8,
+          "flag": "weaker",
+          "class_error_within_margin": 0.15
+        },
+        "applies_to": "model",
+        "score": 40,
+        "error_type": "EXTRA_OBJECT",
+        "text": "Box person gần trùng với một box mang nhãn khác có confidence cao hơn: một vật bị vẽ hai lần dưới hai tên.",
+        "principle": "N3",
+        "source": "label_policy",
+        "examples": [],
+        "note": "Cặp person với two_wheeler được loại trừ: người lái chồng lên xe là bình thường. Điểm gắn vào box có confidence thấp hơn. Nếu hai confidence cách nhau dưới 0,15 thì lỗi nghi ngờ là CLASS và gợi ý nhãn của box kia.",
+        "evidence": "Không box person nào của mô hình gần trùng với một box nhãn khác mạnh hơn, nên chưa có số đo.",
+        "measured": {
+          "flagged_share": 0,
+          "error_rate": null,
+          "boxes": 0
+        }
+      },
+      {
+        "id": "person.duplicate_hand_drawn",
+        "status": "active",
+        "check": "geometry.manual_overlap",
+        "template": "forbidden_overlap",
+        "params": {
+          "with": "same",
+          "iou": 0.5,
+          "flag": "later"
+        },
+        "applies_to": "human",
+        "score": 30,
+        "error_type": "EXTRA_OBJECT",
+        "text": "Hai box person vẽ tay chồng nhau quá nửa: box vẽ sau bị gắn cờ.",
+        "principle": "N3",
+        "source": "label_policy",
+        "examples": [],
+        "evidence": "Trong 14.084 box person đúng có 65 cặp cùng nhãn chồng nhau từ 0,5 và 4 cặp từ 0,8. Người đứng sát nhau chồng lên nhau là có thật, nên luật này cần người xem."
+      },
+      {
+        "id": "person.inside_vehicle",
+        "status": "active",
+        "check": "context.person_in_vehicle",
+        "template": "builtin",
+        "params": {
+          "check": "context.person_in_vehicle",
+          "container": ["car", "truck", "bus"],
+          "containment": 0.9,
+          "not_duplicate_iou": 0.8,
+          "skip_when_feet_within_vehicle_height_of_its_bottom": 0.1,
+          "skip_when_far_behind": {
+            "min_aspect_ratio": 1.8,
+            "max_height_over_vehicle_height": 0.35
+          },
+          "skip_when_at_top_corner": {
+            "within_vehicle_width": 0.2,
+            "within_vehicle_height": 0.35
+          }
+        },
+        "applies_to": "any",
+        "score": 30,
+        "error_type": "EXTRA_OBJECT",
+        "text": "Box người nằm trọn trong box của một car, truck hoặc bus theo kiểu hành khách sau kính hoặc hình in trên thân xe.",
+        "exceptions": [
+          "Người đứng trước xe: chân chạm gần đáy box xe.",
+          "Người ở xa phía sau xe: box cao, mảnh và thấp hơn hẳn xe.",
+          "Người ló ra ở góc trên của box xe."
+        ],
+        "principle": "N4, N12",
+        "examples": ["PERSON-4", "PERSON-5", "PERSON-6"],
+        "note": "Ba ngoại lệ đã nằm trong code của check; dự án không đổi được chúng. PERSON-5 là báo động giả còn lại: người đi bộ trước mũi xe buýt.",
+        "evidence": "Trên nhãn đúng, 8,1% người thật (1.145 box) nằm trọn trong một box xe; sau ba ngoại lệ còn 1,48% (209 box). Trên box của mô hình: 54 box bị gắn cờ, 61,1% sai; không có ngoại lệ thì 329 box, 35,9% sai.",
+        "measured": {
+          "flagged_share": 0.0083,
+          "error_rate": 0.611,
+          "boxes": 54,
+          "boxes_without_exceptions": 329,
+          "error_rate_without_exceptions": 0.359,
+          "false_alarm_share_on_correct_boxes": 0.0148
+        },
+        "source": "label_policy"
+      },
+      {
+        "id": "person.overlap_two_wheeler",
+        "status": "active",
+        "check": "context.person_two_wheeler",
+        "template": "forbidden_overlap",
+        "params": {
+          "with": ["two_wheeler"],
+          "iou": 0.5,
+          "flag": "person"
+        },
+        "applies_to": "any",
+        "score": 20,
+        "error_type": "BBOX",
+        "text": "Box người và box xe hai bánh gần trùng nhau (chồng từ 0,5): một box đã bao cả người lẫn xe.",
+        "principle": "N3",
+        "examples": ["PERSON-7", "PERSON-8"],
+        "note": "Điểm luôn gắn vào box person. Ngưỡng 0,5 nằm sát mép trên của mức chồng bình thường giữa người lái và xe. Mẫu quá nhỏ để kết luận.",
+        "evidence": "Trên nhãn đúng: 86,6% người lái có box xe đi kèm; mức chồng trung vị 0,354, p95 0,549; 9,4% người lái đúng vượt ngưỡng 0,5. Trên box của mô hình: 14 box bị gắn cờ, 42,9% sai.",
+        "measured": {
+          "flagged_share": 0.0021,
+          "error_rate": 0.429,
+          "boxes": 14,
+          "false_alarm_share_on_correct_riders": 0.094
+        },
+        "source": "label_policy"
+      },
+      {
+        "id": "person.wider_than_tall",
+        "status": "active",
+        "check": "geometry.person_aspect",
+        "template": "aspect_ratio",
+        "params": {
+          "min": 0.8
+        },
+        "applies_to": "any",
+        "score": 15,
+        "error_type": "BBOX",
+        "unless": [
+          {
+            "attribute": "occluded",
+            "equals": true
+          },
+          {
+            "visibility_below": 0.5
+          }
+        ],
+        "text": "Box người rộng hơn cao (tỉ lệ cao/rộng dưới 0,8): thường là hai người đứng sát bị gộp, hoặc vật khác bị nhận nhầm.",
+        "exceptions": [
+          "Người ngồi xổm, cúi hoặc nằm.",
+          "Người chỉ lộ phần đầu và vai sau vật che."
+        ],
+        "principle": "N2",
+        "examples": ["PERSON-10"],
+        "note": "Điều kiện bỏ qua người bị che là đề xuất theo car; engine hiện chưa có. Mẫu quá nhỏ để kết luận.",
+        "evidence": "Trên nhãn đúng: 0,85% box person có tỉ lệ dưới 0,8 (120 box; 85% bị che). Với người không bị che, không bị cắt, khoảng p1–p99 là 1,36–4,33; người lái xe hai bánh thấp hơn người đi bộ (trung vị 1,82 so với 2,44). Trên box của mô hình: 15 box bị gắn cờ, 73,3% sai; sau khi bỏ người bị che còn 9 box.",
+        "measured": {
+          "flagged_share": 0.0023,
+          "error_rate": 0.733,
+          "boxes": 15,
+          "boxes_when_not_hidden": 9
+        },
+        "source": "label_policy"
+      },
+      {
+        "id": "person.edge_sliver",
+        "status": "active",
+        "check": "geometry.edge_truncated",
+        "template": "edge_sliver",
+        "params": {
+          "edge_px": 2,
+          "max_confidence": 0.5,
+          "normal_ratio": [1.5, 4.5],
+          "side_cut_ratio_over": 9,
+          "vertical_cut_ratio_under": 0.75
+        },
+        "applies_to": "model",
+        "family": "weak",
+        "score": 10,
+        "error_type": "BBOX",
+        "text": "Người bị khung hình cắt quá nửa và mô hình kém tự tin.",
+        "principle": "N5",
+        "source": "label_policy",
+        "evidence": "2,6% box person đúng chạm mép ảnh; 93,7% trong số đó được gán truncated = true. Khoảng tỉ lệ bình thường 1,5–4,5 so với vật không bị che, không bị cắt: p1 1,36, p99 4,33. Trên box của mô hình: 4 box bị gắn cờ. Mẫu quá nhỏ để kết luận.",
+        "measured": {
+          "flagged_share": 0.0006,
+          "error_rate": 0.75,
+          "boxes": 4
+        }
+      },
+      {
+        "id": "person.weak_in_poor_image",
+        "status": "active",
+        "check": "env.poor_condition",
+        "template": "builtin",
+        "params": {
+          "check": "env.poor_condition",
+          "min_env_risk": 0.5,
+          "max_confidence": 0.5
+        },
+        "applies_to": "model",
+        "family": "weak",
+        "requires": ["env_risk"],
+        "score": 10,
+        "text": "Box yếu trong ảnh điều kiện xấu (tối, mưa, mờ).",
+        "principle": "N6",
+        "source": "label_policy",
+        "note": "Box person kém tự tin sai 40,2% trong ảnh xấu (1075 box) và 43,0% trong ảnh tốt (1403 box).",
+        "measured": {
+          "flagged_share": 0.1649,
+          "error_rate": 0.402,
+          "boxes": 1075,
+          "error_rate_low_confidence_in_good_image": 0.43
+        }
+      },
+      {
+        "id": "person.picture_or_statue",
+        "status": "manual",
+        "template": "manual",
+        "text": "Không gán hình người trên áp phích, biển quảng cáo, thân xe; ma-nơ-canh, tượng; bóng người phản chiếu trên kính hoặc mặt nước.",
+        "principle": "N12",
+        "examples": ["PERSON-4", "PERSON-13"],
+        "note": "PERSON-13 là trường hợp lọt lưới: ma-nơ-canh có cỡ, tỉ lệ và vị trí giống người thật nên không tín hiệu số nào bật.",
+        "source": "label_policy"
+      },
+      {
+        "id": "person.passenger_not_labelled",
+        "status": "manual",
+        "template": "manual",
+        "text": "Không gán người ngồi trong ô tô, xe buýt, xe tải.",
+        "principle": "N4",
+        "examples": ["PERSON-6"],
+        "note": "Phần bắt được bằng số: person.inside_vehicle.",
+        "source": "label_policy"
+      },
+      {
+        "id": "person.rider_is_person",
+        "status": "manual",
+        "template": "manual",
+        "text": "Người đang lái hoặc ngồi trên xe hai bánh gán person, box riêng với xe.",
+        "examples": ["PERSON-7"],
+        "note": "Phần bắt được bằng số: person.overlap_two_wheeler và, ở phía box xe, luật two_wheeler.too_tall.",
+        "source": "label_policy"
+      },
+      {
+        "id": "person.group_of_people",
+        "status": "manual",
+        "template": "manual",
+        "text": "Nhóm người đứng sát: mỗi người phân biệt được một box; phần không tách được thì không gán.",
+        "examples": ["PERSON-12"],
+        "note": "Vì vậy box person chồng lên nhau là có thật; xem person.duplicate_same_label.",
+        "source": "label_policy"
+      },
+      {
+        "id": "person.child_in_stroller",
+        "status": "manual",
+        "template": "manual",
+        "text": "Trẻ em trong xe đẩy gán nếu thấy rõ.",
+        "source": "label_policy"
+      },
+      {
+        "id": "person.box_head_to_feet",
+        "status": "manual",
+        "template": "manual",
+        "text": "Box bao phần nhìn thấy được của người, từ đỉnh đầu đến bàn chân, kể cả tay đang dang; không bao xe người đó đang ngồi và đồ mang theo cỡ lớn (xe đẩy, ô).",
+        "note": "Thiếu ngưỡng: chưa có con số cho mức dư hoặc thiếu được chấp nhận.",
+        "source": "label_policy"
+      },
+      {
+        "id": "person.occlusion_attributes_valid",
+        "status": "active",
+        "check": "attribute.required",
+        "template": "required_attribute",
+        "params": {
+          "names": ["occluded", "truncated"],
+          "values": [true, false],
+          "only_when_dataset_has_them": true
+        },
+        "applies_to": "any",
+        "score": 30,
+        "error_type": "ATTRIBUTE",
+        "text": "Bộ dữ liệu có attribute occluded hoặc truncated thì mọi box person phải mang giá trị đúng/sai cho attribute đó.",
+        "source": "yêu cầu của chủ dự án, 2026-10-10",
+        "note": "Bộ dữ liệu không có attribute này thì luật không chạy. Điểm 30 là đánh giá, chưa có số đo."
+      },
+      {
+        "id": "person.truncated_matches_edge",
+        "status": "active",
+        "check": "attribute.truncated_edge",
+        "template": "attribute_matches_edge",
+        "text": "Box chạm mép ảnh thì truncated phải là true; box không chạm mép thì truncated phải là false.",
+        "source": "số đo",
+        "note": "Chỉ chạy trên box mang attribute truncated dạng đúng/sai. Điểm 10 là đánh giá, chưa có số đo: một mình nó không đưa box vào hàng đợi.",
+        "evidence": "Số đo: 93,7% box person chạm mép ảnh có truncated = true, nhưng chỉ 78,1% box truncated = true chạm mép ảnh.",
+        "params": {
+          "attribute": "truncated",
+          "edge_px": 2
+        },
+        "applies_to": "any",
+        "score": 10,
+        "error_type": "ATTRIBUTE"
+      },
+      {
+        "id": "person.duplicate_same_label",
+        "status": "active",
+        "check": "geometry.duplicate_draft",
+        "template": "forbidden_overlap",
+        "params": {
+          "with": "same",
+          "iou": 0.6,
+          "flag": "weaker"
+        },
+        "applies_to": "model",
+        "score": 50,
+        "error_type": "EXTRA_OBJECT",
+        "text": "Hai box person do mô hình sinh ra chồng nhau từ 60%: box có confidence thấp hơn là box thừa.",
+        "principle": "N3",
+        "source": "số đo",
+        "note": "Người đứng sát nhau chồng lên nhau là có thật, nhưng số đo cho thấy ở mức chồng này box yếu hơn gần như luôn sai.",
+        "evidence": "144 box bị gắn cờ (2,2%), 88,9% sai, chiếm 9,7% tổng số lỗi của person. Ở ngưỡng 0,5: 191 box, 89,5% sai. Trên nhãn đúng có 31 cặp chồng nhau từ 0,6 trong 14.084 box.",
+        "measured": {
+          "flagged_share": 0.0221,
+          "error_rate": 0.889,
+          "boxes": 144,
+          "share_of_all_errors": 0.097
+        }
+      }
+    ],
+    "scoring": {
+      "weak_family": "Các luật có family = weak (low_confidence, edge_sliver, weak_in_poor_image) cùng mô tả một box yếu: chỉ tính một lần, lấy điểm cao nhất. Các luật khác cộng dồn, tối đa 100.",
+      "queue_from": 30,
+      "severe_from_side_px": 32,
+      "severe_note": "22,8% box person có cạnh dài dưới 32 px."
+    },
+    "frame_rules": [
+      {
+        "id": "coverage.grey_person",
+        "text": "Có ít nhất một box vùng xám person (confidence 0,2–0,3, cạnh từ 32 px, không chồng box nháp nào): nghi sót người. Với xe phải có từ ba box; với người một box là đủ.",
+        "blocking": true,
+        "principle": "N7",
+        "examples": ["PERSON-11"],
+        "evidence": "Luật bật ở 12,1% số ảnh. 69,9% số ảnh đó có ít nhất một người bị sót (cạnh từ 32 px), so với 20,3% trên mọi ảnh. Trong 1.429 box xám loại này, 39,6% trùng với một người bị sót.",
+        "measured": {
+          "images_share": 0.1207,
+          "images": 966,
+          "share_with_a_missed_person": 0.699,
+          "share_with_a_missed_person_all_images": 0.2029,
+          "grey_boxes": 1429,
+          "grey_boxes_that_are_a_missed_person": 0.396
+        }
+      },
+      {
+        "id": "coverage.crowd",
+        "text": "Từ 10 box nháp person trong một ảnh: người đứng sát che nhau, box dễ gộp hoặc sót.",
+        "blocking": true,
+        "examples": ["PERSON-12"],
+        "evidence": "Luật bật ở 1,3% số ảnh (106 ảnh); 92,5% số ảnh đó có ít nhất một người bị sót. Trên nhãn đúng, 10% số ảnh có người chứa từ 10 người trở lên.",
+        "measured": {
+          "images_share": 0.0132,
+          "images": 106,
+          "share_with_a_missed_person": 0.925
+        }
+      }
+    ],
+    "calibration": {
+      "what": "Đối chiếu box person của mô hình với nhãn đúng để biết luật nào thật sự chỉ ra lỗi.",
+      "model_boxes": 6518,
+      "images": 8000,
+      "min_confidence": 0.3,
+      "min_long_side_px": 16,
+      "error_definition": "Box sai khi không khớp với box person nào trong nhãn đúng ở mức chồng từ 0,5.",
+      "baseline_error_rate": 0.202,
+      "errors_extra_object": 0.194,
+      "errors_wrong_class": 0.008,
+      "wrong_class_breakdown": {
+        "car": 0.004,
+        "two_wheeler": 0.003,
+        "traffic_sign": 0.001
+      },
+      "by_confidence": [
+        {
+          "range": "0,3–0,5",
+          "boxes": 2478,
+          "correct": 0.582,
+          "extra": 0.406,
+          "wrong_class": 0.012
+        },
+        {
+          "range": "0,5–0,7",
+          "boxes": 2039,
+          "correct": 0.883,
+          "extra": 0.11,
+          "wrong_class": 0.007
+        },
+        {
+          "range": "từ 0,7",
+          "boxes": 2001,
+          "correct": 0.979,
+          "extra": 0.017,
+          "wrong_class": 0.003
+        }
+      ],
+      "ground_truth_objects": {
+        "boxes": 10891,
+        "found_as_person": 0.478,
+        "missed": 0.52,
+        "found_as_car": 0.002
+      },
+      "how_to_read": "measured.error_rate của một luật là tỉ lệ box sai trong số box luật đó gắn cờ. Mức chung của person là 20,2%.",
+      "limits": [
+        "Chỉ một mô hình và một bộ ảnh; mô hình hoặc camera khác sẽ cho con số khác.",
+        "Nhãn đúng cũng có chỗ sót, nên một phần box bị tính là sai thật ra đúng.",
+        "Hai luật cần nhãn thứ hai của mô hình chưa đo được.",
+        "person.overlap_two_wheeler, person.wider_than_tall và phần cắt ở mép ảnh chỉ gắn cờ vài box đến vài chục box, nên tỉ lệ sai của chúng còn dao động.",
+        "Bộ ảnh đã đo có ít người lái xe hai bánh; dữ liệu đường phố Việt Nam sẽ có phân bố khác hẳn."
+      ]
+    },
+    "decisions": [
+      {
+        "question": "Ba ngoại lệ của person.inside_vehicle có đáng giữ không?",
+        "decision": "Giữ.",
+        "basis": "Không có ngoại lệ, luật gắn cờ 329 box và 35,9% sai; có ngoại lệ còn 54 box và 61,1% sai. Trên nhãn đúng, ngoại lệ hạ số người thật bị gắn cờ từ 8,1% xuống 1,48%."
+      },
+      {
+        "question": "Ngưỡng chồng của person.overlap_two_wheeler (0,5).",
+        "decision": "Giữ 0,5 và 20 điểm.",
+        "basis": "9,4% người lái đúng vượt 0,5, nên luật có báo động giả; 20 điểm không tự đưa box vào hàng đợi. Chỉ 14 box của mô hình bị gắn cờ."
+      },
+      {
+        "question": "Điểm của person.duplicate_same_label.",
+        "decision": "50 điểm, ngưỡng chồng 0,6, như car.",
+        "basis": "144 box, 88,9% sai, so với mức chung 20,2%."
+      },
+      {
+        "question": "Điểm của person.mostly_hidden_unconfirmed và person.barely_visible.",
+        "decision": "50 và 30, như car.",
+        "basis": "63,4% sai trên 93 box (car: 60,2%); nhóm có hai dấu hiệu mà không bị che sai 39,5%. Dưới 5%: 58 box, 67,2% sai."
+      },
+      {
+        "question": "Các ngưỡng chưa được hiệu chỉnh trên tỉ lệ lỗi thật.",
+        "decision": "Giữ nguyên điểm của các luật đang chạy.",
+        "basis": "Các luật đo được đều vượt mức chung 20,2%: kém tự tin (41,8%), nằm trong xe (61,1%), rộng hơn cao (73,3%). Ảnh xấu không làm tăng tỉ lệ sai (40,2% so với 43,0%)."
+      }
+    ],
+    "open_questions": [
+      "Mô hình bỏ sót 52,0% người của nhãn đúng (cạnh từ 16 px). Các luật trong file này chỉ chấm box đã có; việc bắt người sót phụ thuộc vào coverage.grey_person, coverage.crowd và người duyệt.",
+      "person.class_margin và person.confused_with_two_wheeler chưa đo được: cần dự đoán có nhãn thứ hai.",
+      "Ví dụ trong docs/policy-format.md (mục 7) ghi tỉ lệ 1,5–4,5 và mức chồng 0,8 cho person; đó là số minh hoạ. File này chép số từ code: tỉ lệ dưới 0,8 và mức chồng 0,5.",
+      "Người ngồi xổm, cúi, nằm và trẻ em chưa có số đo riêng.",
+      "Số đo đến từ một mô hình và một bộ ảnh. Nên đo lại khi đổi mô hình hoặc nguồn ảnh."
+    ]
+  }
+}

@@ -42,6 +42,7 @@ const SIGNALS: [Signal, string][] = [
   ['top2_label', 'Lớp xếp thứ hai (top-2)'],
   ['top2_score', 'Điểm của lớp thứ hai'],
   ['env_risk', 'Rủi ro môi trường (env_risk)'],
+  ['rescore', 'Điểm chấm lại box của người (rescore)'],
 ];
 const megabytes = (bytes: number) => (bytes / 1024 / 1024).toFixed(1) + ' MB';
 
@@ -71,6 +72,7 @@ function SignalReport({ inspection, table }: { inspection: Inspection; table: bo
           {SIGNALS.map(([kind, label]) => {
             const found = inspection.signals[kind];
             if (kind === 'env_risk' && !found && !table) return null;
+            if (kind === 'rescore' && !found) return null;
             return (
               <React.Fragment key={kind}>
                 <dt className="text-muted">{label}</dt>
@@ -127,6 +129,8 @@ export function ImportForm({
     [message, setMessage] = useState(''),
     [error, setError] = useState('');
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  // Null until the person chooses: then a dataset without scores is scored by default.
+  const [rescoreChoice, setRescoreChoice] = useState<boolean | null>(null);
   const idRef = useRef(project?.id),
     mounted = useRef(true),
     xhrRef = useRef<XMLHttpRequest | null>(null);
@@ -219,6 +223,7 @@ export function ImportForm({
   const zipped = source === 'zip',
     shown = zipped ? (pack?.inspection ?? null) : inspection,
     packBytes = pack?.images.reduce((n, i) => n + i.entry.size, 0) ?? 0;
+  const rescore = rescoreChoice ?? (!!shown && !shown.signals.confidence && !shown.signals.rescore);
   // The text the analysis reads: the chosen file, else the pasted text, else the archive's file.
   const packed = zipped ? (pack?.guideline ?? null) : null,
     guidelineName = guidelineFile?.name ?? (guidelineText.trim() ? '' : (packed?.name ?? null)),
@@ -322,7 +327,7 @@ export function ImportForm({
           const p = await request(`/projects/${id}/import-status`);
           if (mounted.current && ['VALIDATING', 'NORMALIZING', 'ANALYZING'].includes(p.status)) {
             setUploadProgress(100);
-            setMessage(statusLabel[p.status]);
+            setMessage(p.progress || statusLabel[p.status]);
           }
         } catch {
           /* Upload response reports authoritative failure. */
@@ -332,7 +337,7 @@ export function ImportForm({
       await new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
         xhrRef.current = xhr;
-        xhr.open('POST', `/api/projects/${id}/import`);
+        xhr.open('POST', `/api/projects/${id}/import${rescore ? '?rescore=1' : ''}`);
         setMessage('Đang tải dữ liệu lên…');
         xhr.upload.onprogress = (e) => {
           if (mounted.current) {
@@ -641,6 +646,22 @@ export function ImportForm({
         {shown && !reading && (
           <SignalReport inspection={shown} table={!!(zipped ? pack?.metadata : metadata)} />
         )}
+        <label className="flex gap-3 rounded-lg border border-line p-4 text-sm">
+          <input
+            type="checkbox"
+            className="mt-1"
+            checked={rescore}
+            onChange={(e) => setRescoreChoice(e.target.checked)}
+          />
+          <span>
+            <strong>Chấm điểm box bằng model (rescore) và tìm vật bị sót</strong>
+            <span className="mt-1 block text-xs text-muted">
+              Máy chủ chạy YOLO11s một lần trên mỗi ảnh: mỗi box người vẽ được chấm điểm cho đúng
+              nhãn của nó, và vật model thấy mà chưa có box được ghi thành gợi ý. Không thêm, không
+              sửa nhãn nào. Khoảng 0,4 giây mỗi ảnh. Nên bật khi tệp nhãn chưa có confidence.
+            </span>
+          </span>
+        </label>
         <div className="rounded-lg border border-line p-4">
           {/* The help belongs to the heading only: wrapped around the whole block it opened
               below everything and came up while the guideline text was being typed. */}

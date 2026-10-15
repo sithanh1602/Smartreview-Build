@@ -17,7 +17,7 @@ export const LIMITS = {
 export const IMAGE_TYPES = ['.jpg', '.jpeg', '.png', '.webp', '.gif'];
 export const ANNOTATION_TYPES = ['.xml', '.json', '.txt', '.names', '.yaml', '.yml'];
 export type Format = FormatId;
-export type Signal = 'confidence' | 'top2_label' | 'top2_score' | 'env_risk';
+export type Signal = 'confidence' | 'top2_label' | 'top2_score' | 'env_risk' | 'rescore';
 export interface Inspection {
   format: Format;
   // Image paths as the annotation states them; uploads are matched against these by the server.
@@ -57,7 +57,7 @@ class Tally {
   }
 }
 function tally(records: unknown[], prefix = '') {
-  const kinds: Signal[] = ['confidence', 'top2_label', 'top2_score', 'env_risk'];
+  const kinds: Signal[] = ['confidence', 'top2_label', 'top2_score', 'env_risk', 'rescore'];
   const tallies = Object.fromEntries(kinds.map((k) => [k, new Tally()])) as Record<Signal, Tally>;
   for (const item of records) {
     const found = locateSignals(item);
@@ -108,6 +108,7 @@ export function inspectAnnotation(name: string, text: string): Inspection | null
         confidence: found.confidence.result(sample.length),
         top2_label: found.top2_label.result(sample.length),
         top2_score: found.top2_score.result(sample.length),
+        rescore: found.rescore.result(sample.length),
         ...(env && { env_risk: env }),
       },
     };
@@ -131,6 +132,7 @@ export function inspectAnnotation(name: string, text: string): Inspection | null
       confidence: found.confidence.result(sample.length),
       top2_label: found.top2_label.result(sample.length),
       top2_score: found.top2_score.result(sample.length),
+      rescore: found.rescore.result(sample.length),
     },
   };
 }
@@ -154,6 +156,7 @@ function summarize(format: Format, files: SourceFile[]): Inspection {
       confidence: found.confidence.result(sample.length),
       top2_label: found.top2_label.result(sample.length),
       top2_score: found.top2_score.result(sample.length),
+      rescore: found.rescore.result(sample.length),
     },
   };
 }

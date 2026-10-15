@@ -121,8 +121,11 @@ export function createHandler({
             dataset_revision: dataset.meta.dataset_id,
             media_id: mediaId,
             frame_id: frame.id,
+            // A suggested missing object is a case, not one of the image's annotations.
             annotations: dataset.allCases
-              .filter((c) => c.media_id === mediaId && c.frame_ref === frame.id)
+              .filter(
+                (c) => c.media_id === mediaId && c.frame_ref === frame.id && !c.missing_object,
+              )
               .map((c) => c.context.current),
           });
         }
@@ -137,7 +140,12 @@ export function createHandler({
           return json(
             res,
             200,
-            (url.searchParams.get('scope') === 'all' ? dataset.allCases : dataset.cases).filter(
+            (url.searchParams.get('scope') === 'all'
+              ? dataset.allCases
+              : url.searchParams.get('scope') === 'warnings'
+                ? dataset.warningCases
+                : dataset.cases
+            ).filter(
               (c) =>
                 (level === 'all' || c.risk_level === level) &&
                 matchesReview(decisions[c.id], status),
@@ -192,8 +200,9 @@ export function createHandler({
       res.end(req.method === 'HEAD' ? undefined : data);
     } catch (e) {
       if (e instanceof ReviewError) return json(res, e.status, { error: e.message });
-      const { code, name } = e as NodeJS.ErrnoException;
-      console.error('Request failed:', code || name);
+      const { code, name, stack } = e as NodeJS.ErrnoException;
+      // A connection error names its code; anything else is a bug, so where it happened is shown.
+      console.error('Request failed:', code || name, req.method, req.url, code ? '' : stack);
       json(res, 503, { error: 'Không kết nối được dịch vụ dữ liệu. Kiểm tra MySQL rồi thử lại.' });
     }
   };

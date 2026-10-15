@@ -1,4 +1,5 @@
 import { iou } from './checks/shared.ts';
+import { canonicalLabel } from './policy.ts';
 import type { Policy, PolicyRule } from './rules.ts';
 import type { DraftBox, GreyBox, ImageRule, ImageRuleHit, MeasuredBox } from './types.ts';
 
@@ -37,6 +38,7 @@ const WORDING: Record<string, { key: string; reason?: (n: number) => string }> =
     key: 'light_boxes',
     reason: (n) => `Quá nhiều đèn tín hiệu: ${n} box.`,
   },
+  'coverage.model_missing': { key: 'missing' },
   'coverage.many_stop_signs': {
     key: 'sign_boxes',
     reason: (n) => `Quá nhiều biển stop: ${n} box.`,
@@ -65,6 +67,30 @@ const TEMPLATES: Record<string, (rule: FrameRule) => ImageRule['run']> = {
       return OPS[op](n, value) ? say(rule, n, { [key]: n, ...(threshold && { threshold }) }) : null;
     };
   },
+  // Objects the model found that no drawn box covers (ai-service/score_boxes.py), of the rule's
+  // labels and at its confidence or above. They come with the import, so the rule runs on frames
+  // labelled by people too. An object that a flagged box of its label already overlaps
+  // (`skip_near_flagged_iou`) is that box drawn in the wrong place, which its own case reports.
+  model_missing: (rule) => {
+    const { labels, min_confidence = 0, skip_near_flagged_iou: near = Infinity } = rule.params;
+    return ({ hints = [], flagged = [] }) => {
+      const objects = hints
+        .map((h) => ({ ...h, label: canonicalLabel(h.label) }))
+        .filter((h) => h.confidence >= min_confidence && labels.includes(h.label))
+        .filter(
+          (h) => !flagged.some((b) => b.label === h.label && iou(b.geometry, h.geometry) >= near),
+        )
+        .sort((a, b) => b.confidence - a.confidence);
+      if (!objects.length) return null;
+      const named = objects
+        .map((h) => `${h.label} ${h.confidence.toFixed(2).replace('.', ',')}`)
+        .join(', ');
+      return {
+        reason: `Model thấy ${objects.length} vật chưa có box: ${named}.`,
+        evidence: { missing: objects.length, objects },
+      };
+    };
+  },
   frame_condition: (rule) => {
     const { env_risk_min, grey_boxes_over, grey_min_confidence = 0 } = rule.params,
       key = WORDING[rule.id]?.key ?? 'boxes';
@@ -86,5 +112,10 @@ export const buildImageRules = (policy: Policy): ImageRule[] =>
     const { op, state, blocking } = rule.params;
     if (rule.template === 'frame_count' && (!OPS[op] || !['draft', 'grey'].includes(state)))
       return fail(rule, `op "${op}" or state "${state}" is not supported`);
-    return { id: rule.id, blocking: blocking !== false, run: template(rule) };
+    return {
+      id: rule.id,
+      blocking: blocking !== false,
+      needsModel: rule.template !== 'model_missing',
+      run: template(rule),
+    };
   });

@@ -106,7 +106,11 @@ export async function handleProjects(
     if (req.method !== 'POST') throw new ReviewError(405, 'Use POST.');
     sameOrigin(req);
     leaderOnly();
-    json(res, 201, await projects.import(id, req));
+    json(
+      res,
+      201,
+      await projects.import(id, req, { rescore: url.searchParams.get('rescore') === '1' }),
+    );
     return true;
   }
   if (route === '/members') {
@@ -154,6 +158,7 @@ export async function handleProjects(
     if (req.method !== 'GET') throw new ReviewError(405, 'Use GET.');
     json(res, 200, {
       ...(await projects.get(id)),
+      progress: projects.progress.get(id) ?? null,
       my_role: role,
       handoff: await projects.handoffs.get(id, user),
     });

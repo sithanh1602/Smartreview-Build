@@ -185,6 +185,7 @@ export function ProjectDashboardPage() {
                   'QA Analysis',
                   [
                     ['Risk Cases', dashboard.dataset.total_cases],
+                    ['Cảnh báo', dashboard.dataset.total_warnings ?? 0],
                     ['High', dashboard.dataset.levels.high],
                     ['Medium', dashboard.dataset.levels.medium],
                     ['Low', dashboard.dataset.levels.low],

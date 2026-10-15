@@ -1,4 +1,4 @@
-import { applySignals } from './signals.ts';
+import { MISSING_HINTS, applyMissingHints, applySignals, readMissingHints } from './signals.ts';
 import {
   cvatPoints,
   cvatSource,
@@ -68,6 +68,14 @@ export function importCvatVideo(xml: string, options: ImportOptions = {}) {
       }
   }
   if (!used.size) throw new Error('CVAT for video: không có shape nào nằm trong khung hình.');
+  // A frame nobody drew on is still a frame when the model found an object in it.
+  const hints = readMissingHints(
+    root.meta?.[MISSING_HINTS]?.object,
+    (o) => `video:${o.frame}`,
+    (o) => [o.xtl, o.ytl, o.xbr - o.xtl, o.ybr - o.ytl],
+  );
+  for (const frame of Object.keys(hints).map((id) => Number(id.slice('video:'.length))))
+    if (Number.isSafeInteger(frame) && frame >= 0) used.add(frame);
   const frames = [...used].sort((a, b) => a - b);
   const stated = task.original_size;
   const size =
@@ -83,5 +91,5 @@ export function importCvatVideo(xml: string, options: ImportOptions = {}) {
       image: image(frame),
     });
   data.annotations = annotations;
-  return data;
+  return applyMissingHints(data, hints);
 }

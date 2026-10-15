@@ -10,9 +10,12 @@ import * as legacy from '../risk_v1/engine.ts';
 import * as v3 from '../risk_v3/engine.ts';
 import * as v4 from '../risk_v4/engine.ts';
 import * as v5 from '../risk_v5/engine.ts';
+import * as v6 from '../risk_v6/engine.ts';
+import * as v7 from '../risk_v7/engine.ts';
 import type { Patch, Policy } from './rules.ts';
 import type { StaticContext } from './checks/shared.ts';
 import type { Annotation, Frame } from '../schema/types.ts';
+import type { MissingHint } from '../importers/signals.ts';
 import type {
   AnalyzeOptions,
   Box,
@@ -27,6 +30,7 @@ import type {
   FrameReport,
   GreyBox,
   LegacyRiskReport,
+  MeasuredBox,
   RiskReport,
   RiskResult,
   Severity,
@@ -55,11 +59,13 @@ const builtIn = compile();
 export const { checks, imageRules } = builtIn;
 export const severity = (score: number): Severity =>
   score >= 70 ? 'high' : score >= 40 ? 'medium' : 'low';
-export const ENGINE_VERSION = '6.0.0';
+export const ENGINE_VERSION = '7.1.0';
 // The engine version is stored with the project at import time, and a project keeps running on
 // the engine it was imported under, so its scores and dataset fingerprint never change:
 // 2.x on risk_v1, 3.0.0 on risk_v3, 4.0.0 (the policy written in code) on risk_v4, 5.0.0
-// (motorcycle and bicycle still two labels) on risk_v5 with the policy files it read.
+// (motorcycle and bicycle still two labels) on risk_v5, 6.0.0 (a low confidence alone below
+// the queue) on risk_v6 and 7.0.0 (no rescore, no missing objects from the import) on risk_v7, each with
+// the policy files it read.
 export const LATEST_ENGINE_VERSION = ENGINE_VERSION;
 export const LEGACY_ENGINE_VERSION = legacy.ENGINE_VERSION;
 export const ENGINE_VERSIONS = [
@@ -69,10 +75,14 @@ export const ENGINE_VERSIONS = [
   v3.ENGINE_VERSION,
   v4.ENGINE_VERSION,
   v5.ENGINE_VERSION,
+  v6.ENGINE_VERSION,
+  v7.ENGINE_VERSION,
   ENGINE_VERSION,
 ];
 export function checksFor(version = ENGINE_VERSION): { id: string; version: string }[] {
   if (version === ENGINE_VERSION) return checks;
+  if (version === v7.ENGINE_VERSION) return v7.checks;
+  if (version === v6.ENGINE_VERSION) return v6.checks;
   if (version === v5.ENGINE_VERSION) return v5.checks;
   if (version === v4.ENGINE_VERSION) return v4.checks;
   if (version === v3.ENGINE_VERSION) return v3.checks;
@@ -80,7 +90,13 @@ export function checksFor(version = ENGINE_VERSION): { id: string; version: stri
 }
 // Guideline waivers switch checks off by id; the engines before 4.0.0 know nothing of them.
 export const supportsWaivers = (version: string) =>
-  [ENGINE_VERSION, v5.ENGINE_VERSION, v4.ENGINE_VERSION].includes(version);
+  [
+    ENGINE_VERSION,
+    v7.ENGINE_VERSION,
+    v6.ENGINE_VERSION,
+    v5.ENGINE_VERSION,
+    v4.ENGINE_VERSION,
+  ].includes(version);
 
 // draft: model box at or above the working score. manual: no score, drawn by a person.
 // grey: below the working score, a hint of a missed object rather than a label.
@@ -140,6 +156,10 @@ export function analyzeDataset(
     patches = [],
   }: AnalyzeOptions = {},
 ): RiskReport | LegacyRiskReport {
+  if (engineVersion === v7.ENGINE_VERSION)
+    return v7.analyzeDataset(input, { minScore, waivers, patches }) as RiskReport;
+  if (engineVersion === v6.ENGINE_VERSION)
+    return v6.analyzeDataset(input, { minScore, waivers, patches }) as RiskReport;
   if (engineVersion === v5.ENGINE_VERSION)
     return v5.analyzeDataset(input, { minScore, waivers, patches }) as RiskReport;
   if (engineVersion !== ENGINE_VERSION) {
@@ -156,6 +176,7 @@ export function analyzeDataset(
   const frames = new Map(data.frames.map((f) => [f.id, f]));
   const media = new Map(data.media.map((m) => [m.id, m]));
   const envRisk = data.dataset.metadata?.env_risk as Record<string, unknown> | undefined;
+  const hints = (data.dataset.metadata?.missing_hints ?? {}) as Record<string, MissingHint[]>;
   const frameRisk = (frame: Frame) => {
     const risk = envRisk?.[frame.id];
     return typeof risk === 'number' && Number.isFinite(risk) ? risk : undefined;
@@ -326,6 +347,7 @@ export function analyzeDataset(
   const frameReports = data.frames.map((frame) =>
     triage(engine, frame, byFrame.get(frame.id)!, scored, {
       env_risk: frameRisk(frame),
+      hints: hints[frame.id] ?? [],
       model:
         hasScores || (media.get(frame.media_id)!.source || data.dataset.source)?.kind === 'model',
     }),
@@ -405,7 +427,7 @@ function triage(
   frame: Frame,
   frameBoxes: Box[],
   scored: Map<string, RiskResult>,
-  { env_risk, model }: { env_risk?: number; model: boolean },
+  { env_risk, hints, model }: { env_risk?: number; hints: MissingHint[]; model: boolean },
 ): FrameReport {
   const { tier: T, autoAccept } = POLICY;
   const drafts = frameBoxes.filter((b): b is DraftBox => b.state === 'draft');
@@ -413,15 +435,23 @@ function triage(
     (b): b is GreyBox => b.state === 'grey' && b.confidence >= POLICY.greyFloor,
   );
   const missing = missingIn(policy, greys, drafts);
-  // Coverage rules describe model output; a frame labelled only by people has none to judge.
-  const fired = model
-    ? imageRules.flatMap((r) => {
-        const hit = r.run({ drafts, greys, missing, env_risk });
-        return hit ? [{ rule_id: r.id, blocking: r.blocking, ...hit }] : [];
-      })
-    : [];
-  const unsupported = frameBoxes.filter((b) => b.state === 'unsupported');
+  // Coverage rules about model boxes have nothing to judge in a frame labelled only by people;
+  // missing objects the import brought still count there.
   const flagged = frameBoxes.filter((b) => scored.get(b.id)!.score >= T.flagged);
+  const fired = imageRules
+    .filter((r) => model || r.needsModel === false)
+    .flatMap((r) => {
+      const hit = r.run({
+        drafts,
+        greys,
+        missing,
+        hints,
+        flagged: flagged.filter((b): b is MeasuredBox => 'x1' in b),
+        env_risk,
+      });
+      return hit ? [{ rule_id: r.id, blocking: r.blocking, ...hit }] : [];
+    });
+  const unsupported = frameBoxes.filter((b) => b.state === 'unsupported');
   const blocking = flagged.filter((b) => !advisoryOnly(b.group));
   // Redrawing a whole frame is decided by its core boxes; a wrong bonus box is fixed on its own.
   const core = blocking.filter((b) => b.group !== 'bonus');

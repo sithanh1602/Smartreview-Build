@@ -5,7 +5,7 @@ import type { DatasetData, Review, ReviewValues } from '../types.ts';
 
 type State = { loading: boolean; error: string; data: DatasetData | null };
 interface DatasetValue extends State {
-  scope: 'all' | 'suspicious';
+  scope: 'all' | 'suspicious' | 'warnings';
   reviewPath: string;
   projectId: string | undefined;
   reviewedIds: string[];
@@ -26,7 +26,12 @@ export function DatasetProvider({ children }: { children: React.ReactNode }) {
   const prefix = projectId ? `/projects/${projectId}` : '';
   const reviewPath = `${prefix}/review`;
   const [params] = useSearchParams(),
-    scope = params.get('scope') === 'all' ? 'all' : 'suspicious';
+    scope =
+      params.get('scope') === 'all'
+        ? 'all'
+        : params.get('scope') === 'warnings'
+          ? 'warnings'
+          : 'suspicious';
   const [attempt, setAttempt] = useState(0),
     [state, setState] = useState<State>({ loading: true, error: '', data: null });
   const activeRevision = useRef<string | null>(null);

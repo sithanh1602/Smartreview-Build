@@ -1,5 +1,11 @@
 import { normalizeDataset, SCHEMA_VERSION } from '../schema/normalize.ts';
-import { applySignals, readEnvRisk } from './signals.ts';
+import {
+  MISSING_HINTS,
+  applyMissingHints,
+  applySignals,
+  readEnvRisk,
+  readMissingHints,
+} from './signals.ts';
 import type { ImportOptions, Loose } from './signals.ts';
 import type { Dataset } from '../schema/types.ts';
 
@@ -99,5 +105,11 @@ export function importCocoDetection(
       ),
     );
   }
-  return normalizeDataset(data);
+  const hints = readMissingHints(
+    input[MISSING_HINTS],
+    (o) => `image-${o.image_id}:0`,
+    (o) => (Array.isArray(o.bbox) ? o.bbox : []),
+    (o) => categories.get(o.category_id)?.name,
+  );
+  return normalizeDataset(applyMissingHints(data, hints));
 }

@@ -1,4 +1,5 @@
 import type { Annotation, BBox, Frame, Geometry, Media } from '../schema/types.ts';
+import type { MissingHint } from '../importers/signals.ts';
 import type { Patch } from './rules.ts';
 
 export type Severity = 'high' | 'medium' | 'low';
@@ -97,6 +98,10 @@ export interface ImageRuleInput {
   drafts: DraftBox[];
   greys: GreyBox[];
   missing: GreyBox[];
+  // Objects a model found that no drawn box covers, from the import (dataset metadata).
+  hints?: MissingHint[];
+  // Boxes of the frame already flagged for review.
+  flagged?: MeasuredBox[];
   env_risk?: number;
 }
 export interface ImageRuleHit {
@@ -106,6 +111,8 @@ export interface ImageRuleHit {
 export interface ImageRule {
   id: string;
   blocking: boolean;
+  // Rules about model boxes say nothing of a frame labelled by people; the others still run.
+  needsModel?: boolean;
   run(input: ImageRuleInput): ImageRuleHit | null;
 }
 

@@ -3,6 +3,8 @@ import { validateFrameReview } from '../../shared/frame-review.ts';
 import { ReviewError } from '../../shared/review.ts';
 import { sameOrigin } from '../projects/upload.ts';
 import type { Frame } from '../../core/schema/types.ts';
+import type { MissingHint } from '../../core/importers/signals.ts';
+import type { FrameReport } from '../../core/risk/types.ts';
 import type { Db, Json, ProjectContext, Req, Res } from '../types.ts';
 
 async function body(req: Req) {
@@ -36,6 +38,31 @@ export async function handleFrames(
   if (route !== '/frames' && !route.startsWith('/frames/')) return false;
   const store = new FrameReviewStore(pool, reviews.datasetId);
   const media = new Map(dataset.normalized.media.map((m) => [m.id, m]));
+  // The engine's verdict per frame; engines before 3.0.0 give none.
+  const report = dataset.report;
+  const triage = new Map<string, FrameReport>(
+    'frames' in report ? (report.frames as FrameReport[]).map((f) => [f.frame_id, f]) : [],
+  );
+  const verdict = (id: string) => {
+    const t = triage.get(id);
+    return t
+      ? {
+          tier: t.tier,
+          reason: t.reason,
+          rules: t.image_rules.map(({ rule_id, blocking, reason }) => ({
+            rule_id,
+            blocking,
+            reason,
+          })),
+        }
+      : null;
+  };
+  // Objects the model found that nobody drew, as the engine kept them: each is a review case.
+  const missingIn = (id: string) =>
+    (
+      (triage.get(id)?.image_rules.find((r) => r.rule_id === 'coverage.model_missing')?.evidence
+        .objects ?? []) as MissingHint[]
+    ).map(({ label, confidence }) => ({ label, confidence }));
   const frameInfo = (f: Frame) => ({
     id: f.id,
     media_id: f.media_id,
@@ -56,6 +83,8 @@ export async function handleFrames(
     const frames = dataset.normalized.frames.map((f) => ({
       ...frameInfo(f),
       annotation_count: counts.get(f.id) || 0,
+      triage: verdict(f.id),
+      missing_hints: missingIn(f.id),
       review: decisions[f.id]
         ? {
             status: decisions[f.id].status,
@@ -93,6 +122,7 @@ export async function handleFrames(
       dataset_revision: dataset.meta.dataset_id,
       frame: frameInfo(frame),
       annotations: dataset.normalized.annotations.filter((a) => a.frame_id === id),
+      triage: verdict(id),
       review: await store.read(id),
     });
     return true;
