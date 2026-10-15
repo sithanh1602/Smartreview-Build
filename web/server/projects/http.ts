@@ -93,6 +93,12 @@ export async function handleProjects(
     json(res, 200, await projects.remove(id));
     return true;
   }
+  if (!route && req.method === 'PATCH') {
+    sameOrigin(req);
+    leaderOnly();
+    json(res, 200, await projects.setHidden(id, await readJson(req), user));
+    return true;
+  }
   if (route === '/ai-check') {
     if (req.method === 'GET') json(res, 200, await projects.ai.status(id));
     else if (req.method === 'POST') {

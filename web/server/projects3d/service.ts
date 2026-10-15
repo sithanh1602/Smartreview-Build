@@ -43,7 +43,7 @@ const publicProject = ({
   storage_key,
   storage_synced_at,
   ...row
-}: ProjectRow) => row;
+}: ProjectRow): ProjectRow => ({ ...row, hidden: Boolean(row.hidden) });
 const missing = () => new ReviewError(404, 'Project không tồn tại.');
 export const noTable = (e: unknown) => (e as { code?: string }).code === 'ER_NO_SUCH_TABLE';
 
@@ -110,16 +110,20 @@ export class Project3DService {
       if (!noTable(e)) throw e;
     }
   }
-  // What `user` is in the project. Every leader is a leader in every project; only deleting is
-  // kept for the creator (see `owns`). A project a member has no part in reads as missing.
+  // What `user` is in the project. Every leader is a leader in every project unless its creator
+  // hid it; only deleting and hiding are kept for the creator (see `owns`). A project the user
+  // may not see reads as missing.
   async role(id: string, user: User): Promise<ProjectRole> {
     if (!/^[a-f0-9-]{36}$/.test(id)) throw missing();
     const [[row]] = await this.pool.execute<Rows>(
-      'SELECT p.created_by,m.role FROM projects_3d p LEFT JOIN project_members_3d m ON m.project_id=p.id AND m.user_id=? WHERE p.id=?',
+      'SELECT p.created_by,p.hidden,m.role FROM projects_3d p LEFT JOIN project_members_3d m ON m.project_id=p.id AND m.user_id=? WHERE p.id=?',
       [user.id, id],
     );
     if (!row) throw missing();
-    if (user.role === 'leader') return 'leader';
+    if (user.role === 'leader') {
+      if (row.hidden && row.created_by !== user.id) throw missing();
+      return 'leader';
+    }
     if (!row.role) throw missing();
     return row.role;
   }
@@ -147,13 +151,35 @@ export class Project3DService {
         }),
     };
   }
-  // A leader sees every 3D project, its own and those of other leaders; a member sees the ones
-  // it was added to.
+  // The creator hides the project from other leaders, or shows it again. Members who joined
+  // keep their access either way.
+  async setHidden(id: string, input: Untrusted, user: User) {
+    if (
+      !input ||
+      typeof input !== 'object' ||
+      Array.isArray(input) ||
+      Object.keys(input).some((k) => k !== 'hidden') ||
+      typeof input.hidden !== 'boolean'
+    )
+      throw new ReviewError(400, 'Gửi { hidden: true } hoặc { hidden: false }.');
+    const [result] = await this.pool.execute<Result>(
+      'UPDATE projects_3d SET hidden=? WHERE id=? AND created_by=?',
+      [input.hidden, id, user.id],
+    );
+    if (!result.affectedRows)
+      throw new ReviewError(403, 'Chỉ Leader tạo project được ẩn hoặc hiện project này.');
+    return { id, hidden: input.hidden };
+  }
+  // A leader sees its own 3D projects and those other leaders did not hide; a member sees the
+  // ones it was added to.
   async list(user: User) {
     const order = ' ORDER BY p.created_at DESC, p.id';
     const [rows] =
       user.role === 'leader'
-        ? await this.pool.query<Rows>(PROJECT_VIEW + order)
+        ? await this.pool.execute<Rows>(
+            PROJECT_VIEW + ' WHERE p.hidden=0 OR p.created_by=?' + order,
+            [user.id],
+          )
         : await this.pool.execute<Rows>(
             PROJECT_VIEW.replace('SELECT p.*', 'SELECT p.*,pm.role AS my_role') +
               ' JOIN project_members_3d pm ON pm.project_id=p.id AND pm.user_id=?' +

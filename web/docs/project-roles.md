@@ -9,6 +9,7 @@ Thay đổi ngày 2026-10-11. Thay cho mô hình cũ (`reviewer` toàn quyền, 
 - **Thêm thành viên**: cách chính là Leader thêm thẳng bằng tên đăng nhập và chọn vai trò. Reviewer cũng thêm được, nhưng chỉ với vai trò Annotator. Mã mời là cách phụ.
 - **Mã mời**: mỗi project có hai mã cố định, một cho reviewer và một cho annotator. Mã 10 ký tự, dùng nhiều lần, không hết hạn. Mã quyết định vai trò; người nhập không tự chọn được.
 - **Mọi leader thấy và quản lý mọi project**, kể cả project do leader khác tạo (từ 2026-10-13). Riêng việc **xóa project** chỉ dành cho leader đã tạo nó.
+- **Ẩn project (migration 009, 2026-10-15):** leader tạo project bật/tắt "Ẩn với Leader khác" (cả 2D và 3D). Project đang ẩn không hiện trong danh sách của leader khác, mở bằng ID thì nhận 404. Member đã tham gia vẫn vào bình thường. Project không có người tạo (demo, project cũ) không ẩn được.
 - Project không có người tạo (`created_by` NULL: dataset demo và các project có trước thay đổi này) thì leader nào cũng xóa được.
 
 | Việc                                                | Leader                                                                  | Reviewer / Annotator                                |
@@ -47,10 +48,12 @@ npm run user:update -- --username tuananh --role leader
 
 Mọi route dưới `/api/projects/:id` kiểm tra vai trò của người gọi trong project đó trước khi đọc dữ liệu (`ProjectMembers.role` trong `server/projects/members.ts`). Tài khoản leader có vai trò `leader` ở mọi project. Member không thuộc project nhận 404 như project không tồn tại. Thao tác chỉ dành cho leader mà member gọi thì nhận 403. `DELETE /api/projects/:id` do leader không phải người tạo gọi cũng nhận 403.
 
+`PATCH /api/projects/:id` và `PATCH /api/projects3d/:id` nhận đúng `{ "hidden": true | false }` (trường khác hoặc kiểu khác trả 400) và trả `{ id, hidden }`. Chỉ leader tạo project được gọi; leader khác nhận 403 khi project đang hiện, 404 khi project đang ẩn.
+
 | Route                                                 | Ai                                         | Kết quả                                                                                                                                     |
 | ----------------------------------------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `POST /api/auth/register`                             | Chưa đăng nhập                             | Nhận thêm `role`: `leader` hoặc `member` (mặc định `member`)                                                                                |
-| `GET /api/projects`                                   | Mọi tài khoản                              | Leader: mọi project (giao diện chia project của mình và của leader khác). Member: project đã tham gia                                       |
+| `POST /api/auth/register`                             | Chưa đăng nhập                             | Nhận thêm `role`: `leader` (cần `leaderCode`) hoặc `member` (mặc định `member`)                                                             |
+| `GET /api/projects`                                   | Mọi tài khoản                              | Leader: project của mình và project leader khác không ẩn, kèm `hidden`. Member: project đã tham gia                                         |
 | `POST /api/projects`                                  | Leader                                     | Tạo project, ghi `created_by`                                                                                                               |
 | `POST /api/projects/join` `{ code }`                  | Member                                     | `{ project_id, name, role }`. Đã ở project với vai trò khác: 409                                                                            |
 | `GET /api/projects/:id`                               | Thành viên, leader                         | Thêm `my_role`, `creator_name`, `reviewer_count`, `annotator_count`                                                                         |

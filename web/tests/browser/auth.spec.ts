@@ -7,19 +7,18 @@ async function signIn(page, role) {
   await page.getByLabel('Mật khẩu', { exact: true }).fill(account.password);
   await page.getByRole('button', { name: 'Đăng nhập', exact: true }).click();
 }
-test('leader login, session restore and logout protect the main page', async ({
-  page,
-  context,
-}) => {
+test('leader login, reload and logout protect the main page', async ({ page, context }) => {
   await page.goto('/projects');
   await expect(page).toHaveURL(/\/login$/);
   await signIn(page, 'leader');
   await expect(page).toHaveURL(/\/projects$/);
+  // One HttpOnly cookie that the browser drops after the session's hour.
   const cookies = await context.cookies();
-  expect(
-    cookies.filter((c) => c.name.startsWith('sr_')).every((c) => c.httpOnly && c.expires === -1),
-  ).toBe(true);
-  await context.clearCookies({ name: 'sr_access' });
+  expect(cookies.map((c) => c.name)).toEqual(['access_token']);
+  expect(cookies[0].httpOnly).toBe(true);
+  const minutes = (cookies[0].expires * 1000 - Date.now()) / 60000;
+  expect(minutes).toBeGreaterThan(59);
+  expect(minutes).toBeLessThanOrEqual(60);
   await page.reload();
   await expect(page.getByRole('button', { name: 'Đăng xuất' })).toBeVisible();
   await page.getByRole('button', { name: 'Đăng xuất' }).click();
@@ -81,4 +80,11 @@ test('register from login, confirm password, then sign in as a member', async ({
     ]);
     await pool.end();
   }
+});
+test('an ended session signs the user out with no refresh', async ({ page, context }) => {
+  await signIn(page, 'leader');
+  await expect(page).toHaveURL(/\/projects$/);
+  await context.clearCookies({ name: 'access_token' });
+  await page.reload();
+  await expect(page).toHaveURL(/\/login$/);
 });

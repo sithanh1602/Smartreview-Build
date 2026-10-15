@@ -1,28 +1,37 @@
-import { createHash, randomBytes, randomUUID } from 'node:crypto';
+import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { ReviewError } from '../../shared/review.ts';
 import { hashPassword, usernameValue, verifyPassword } from './password.ts';
 import type { Untrusted } from '../../shared/review.ts';
 import type { Db, Role, Rows, User } from '../types.ts';
-export const ACCESS_SECONDS = 15 * 60;
-export const REFRESH_SECONDS = 7 * 24 * 60 * 60;
+// One token per sign-in, valid for a fixed hour from then: nothing extends it, so the user is
+// signed out when it runs out and has to sign in again.
+export const SESSION_MINUTES = 60;
+export const SESSION_SECONDS = SESSION_MINUTES * 60;
 export const tokenHash = (value: string) => createHash('sha256').update(value).digest('hex');
 const token = () => randomBytes(32).toString('base64url');
 const validToken = (value: unknown): value is string =>
   typeof value === 'string' && /^[A-Za-z0-9_-]{43}$/.test(value);
 const userView = (u: User): User => ({ id: u.id, username: u.username, role: u.role });
 const ROLES: Role[] = ['leader', 'member'];
+// The pool returns DATETIME as UTC text ("2026-10-15 08:00:00.000").
+const expiry = (value: string) => new Date(value.replace(' ', 'T') + 'Z').toISOString();
 const unauthorized = () => new ReviewError(401, 'Phiên đăng nhập không hợp lệ hoặc đã hết hạn.');
 
 export class AuthService {
   pool: Db;
   passwordChecks: number;
-  constructor(pool: Db) {
+  // SHA-256 of the code that lets someone register as a leader (LEADER_SIGNUP_CODE); without
+  // one, leaders are created only with the CLI.
+  leaderCode: Buffer | null;
+  constructor(pool: Db, { leaderCode = '' }: { leaderCode?: string } = {}) {
     this.pool = pool;
     this.passwordChecks = 0;
+    this.leaderCode = leaderCode ? createHash('sha256').update(leaderCode).digest() : null;
   }
   async cleanup() {
     await this.pool.execute<Rows>(
-      'DELETE FROM auth_sessions WHERE refresh_expires_at<=UTC_TIMESTAMP(3)',
+      // A session from the old code (refresh token) lives until its refresh expiry.
+      'DELETE FROM auth_sessions WHERE access_expires_at<=UTC_TIMESTAMP(3) AND (refresh_expires_at IS NULL OR refresh_expires_at<=UTC_TIMESTAMP(3))',
     );
     await this.pool.execute<Rows>(
       'DELETE FROM auth_login_limits WHERE resets_at<=UTC_TIMESTAMP(3)',
@@ -52,8 +61,12 @@ export class AuthService {
       !input ||
       typeof input !== 'object' ||
       Array.isArray(input) ||
-      Object.keys(input).some((k) => !['username', 'password', 'role'].includes(k)) ||
+      Object.keys(input).some(
+        (k) => !['username', 'password', 'role', 'leaderCode', 'website'].includes(k),
+      ) ||
       typeof input.password !== 'string' ||
+      (input.leaderCode !== undefined && typeof input.leaderCode !== 'string') ||
+      (input.website !== undefined && typeof input.website !== 'string') ||
       input.password.length < 12 ||
       input.password.length > 128
     )
@@ -71,6 +84,11 @@ export class AuthService {
       throw new ReviewError(400, (e as Error).message);
     }
     await this.throttle(username, ip, 'register');
+    // `website` is a field people never see: a bot that fills it is told it succeeded, and
+    // nothing is created.
+    if (input.website) return { id: randomUUID(), username, role: 'member' as Role };
+    if (role === 'leader' && !this.leaderCodeMatches(input.leaderCode))
+      throw new ReviewError(403, 'Mã Leader không đúng.');
     if (this.passwordChecks >= 2)
       throw new ReviewError(429, 'Hệ thống đang bận. Vui lòng thử lại.');
     this.passwordChecks++;
@@ -83,6 +101,10 @@ export class AuthService {
     } finally {
       this.passwordChecks--;
     }
+  }
+  leaderCodeMatches(code: unknown) {
+    if (!this.leaderCode || typeof code !== 'string' || !code) return false;
+    return timingSafeEqual(createHash('sha256').update(code).digest(), this.leaderCode);
   }
   async throttle(username: string, ip: string, action = 'login') {
     for (const [key, limit] of [
@@ -134,8 +156,7 @@ export class AuthService {
     } finally {
       this.passwordChecks--;
     }
-    const accessToken = token(),
-      refreshToken = token();
+    const accessToken = token();
     const c = await this.pool.getConnection();
     try {
       await c.beginTransaction();
@@ -145,14 +166,22 @@ export class AuthService {
       ]);
       if (!current?.enabled || current.password_hash !== u.password_hash) throw unauthorized();
       await c.execute<Rows>(
-        'INSERT INTO auth_sessions(id,user_id,access_hash,refresh_hash,access_expires_at,refresh_expires_at) VALUES (?,?,?,?,DATE_ADD(UTC_TIMESTAMP(3), INTERVAL 15 MINUTE),DATE_ADD(UTC_TIMESTAMP(3), INTERVAL 7 DAY))',
-        [randomUUID(), u.id, tokenHash(accessToken), tokenHash(refreshToken)],
+        `INSERT INTO auth_sessions(id,user_id,access_hash,access_expires_at) VALUES (?,?,?,DATE_ADD(UTC_TIMESTAMP(3), INTERVAL ${SESSION_MINUTES} MINUTE))`,
+        [randomUUID(), u.id, tokenHash(accessToken)],
+      );
+      const [[session]] = await c.execute<Rows>(
+        'SELECT access_expires_at FROM auth_sessions WHERE access_hash=?',
+        [tokenHash(accessToken)],
       );
       await c.execute<Rows>('DELETE FROM auth_login_limits WHERE bucket=?', [
         tokenHash(`account:${username}`),
       ]);
       await c.commit();
-      return { user: userView(current as User), accessToken, refreshToken };
+      return {
+        user: userView(current as User),
+        accessToken,
+        expiresAt: expiry(session.access_expires_at),
+      };
     } catch (e) {
       await c.rollback();
       throw e;
@@ -161,47 +190,22 @@ export class AuthService {
     }
   }
   async authenticate(accessToken: unknown) {
+    return (await this.session(accessToken)).user;
+  }
+  // The signed-in user and when the session ends (ISO time), for the client to sign out then.
+  async session(accessToken: unknown) {
     if (!validToken(accessToken)) throw unauthorized();
     const [[u]] = await this.pool.execute<Rows>(
-      'SELECT u.id,u.username,u.role FROM auth_sessions s JOIN users u ON u.id=s.user_id WHERE s.access_hash=? AND s.access_expires_at>UTC_TIMESTAMP(3) AND s.refresh_expires_at>UTC_TIMESTAMP(3) AND u.enabled=1',
+      'SELECT u.id,u.username,u.role,s.access_expires_at FROM auth_sessions s JOIN users u ON u.id=s.user_id WHERE s.access_hash=? AND s.access_expires_at>UTC_TIMESTAMP(3) AND u.enabled=1',
       [tokenHash(accessToken)],
     );
     if (!u) throw unauthorized();
-    return userView(u as User);
+    return { user: userView(u as User), expiresAt: expiry(u.access_expires_at) };
   }
-  async refresh(refreshToken: unknown) {
-    if (!validToken(refreshToken)) throw unauthorized();
-    const c = await this.pool.getConnection();
-    try {
-      await c.beginTransaction();
-      const [[session]] = await c.execute<Rows>(
-        'SELECT s.id AS session_id,u.id,u.username,u.role FROM auth_sessions s JOIN users u ON u.id=s.user_id WHERE s.refresh_hash=? AND s.refresh_expires_at>UTC_TIMESTAMP(3) AND u.enabled=1 FOR UPDATE',
-        [tokenHash(refreshToken)],
-      );
-      if (!session) throw unauthorized();
-      const accessToken = token(),
-        nextRefresh = token();
-      await c.execute<Rows>(
-        'UPDATE auth_sessions SET access_hash=?,refresh_hash=?,access_expires_at=LEAST(DATE_ADD(UTC_TIMESTAMP(3), INTERVAL 15 MINUTE),refresh_expires_at) WHERE id=?',
-        [tokenHash(accessToken), tokenHash(nextRefresh), session.session_id],
-      );
-      await c.commit();
-      return { user: userView(session as User), accessToken, refreshToken: nextRefresh };
-    } catch (e) {
-      await c.rollback();
-      throw e;
-    } finally {
-      c.release();
-    }
-  }
-  async logout(accessToken: unknown, refreshToken: unknown) {
-    for (const [field, value] of [
-      ['access_hash', accessToken],
-      ['refresh_hash', refreshToken],
-    ])
-      if (validToken(value))
-        await this.pool.execute<Rows>(`DELETE FROM auth_sessions WHERE ${field}=?`, [
-          tokenHash(value),
-        ]);
+  async logout(accessToken: unknown) {
+    if (validToken(accessToken))
+      await this.pool.execute<Rows>('DELETE FROM auth_sessions WHERE access_hash=?', [
+        tokenHash(accessToken),
+      ]);
   }
 }

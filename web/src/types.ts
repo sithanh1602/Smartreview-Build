@@ -168,6 +168,8 @@ export interface Project {
   metadata: DatasetMeta | null;
   created_at: string;
   created_by: string | null;
+  // Hidden by its creator from other leaders.
+  hidden: boolean;
   creator_name: string | null;
   reviewer_count: number;
   annotator_count: number;
@@ -217,6 +219,8 @@ export interface Project3D {
   } | null;
   created_at: string;
   created_by: string | null;
+  // Hidden by its creator from other leaders.
+  hidden: boolean;
   creator_name: string | null;
   reviewer_count: number;
   annotator_count: number;

@@ -28,7 +28,9 @@ test('AI matches class disagreement without confidence or tracks on annotation',
     before = structuredClone(data);
   const result = comparePredictions(data, [prediction('truck')], ['car', 'truck']);
   assert.equal(result.findings[0].check_id, 'ai.class_disagreement');
-  assert.equal(result.findings[0].score, 70);
+  // car/truck is a confusable pair, so the swap scores low: 20 + 30 * 0.9.
+  assert.equal(result.findings[0].score, 47);
+  assert.equal(result.findings[0].confusable, true);
   assert.deepEqual(data, before);
 });
 test('IoU and same-label position disagreement', () => {

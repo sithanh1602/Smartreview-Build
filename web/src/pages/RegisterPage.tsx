@@ -25,7 +25,7 @@ const checkUsername = (value: string) =>
     : null;
 const ACCOUNTS: [User['role'], string, string][] = [
   ['member', 'Thành viên', 'Tham gia project bằng mã mời, làm Reviewer hoặc Annotator.'],
-  ['leader', 'Leader', 'Tạo project, mời và quản lý thành viên.'],
+  ['leader', 'Leader', 'Tạo project, mời và quản lý thành viên. Cần mã Leader.'],
 ];
 const checkPassword = (value: string) =>
   value && value.length < 12 ? 'Mật khẩu cần ít nhất 12 ký tự.' : null;
@@ -37,6 +37,9 @@ export function RegisterPage() {
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [role, setRole] = useState<User['role']>('member');
+  const [leaderCode, setLeaderCode] = useState('');
+  // Never shown to people: only a bot fills it, and the server then creates nothing.
+  const [website, setWebsite] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   if (loading) return <AuthLoading />;
@@ -69,7 +72,13 @@ export function RegisterPage() {
           setBusy(true);
           setError('');
           try {
-            await authRequest('register', { username, password, role });
+            await authRequest('register', {
+              username,
+              password,
+              role,
+              ...(role === 'leader' && { leaderCode }),
+              ...(website && { website }),
+            });
             navigate('/login', { replace: true, state: { registered: username } });
           } catch (e) {
             const { status, message } = e as ApiError;
@@ -137,6 +146,28 @@ export function RegisterPage() {
             </Radio>
           ))}
         </RadioGroup>
+        {role === 'leader' && (
+          <PasswordField
+            label="Mã Leader"
+            missing="Nhập mã Leader được cấp."
+            name="leaderCode"
+            autoComplete="off"
+            maxLength={200}
+            value={leaderCode}
+            onChange={setLeaderCode}
+            isDisabled={busy}
+          />
+        )}
+        <input
+          type="text"
+          name="website"
+          value={website}
+          onChange={(e) => setWebsite(e.target.value)}
+          tabIndex={-1}
+          autoComplete="off"
+          aria-hidden="true"
+          className="absolute -left-[9999px] h-px w-px opacity-0"
+        />
         <Button type="submit" variant="primary" size="lg" fullWidth isDisabled={busy}>
           {busy && <Spinner size="sm" color="current" data-testid="loading-spinner" />}
           {busy ? 'Đang tạo tài khoản…' : 'Đăng ký'}

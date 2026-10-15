@@ -1,4 +1,4 @@
-import { refreshSession } from './api';
+import { expired } from './api';
 
 // Frame images are served with `no-store`, so every <image> pointing at the same URL used to
 // download it again. Each URL is fetched once here and shared as a blob URL.
@@ -10,11 +10,8 @@ const entries = new Map<string, Entry>();
 let heldBytes = 0;
 
 async function load(href: string, entry: Entry) {
-  let response = await fetch(href, { credentials: 'same-origin' });
-  if (response.status === 401) {
-    await refreshSession();
-    response = await fetch(href, { credentials: 'same-origin' });
-  }
+  const response = await fetch(href, { credentials: 'same-origin' });
+  if (response.status === 401) expired();
   if (!response.ok) throw new Error(`Image request failed (${response.status})`);
   const blob = await response.blob();
   entry.bytes = blob.size;
