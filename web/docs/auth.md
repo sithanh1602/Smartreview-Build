@@ -36,7 +36,7 @@ Backend kiểm tra vai trò trong project trước khi đọc dữ liệu hoặc
 
 ## Phiên đăng nhập
 
-Từ migration 009 (2026-10-15), mỗi lần đăng nhập tạo **một** access token ngẫu nhiên sống **60 phút tính từ lúc đăng nhập**, không có refresh token và không gia hạn. Hết 60 phút, frontend tự đăng xuất và chuyển về `/login`. Mọi API trả 401 thì cũng đăng xuất ngay. Migration 009 xóa toàn bộ phiên cũ, nên mọi người phải đăng nhập lại một lần.
+Từ migration 009 (2026-10-15), mỗi lần đăng nhập tạo **một** access token ngẫu nhiên sống **60 phút tính từ lúc đăng nhập**, không có refresh token và không gia hạn. Hết 60 phút, frontend tự đăng xuất và chuyển về `/login`. Mọi API trả 401 thì cũng đăng xuất ngay. Migration 009 chỉ cho phép hai cột `refresh_hash`/`refresh_expires_at` nhận NULL chứ không xóa chúng, và không xóa phiên nào. Nhờ vậy backend còn chạy code cũ trên cùng database vẫn đăng nhập được. Code mới để trống hai cột này; xóa hẳn chúng bằng một migration sau, khi mọi backend đã chạy code mới. Phiên đăng nhập của code cũ dùng cookie `sr_access`, code mới không đọc cookie này, nên người dùng đăng nhập lại một lần khi chuyển sang code mới.
 
 Token nằm trong cookie duy nhất `access_token` (HttpOnly, SameSite=Strict, Path=/api, Max-Age=3600, Secure khi bật `AUTH_COOKIE_SECURE`). Đây là thứ duy nhất của phiên mà tab Application trong F12 hiển thị. HttpOnly chặn JavaScript đọc cookie nhưng không giấu nó khỏi DevTools. Các phản hồi đăng nhập và đăng xuất xóa luôn cookie `sr_access` và `sr_refresh` của phiên bản cũ. Không lưu token vào localStorage/sessionStorage hay trả token trong JSON. DB chỉ lưu SHA-256 của token, và vai trò luôn đọc từ bảng `users`, nên sửa giá trị cookie chỉ nhận 401.
 

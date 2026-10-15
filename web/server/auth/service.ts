@@ -30,7 +30,8 @@ export class AuthService {
   }
   async cleanup() {
     await this.pool.execute<Rows>(
-      'DELETE FROM auth_sessions WHERE access_expires_at<=UTC_TIMESTAMP(3)',
+      // A session from the old code (refresh token) lives until its refresh expiry.
+      'DELETE FROM auth_sessions WHERE access_expires_at<=UTC_TIMESTAMP(3) AND (refresh_expires_at IS NULL OR refresh_expires_at<=UTC_TIMESTAMP(3))',
     );
     await this.pool.execute<Rows>(
       'DELETE FROM auth_login_limits WHERE resets_at<=UTC_TIMESTAMP(3)',

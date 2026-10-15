@@ -106,7 +106,7 @@ test('the only cookie is an HttpOnly access_token; secrets are hashed in DB, abs
   const [[row]] = await pool.execute('SELECT * FROM auth_sessions WHERE access_hash=?', [
     tokenHash(value(cookies, 'access_token')),
   ]);
-  assert.ok(!('refresh_hash' in row));
+  assert.equal(row.refresh_hash, null);
   assert.notEqual(row.access_hash, value(cookies, 'access_token'));
   const minutes = (Date.parse(body.expiresAt) - Date.now()) / 60000;
   assert.ok(minutes > 59 && minutes <= 60, `session lasts an hour, got ${minutes} minutes`);
