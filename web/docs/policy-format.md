@@ -22,6 +22,7 @@ policy/
   barrier.json        nhãn bonus, do người vẽ
   pole.json           nhãn bonus, do người vẽ
   car_truck.json      một file cho mỗi cặp nhãn hay bị nhầm với nhau (mục 2.1)
+  _verifier.json      label verifier: engine, câu mô tả nhãn, bảng điểm (docs/label-verifier.md); Risk Engine không đọc
 ```
 
 Mỗi file bọc toàn bộ nội dung trong một khoá duy nhất tên `<tên file>_policy` (`car.json` có khoá `car_policy`, `car_truck.json` có khoá `car_truck_policy`); hai file chung bỏ dấu `_` ở đầu (`dataset_policy`, `frame_policy`). Các trường mô tả ở mục 2, 2.1, 4.4 và 5 nằm bên trong khoá đó.

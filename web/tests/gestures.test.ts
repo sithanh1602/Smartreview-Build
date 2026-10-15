@@ -7,8 +7,9 @@ import {
   pointing,
   replay,
   spreadOf,
+  thumbSide,
 } from '../src/features/projects3d/viewer/gestures.ts';
-import { flagsOf } from '../src/features/projects3d/viewer/flags.ts';
+import { flagsOf, issuesOf, sunkBoxes } from '../src/features/projects3d/viewer/flags.ts';
 import type { Hand, RecordedFrame, Recording } from '../src/features/projects3d/viewer/gestures.ts';
 
 type At = { x: number; y: number };
@@ -244,7 +245,47 @@ test('flags number the cuboids reviewed as wrong, in the order of their IDs', ()
       [2, 'c', 'BBOX'],
     ],
   );
-  assert.notEqual(flags[0].color, flags[1].color);
+  assert.ok(flags.every((f) => f.level === 'error'));
+});
+
+test('the risk engine flags the cuboids it doubts, and the flag stays once reviewed', () => {
+  const box = (id: string) =>
+    ({ id, type: 'VEHICLE', center: [0, 0, 0], size: [1, 1, 1], heading: 0, points: 1 }) as any;
+  const frame = { timestamp: 7, boxes: ['e', 'b', 'a', 'c', 'd'].map(box) };
+  const risk = (suspected_error?: string, severity: 'high' | 'medium' | 'low' = 'high') => ({
+    score: 0.8,
+    severity,
+    suspected_error,
+    reasons: ['x'],
+  });
+  const flags = flagsOf(
+    frame,
+    {
+      '7:a': { decision: 'ERROR', error_type: 'CLASS' },
+      '7:b': { decision: 'CORRECT', error_type: null },
+      '7:c': { decision: 'UNSURE', error_type: null },
+    },
+    {
+      '7:a': risk('BBOX'),
+      '7:b': risk('BBOX'),
+      '7:c': risk(),
+      '7:d': risk('CLASS', 'low'),
+      '7:e': risk('EXTRA_OBJECT', 'medium'),
+    },
+  );
+  // Red for the confirmed error, green for a doubt reviewed as right, orange for the high risk
+  // (still so when unsure), yellow for the medium and low ones.
+  assert.deepEqual(
+    flags.map((f) => [f.number, f.objectId, f.source, f.errorType, f.level, f.reviewed]),
+    [
+      [1, 'a', 'review', 'CLASS', 'error', 'ERROR'],
+      [2, 'b', 'risk', 'BBOX', 'done', 'CORRECT'],
+      [3, 'c', 'risk', 'OTHER', 'high', 'UNSURE'],
+      [4, 'd', 'risk', 'CLASS', 'low', undefined],
+      [5, 'e', 'risk', 'EXTRA_OBJECT', 'low', undefined],
+    ],
+  );
+  assert.equal(flags[0].risk?.score, 0.8);
 });
 
 // Recordings of real hands, saved from the webcam box into tests/fixtures/gestures, are held
@@ -256,15 +297,263 @@ const files = fs.existsSync(recordings)
 for (const name of files)
   test(`recording ${name} is read as its label says`, () => {
     const recording: Recording = JSON.parse(fs.readFileSync(new URL(name, recordings), 'utf8'));
-    const { zoom, right, up, actions } = replay(recording.frames);
+    const label = recording.label;
+    const { zoom, right, up, actions } = replay(recording.frames, 23);
     const moved = Math.hypot(right, up);
-    if (recording.label === 'zoom_in') assert.ok(zoom < 0.85, `zoom ${zoom}`);
-    else if (recording.label === 'zoom_out') assert.ok(zoom > 1.15, `zoom ${zoom}`);
+    const flags = actions.flatMap((a) => (a.type === 'flag' ? [a.number] : []));
+    const steps = actions.flatMap((a) => (a.type === 'step' ? [a.delta] : []));
+    if (label === 'zoom_in') assert.ok(zoom < 0.85, `zoom ${zoom}`);
+    else if (label === 'zoom_out') assert.ok(zoom > 1.15, `zoom ${zoom}`);
     else assert.ok(Math.abs(zoom - 1) < 0.1, `zoom ${zoom}`);
-    if (recording.label === 'pan') assert.ok(moved > 0.1, `dragged ${moved}`);
+    if (label === 'pan') assert.ok(moved > 0.1, `dragged ${moved}`);
     else assert.ok(moved < 0.05, `dragged ${moved}`);
-    assert.ok(
-      actions.every((a) => a.type !== 'flag'),
-      'no flag is called up',
-    );
+    // What each label must call up, and nothing else.
+    const want: Record<string, { flags?: (f: number[]) => boolean; steps?: number[] }> = {
+      step_right: { steps: [1] },
+      step_left: { steps: [-1] },
+      thumb_up: { flags: (f) => f.length > 0 && f.every((n) => n === 1) },
+      count_1_5: { flags: (f) => f.length > 0 && f.every((n) => n >= 1 && n <= 5) },
+      number_23: { flags: (f) => f.includes(23) },
+      number_20: { flags: (f) => f.includes(20) },
+    };
+    const rule = want[label] ?? {};
+    if (rule.flags) assert.ok(rule.flags(flags), `issues called up ${flags}`);
+    else assert.deepEqual(flags, [], 'no issue is called up');
+    if (rule.steps)
+      assert.ok(steps.length > 0 && steps.every((d) => rule.steps!.includes(d)), `steps ${steps}`);
+    else assert.deepEqual(steps, [], 'no step');
   });
+
+test('a case the risk engine is certain of is a red flag until reviewed as right', () => {
+  const box = (id: string) =>
+    ({ id, type: 'VEHICLE', center: [0, 0, 0], size: [1, 1, 1], heading: 0, points: 1 }) as any;
+  const frame = { timestamp: 7, boxes: ['a', 'b'].map(box) };
+  const risk = { score: 70, severity: 'high' as const, reasons: ['lơ lửng'], certain: true };
+  const flags = flagsOf(
+    frame,
+    { '7:b': { decision: 'CORRECT', error_type: null } },
+    {
+      '7:a': risk,
+      '7:b': risk,
+    },
+  );
+  assert.deepEqual(
+    flags.map((f) => [f.objectId, f.source, f.level]),
+    [
+      ['a', 'risk', 'error'],
+      ['b', 'risk', 'done'],
+    ],
+  );
+});
+
+test('what the risk engine only warns about is a grey flag', () => {
+  const box = (id: string) =>
+    ({ id, type: 'VEHICLE', center: [0, 0, 0], size: [1, 1, 1], heading: 0, points: 1 }) as any;
+  const frame = { timestamp: 7, boxes: ['a', 'b'].map(box) };
+  const risk = { score: 0, severity: 'low' as const, reasons: ['ít điểm'] };
+  const flags = flagsOf(
+    frame,
+    { '7:b': { decision: 'CORRECT', error_type: null } },
+    {
+      '7:a': { ...risk, warning: true },
+      '7:b': { ...risk, warning: true },
+    },
+  );
+  assert.deepEqual(
+    flags.map((f) => [f.number, f.objectId, f.source, f.level]),
+    [
+      [1, 'a', 'risk', 'warn'],
+      [2, 'b', 'risk', 'done'],
+    ],
+  );
+});
+
+test('issues are numbered once for the segment, in frame order, and pins carry that number', () => {
+  const box = (id: string) =>
+    ({ id, type: 'VEHICLE', center: [0, 0, 0], size: [1, 1, 1], heading: 0, points: 1 }) as any;
+  const frames = [
+    { timestamp: 10, boxes: [box('a'), box('b')] },
+    { timestamp: 20, boxes: [box('a'), box('b')] },
+    { timestamp: 30, boxes: [box('a')] },
+  ];
+  const kase = (frame: number, id: string, severity: 'high' | 'medium') => ({
+    id: `${frames[frame].timestamp}:${id}`,
+    timestamp: frames[frame].timestamp,
+    frame_index: frame,
+    object_id: id,
+    type: 'VEHICLE',
+    score: severity === 'high' ? 70 : 40,
+    severity,
+    suspected_error: 'BBOX',
+    reasons: ['x'],
+    findings: [],
+  });
+  const report = {
+    cases: [kase(1, 'a', 'medium'), kase(2, 'a', 'high'), kase(1, 'b', 'high')],
+    warnings: [],
+    gaps: [{ object_id: 'b', type: 'VEHICLE', frame_indexes: [2], timestamps: [30] }],
+  } as any;
+  // A cuboid the engine missed but a reviewer marked wrong comes after the engine's issues.
+  const reviews = { '10:a': { decision: 'ERROR', error_type: 'CLASS' } };
+  const issues = issuesOf(frames, report, reviews);
+  assert.deepEqual(
+    issues.map((i) => [i.number, i.frame, i.objectId, i.kind]),
+    [
+      [1, 1, 'b', 'case'],
+      [2, 1, 'a', 'case'],
+      [3, 2, 'a', 'case'],
+      [4, 2, 'b', 'gap'],
+      [5, 0, 'a', 'review'],
+    ],
+  );
+  const numbers = new Map(issues.map((i) => [i.key, i.number]));
+  const risks = Object.fromEntries(report.cases.map((c: any) => [c.id, c]));
+  const pins = flagsOf(frames[1], reviews, risks, numbers);
+  assert.deepEqual(
+    pins.map((f) => [f.number, f.objectId]),
+    [
+      [1, 'b'],
+      [2, 'a'],
+    ],
+  );
+  // What the engine only warns about has a pin without a number.
+  const warned = flagsOf(frames[2], {}, { '30:a': { ...risks['30:a'], warning: true } }, new Map());
+  assert.deepEqual(
+    warned.map((f) => [f.number, f.level]),
+    [[undefined, 'warn']],
+  );
+});
+
+// A hand with only the thumb out, pointing sideways: to the person's right as the camera sees
+// a right hand, or, mirrored, to their left.
+function thumbOut(left = false, at: At = CENTRE): Hand {
+  const h = hand({}, at);
+  h[2] = { x: at.x - 0.09, y: at.y + 0.06 };
+  h[3] = { x: at.x - 0.14, y: at.y + 0.06 };
+  h[4] = { x: at.x - 0.19, y: at.y + 0.06 };
+  return left ? h.map((p) => ({ x: 2 * at.x - p.x, y: p.y })) : h;
+}
+const fingers = (n: number) =>
+  hand({ index: n > 0, middle: n > 1, ring: n > 2, pinky: n > 3, thumb: n > 4 });
+// Feeds pictures of `make()` for `ms` from `start`, 30 a second; returns the actions and the
+// last reading.
+function hold(gestures: GestureInterpreter, make: () => Hand[], start: number, ms: number) {
+  const actions = [];
+  let reading;
+  for (let t = start; t <= start + ms; t += 1000 / 30) {
+    const result = gestures.update(make(), t);
+    actions.push(...result.actions);
+    reading = result.reading;
+  }
+  return { actions, reading: reading! };
+}
+
+test('past 9 a number is shown one digit after the other, a fist being 0', () => {
+  const gestures = new GestureInterpreter();
+  gestures.setLargest(23);
+  // Two, held: no issue opens yet, as 20 to 23 could follow.
+  const two = hold(gestures, () => [fingers(2)], 0, 1000);
+  assert.deepEqual(two.actions, []);
+  assert.deepEqual(two.reading.typed, [2]);
+  // A moment without the hand, then three: twenty-three.
+  hold(gestures, () => [], 1100, 300);
+  const three = hold(gestures, () => [fingers(3)], 1450, 1000);
+  assert.deepEqual(three.actions, [{ type: 'flag', number: 23 }]);
+  // Three first: no issue 30 or more, so three opens at once.
+  const fresh = new GestureInterpreter();
+  fresh.setLargest(23);
+  assert.deepEqual(hold(fresh, () => [fingers(3)], 0, 1000).actions, [{ type: 'flag', number: 3 }]);
+  // Two then a fist: twenty.
+  const zero = new GestureInterpreter();
+  zero.setLargest(23);
+  hold(zero, () => [fingers(2)], 0, 1000);
+  hold(zero, () => [], 1100, 200);
+  assert.deepEqual(hold(zero, () => [hand({})], 1350, 1000).actions, [
+    { type: 'flag', number: 20 },
+  ]);
+});
+
+test('a first digit kept up opens that issue after the wait; taking the hand away drops it', () => {
+  const kept = new GestureInterpreter();
+  kept.setLargest(23);
+  const shown = hold(kept, () => [fingers(2)], 0, 3000);
+  assert.deepEqual(shown.actions, [{ type: 'flag', number: 2 }]);
+  const dropped = new GestureInterpreter();
+  dropped.setLargest(23);
+  hold(dropped, () => [fingers(2)], 0, 1000);
+  assert.deepEqual(hold(dropped, () => [], 1050, 2500).actions, []);
+});
+
+test('the issue a count calls up shows a moment after the count is steady; a missing one never opens', () => {
+  const gestures = new GestureInterpreter();
+  gestures.setLargest(5);
+  const early = hold(gestures, () => [fingers(4)], 0, 150);
+  assert.equal(early.reading.number, undefined);
+  const later = hold(gestures, () => [fingers(4)], 180, 300);
+  assert.equal(later.reading.number, 4);
+  assert.ok(later.reading.hold < 1);
+  // Seven fingers when there are five issues: shown, but nothing opens.
+  const missing = new GestureInterpreter();
+  missing.setLargest(5);
+  const seven = [hand(open, { x: 0.3, y: 0.6 }), fingers(2)];
+  assert.deepEqual(hold(missing, () => seven, 0, 1500).actions, []);
+});
+
+test('the thumb out sideways steps to the next or previous issue, once per showing', () => {
+  assert.equal(thumbSide(thumbOut()), 1);
+  assert.equal(thumbSide(thumbOut(true)), -1);
+  assert.equal(thumbSide(hand({ thumb: true, index: true })), null);
+  const gestures = new GestureInterpreter();
+  const right = hold(gestures, () => [thumbOut()], 0, 1500);
+  assert.deepEqual(right.actions, [{ type: 'step', delta: 1 }]);
+  assert.equal(right.reading.mode, 'step');
+  hold(gestures, () => [], 1550, 200);
+  assert.deepEqual(hold(gestures, () => [thumbOut(true)], 1800, 1000).actions, [
+    { type: 'step', delta: -1 },
+  ]);
+});
+
+test('the cuboids painted as sunk are those of the run a sinking case covers', () => {
+  const box = (id: string) =>
+    ({ id, type: 'VEHICLE', center: [0, 0, 0], size: [4, 2, 1.5], heading: 0, points: 50 }) as any;
+  const frames = [0, 1, 2, 3, 4].map((i) => ({ timestamp: 10 + i, boxes: [box('a'), box('b')] }));
+  const finding = (check_id: string, frame_indexes: number[]) =>
+    ({ check_id, score: 40, error_type: 'BBOX', reason: '', evidence: { frame_indexes } }) as any;
+  const report = {
+    cases: [
+      { object_id: 'a', frame_index: 2, findings: [finding('fit.sunk', [1, 3])] },
+      { object_id: 'b', frame_index: 0, findings: [finding('fit.moved', [0, 4])] },
+    ],
+  } as any;
+  assert.deepEqual([...sunkBoxes(frames, report)].sort(), ['11:a', '12:a', '13:a']);
+  assert.equal(sunkBoxes(frames, null).size, 0);
+});
+
+test('single-frame ground findings color only the affected object and frame', () => {
+  const frames = [10, 11, 12].map((timestamp) => ({
+    timestamp,
+    boxes: [{ id: 'a' }, { id: 'b' }],
+  })) as any;
+  const report = {
+    cases: [
+      {
+        object_id: 'b',
+        frame_index: 1,
+        findings: [{ check_id: 'box.below_ground', evidence: { frame_indexes: [1, 1] } }],
+      },
+    ],
+  } as any;
+  assert.deepEqual([...sunkBoxes(frames, report)], ['11:b']);
+});
+
+test('measured ground penetration stays red without a report or with an old empty report', () => {
+  const boxes = [
+    { id: 'sunk', center: [10, 0, 0], size: [4, 2, 2], lift: -0.8 },
+    { id: 'negative-z', center: [10, 0, -3], size: [4, 2, 2], lift: 0 },
+    { id: 'unknown-ground', center: [10, 0, -3], size: [4, 2, 2] },
+    { id: 'noise', center: [10, 0, 0], size: [4, 2, 2], lift: -0.2 },
+  ];
+  const frames = [{ timestamp: 10, boxes }] as any;
+  for (const report of [null, { cases: [] } as any])
+    assert.deepEqual([...sunkBoxes(frames, report)], ['10:sunk']);
+});

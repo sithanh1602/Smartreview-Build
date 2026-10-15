@@ -8,6 +8,7 @@ import { Spinner } from '../../components/Spinner';
 import { Icon } from '../../components/Icon';
 import { ToggleButton, ToggleButtonGroup } from '@heroui/react';
 import { GuidelineAnalysis } from './GuidelineAnalysis';
+import { ScanChoice } from '../verify/ScanChoice';
 import type { Choices } from './GuidelineAnalysis';
 import type { GuidelineExtraction } from '../../../server/guideline/model-call.ts';
 import { GUIDELINE_TYPES, guidelineText as readText } from './guidelineText';
@@ -127,6 +128,9 @@ export function ImportForm({
     [message, setMessage] = useState(''),
     [error, setError] = useState('');
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  // The project whose files were just accepted: the person chooses how its labels are scanned
+  // before going on. `ready` is false while the backend still finishes the import.
+  const [accepted, setAccepted] = useState<{ id: string; ready: boolean } | null>(null);
   const idRef = useRef(project?.id),
     mounted = useRef(true),
     xhrRef = useRef<XMLHttpRequest | null>(null);
@@ -255,7 +259,7 @@ export function ImportForm({
       sizes.some((n) => n > LIMITS.image) ||
       chosenBytes + sizes.reduce((n, size) => n + size, 0) > LIMITS.total
     ) {
-      setError('Vượt giới hạn: annotation 10 MB; mỗi ảnh 20 MB; tổng 200 MB; tối đa 1000 ảnh.');
+      setError('Vượt giới hạn: annotation 10 MB; mỗi ảnh 20 MB; tổng 200 MB; tối đa 100 ảnh.');
       return;
     }
     const pasted = guidelineText.trim();
@@ -329,7 +333,7 @@ export function ImportForm({
         }
       };
       timer = setInterval(poll, 800);
-      await new Promise((resolve, reject) => {
+      const imported = await new Promise<Project>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
         xhrRef.current = xhr;
         xhr.open('POST', `/api/projects/${id}/import`);
@@ -363,8 +367,7 @@ export function ImportForm({
         xhr.send(form);
       });
       if (mounted.current) {
-        if (onImported) onImported();
-        else navigate(`/projects/${id}`);
+        setAccepted({ id: imported.id, ready: imported.status === 'READY' });
       }
     } catch (e) {
       if (mounted.current) setError((e as Error).message);
@@ -602,9 +605,7 @@ export function ImportForm({
                 />
               </label>
             </FieldHelp>
-            <FieldHelp
-              help={<p>Tối đa 1000 ảnh / 200 MB tổng; 20 MB mỗi ảnh; annotation 10 MB.</p>}
-            >
+            <FieldHelp help={<p>Tối đa 100 ảnh / 200 MB tổng; 20 MB mỗi ảnh; annotation 10 MB.</p>}>
               <label className="block text-sm">
                 {hint('Media images')}
                 <HelpButton />
@@ -750,8 +751,8 @@ export function ImportForm({
             </div>
           )}
           <p className="text-xs text-muted">
-            Giữ trang mở đến khi hoàn tất. Sau khi tải lên, hệ thống cần thêm thời gian để kiểm tra
-            và phân tích.
+            Giữ trang mở đến khi dữ liệu tải lên xong và được kiểm tra. Phần còn lại (đưa lên kho
+            lưu trữ, lưu kết quả) chạy nền, bạn không cần chờ ở đây.
           </p>
         </div>
       )}
@@ -764,6 +765,13 @@ export function ImportForm({
             </p>
           )}
         </div>
+      )}
+      {accepted && (
+        <ScanChoice
+          projectId={accepted.id}
+          ready={accepted.ready}
+          onDone={() => (onImported ? onImported() : navigate(`/projects/${accepted.id}`))}
+        />
       )}
     </form>
   );

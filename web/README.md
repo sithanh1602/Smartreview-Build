@@ -52,7 +52,7 @@ Thử ngay: chọn `fixtures/upload/annotations.xml` + `fixtures/upload/street.p
 
 [Hướng dẫn Projects, upload, storage, API và giới hạn](docs/projects-import.md).
 
-Ảnh PNG/JPEG/WebP/GIF tĩnh, không upload video/ZIP/SVG. Tối đa 1000 ảnh / 200 MB tổng; mỗi ảnh 20 MB / 25 MP; annotation 10 MB. MySQL lưu metadata/reviews; file nằm trong `storage/projects/`. Traffic Demo được đăng ký tự động và giữ review đã lưu trước đây.
+Ảnh PNG/JPEG/WebP/GIF tĩnh, không upload video/ZIP/SVG. Tối đa 100 ảnh / 200 MB tổng; mỗi ảnh 20 MB / 25 MP; annotation 10 MB. MySQL lưu metadata/reviews; file nằm trong `storage/projects/`. Traffic Demo được đăng ký tự động và giữ review đã lưu trước đây.
 
 ## 2. Chạy backend và frontend
 

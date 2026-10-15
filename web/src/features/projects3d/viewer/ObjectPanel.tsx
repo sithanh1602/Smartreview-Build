@@ -1,15 +1,25 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Spinner } from '../../../components/Spinner';
 import { hint } from '../../../lib/englishHints';
 import { request } from '../../../lib/api';
 import { DECISIONS } from '../../../../shared/review.ts';
 import { Swatch } from './controls';
 import { BOX_COLORS } from './colors.ts';
-import { FLAG_COLORS, FLAG_NAMES, boxKey } from './flags.ts';
-import { cssColor } from './colors.ts';
-import type { Flag } from './flags.ts';
+import {
+  FLAG_NAMES,
+  ISSUE_NAMES,
+  PIN_LEVELS,
+  PIN_NAMES,
+  SEVERITY_NAMES,
+  boxKey,
+  sunkBoxes,
+} from './flags.ts';
+import { Pin } from './Pin.tsx';
+import { RiskQueue, nextIssue, padFrame } from './RiskQueue.tsx';
+import type { Flag, Issue, Risk } from './flags.ts';
 import type { Box3D, Scene3D } from './engine.ts';
 import type { Review } from '../../../types.ts';
+import type { Risk3DReport } from '../../../../core/risk3d/engine.ts';
 
 // What can be wrong with a cuboid that exists; a missing object has no cuboid to review.
 const ERROR_TYPES_3D: [string, string][] = [
@@ -24,7 +34,7 @@ const NOTE_MAX = 500;
 const decisionKeys = Object.keys(DECISIONS);
 const split = (label: string) => label.match(/^(.*?) \((.*)\)$/)?.slice(1) ?? [label];
 const fixed = (values: number[], digits = 2) => values.map((v) => v.toFixed(digits));
-const MARK: Record<string, string> = { CORRECT: '✓', UNSURE: '?' };
+const MARK: Record<string, string> = { CORRECT: '✓', UNSURE: '?', ERROR: '✗' };
 
 // Where a cuboid's centre is in the world: its frame's pose (16 numbers, row-major) applied
 // to the centre given in vehicle coordinates.
@@ -65,7 +75,8 @@ function ReviewForm({
   trackFrames: number;
   existing: Review | null;
   onSaved: (reviews: Record<string, Review>) => void;
-  // Moves on to the next cuboid of the frame still without a decision, if there is one.
+  // Moves on to the next case of the engine still without a decision (or, without the engine,
+  // the next cuboid of the frame), if there is one.
   onNext: (() => void) | null;
 }) {
   const [decision, setDecision] = useState(existing?.decision ?? ''),
@@ -316,8 +327,13 @@ export function ObjectPanel({
   onSelect,
   reviews,
   flags,
+  report,
+  issues,
+  calling = null,
+  risks,
   onSaved,
   onFocus,
+  onOpen,
 }: {
   projectId: string;
   revision: string;
@@ -328,11 +344,24 @@ export function ObjectPanel({
   selected: string | null;
   onSelect: (objectId: string | null) => void;
   reviews: Record<string, Review>;
-  // The flags of the frame on screen: its cuboids reviewed as wrong.
+  // The flags of the frame on screen: its cuboids reviewed as wrong or doubted by the engine.
   flags: Flag[];
+  // The 3D Risk Engine's report, null for a project imported before it; its cases and warnings
+  // by box key.
+  report: Risk3DReport | null;
+  // What the reviewer has to look at, numbered for the whole segment.
+  issues: Issue[];
+  // The issue a hand gesture is calling up, before it opens.
+  calling?: number | null;
+  risks: Record<string, Risk>;
   onSaved: (reviews: Record<string, Review>) => void;
   onFocus: () => void;
+  // Opens a frame with an object selected.
+  onOpen: (frame: number, objectId: string) => void;
 }) {
+  // Without the engine there is nothing to narrow the list to.
+  const [showAll, setShowAll] = useState(!report);
+  useEffect(() => setShowAll(!report), [report]);
   const frame = scene.frames[frameIndex];
   const boxes = [...frame.boxes].sort(
     (a, b) => a.type.localeCompare(b.type) || a.id.localeCompare(b.id),
@@ -341,14 +370,49 @@ export function ObjectPanel({
   const reviewOf = (b: Box3D) => reviews[boxKey(frame.timestamp, b.id)] ?? null;
   const reviewed = boxes.filter(reviewOf).length;
   const frames = box ? (tracks.get(box.id) ?? []) : [];
+  // Found sunk by the engine: the viewer paints its part below the road red.
+  const sunkKeys = useMemo(() => sunkBoxes(scene.frames, report), [scene, report]);
+  const sunk =
+    !!box &&
+    box.lift !== undefined &&
+    box.lift < 0 &&
+    sunkKeys.has(boxKey(frame.timestamp, box.id));
   const speed = box ? speedOf(scene, frames, frameIndex, box.id) : null;
-  const next = box ? boxes.find((b) => b.id !== box.id && !reviewOf(b)) : undefined;
+  const queued = report
+    ? nextIssue(issues, reviews, box ? boxKey(frame.timestamp, box.id) : null)
+    : null;
+  const inFrame = !report && box ? boxes.find((b) => b.id !== box.id && !reviewOf(b)) : undefined;
+  const onNext = queued
+    ? () => onOpen(queued.frame, queued.objectId)
+    : inFrame
+      ? () => onSelect(inFrame.id)
+      : null;
+  // The reviewer looks at what is flagged; the rest of the frame is there on request.
+  const flaggedIds = new Set(flags.map((f) => f.objectId));
+  const listed = showAll ? boxes : boxes.filter((b) => flaggedIds.has(b.id) || b.id === selected);
+  const risk = box ? risks[boxKey(frame.timestamp, box.id)] : undefined;
+  const issue = box ? issues.find((i) => i.key === boxKey(frame.timestamp, box.id)) : undefined;
+  const missing =
+    !box && selected
+      ? report?.gaps.find((g) => g.object_id === selected && g.frame_indexes.includes(frameIndex))
+      : undefined;
   const pad = (n: number) => String(n).padStart(4, '0');
   return (
     <>
-      <section className="border-b border-line pb-4">
-        <h2 className="mb-2 flex items-baseline justify-between text-sm font-semibold">
-          Cuboid trong frame
+      <RiskQueue
+        report={report}
+        issues={issues}
+        calling={calling}
+        reviews={reviews}
+        frameIndex={frameIndex}
+        selected={selected}
+        onOpen={onOpen}
+      />
+      <section className="border-b border-line py-4">
+        <h2 className="mb-2 flex items-baseline justify-between gap-2 text-sm font-semibold">
+          {showAll
+            ? `Frame ${padFrame(frameIndex)}: mọi cuboid`
+            : `Frame ${padFrame(frameIndex)}: cuboid có ghim`}
           <span
             className="text-xs font-normal text-muted tabular-nums"
             data-testid="frame-progress"
@@ -356,9 +420,22 @@ export function ObjectPanel({
             {reviewed}/{boxes.length} đã review
           </span>
         </h2>
-        {boxes.length ? (
+        {report && boxes.length > 0 && (
+          <button
+            type="button"
+            className="mb-2 text-[11px] text-accent underline-offset-2 hover:underline"
+            aria-pressed={showAll}
+            onClick={() => setShowAll((v) => !v)}
+            data-testid="toggle-all-boxes"
+          >
+            {showAll
+              ? `Chỉ hiện cuboid có cờ (${flaggedIds.size})`
+              : `Hiện tất cả ${boxes.length} cuboid của frame`}
+          </button>
+        )}
+        {listed.length ? (
           <ul className="max-h-44 overflow-y-auto pr-1" data-testid="box-list">
-            {boxes.map((b) => {
+            {listed.map((b) => {
               const decision = reviewOf(b)?.decision,
                 flag = flags.find((f) => f.objectId === b.id);
               return (
@@ -373,48 +450,96 @@ export function ObjectPanel({
                     <span className="font-semibold">{b.type}</span>
                     <span className="min-w-0 flex-1 truncate text-muted">{b.id.slice(0, 5)}</span>
                     <span className="text-muted tabular-nums">{b.points} điểm</span>
-                    {flag ? (
-                      <span
-                        className="rounded px-1 text-[11px] font-bold whitespace-nowrap text-white"
-                        style={{ background: cssColor(flag.color) }}
-                        title={`Cờ ${flag.number}: ${FLAG_NAMES[flag.errorType] ?? flag.errorType}`}
-                        data-testid={`flag-${flag.number}`}
-                      >
-                        {`⚑ ${flag.number}`}
-                      </span>
-                    ) : (
-                      <span
-                        className={`w-3 text-center font-bold ${decision === 'CORRECT' ? 'text-accent' : 'text-amber-700'}`}
-                        title={decision ? hint(DECISIONS[decision]) : undefined}
-                      >
-                        {decision ? MARK[decision] : ''}
+                    {flag && (
+                      <span data-testid={`flag-${flag.number ?? 'warn'}`}>
+                        <Pin
+                          level={flag.level}
+                          number={flag.number}
+                          title={
+                            flag.number === undefined
+                              ? PIN_NAMES[flag.level]
+                              : `Lỗi #${flag.number}: ${PIN_NAMES[flag.level]}, ${flag.source === 'risk' ? 'nghi ' : ''}${FLAG_NAMES[flag.errorType] ?? flag.errorType}`
+                          }
+                        />
                       </span>
                     )}
+                    <span
+                      className={`w-3 text-center font-bold ${decision === 'CORRECT' ? 'text-accent' : decision === 'ERROR' ? 'text-rose-700' : 'text-amber-700'}`}
+                      title={decision ? `Đã review: ${hint(DECISIONS[decision])}` : undefined}
+                    >
+                      {decision ? MARK[decision] : ''}
+                    </span>
                   </button>
                 </li>
               );
             })}
           </ul>
         ) : (
-          <p className="text-xs text-muted">Frame này không có cuboid.</p>
+          <p className="text-xs text-muted">
+            {boxes.length
+              ? 'Frame này không có cuboid nào bị nghi lỗi hay cảnh báo.'
+              : 'Frame này không có cuboid.'}
+          </p>
         )}
         {flags.length > 0 && (
           <p
             className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted"
             data-testid="flag-legend"
           >
-            <span>{`${flags.length} cờ lỗi:`}</span>
-            {[...new Set(flags.map((f) => f.errorType))].map((type) => (
-              <span key={type} className="inline-flex items-center gap-1">
-                <Swatch color={FLAG_COLORS[type] ?? FLAG_COLORS.OTHER} />
-                {FLAG_NAMES[type] ?? type}
-              </span>
-            ))}
+            <span>{`${flags.length} cờ:`}</span>
+            {PIN_LEVELS.map((level) => {
+              const n = flags.filter((f) => f.level === level).length;
+              return (
+                n > 0 && (
+                  <span key={level} className="inline-flex items-center gap-1">
+                    <Pin level={level} size={10} />
+                    {`${PIN_NAMES[level]} (${n})`}
+                  </span>
+                )
+              );
+            })}
           </p>
         )}
       </section>
       {box ? (
         <>
+          {risk && (
+            <section
+              className={`mt-4 rounded-md border px-3 py-2 text-xs ${risk.warning ? 'border-line bg-slate-50' : risk.certain ? 'border-rose-300 bg-rose-50 text-rose-950' : 'border-orange-300 bg-orange-50 text-orange-950'}`}
+              role="note"
+              data-testid="box-risk"
+            >
+              <p className="flex items-center gap-1.5 font-semibold">
+                <Pin
+                  level={
+                    risk.warning
+                      ? 'warn'
+                      : risk.certain
+                        ? 'error'
+                        : risk.severity === 'high'
+                          ? 'high'
+                          : 'low'
+                  }
+                  number={issue?.number}
+                  size={16}
+                />
+                {risk.warning
+                  ? `Cảnh báo · Frame ${padFrame(frameIndex)}`
+                  : `Lỗi #${issue?.number ?? '?'} · Frame ${padFrame(frameIndex)} · ${ISSUE_NAMES[risk.suspected_error ?? 'OTHER'] ?? risk.suspected_error}`}
+              </p>
+              {!risk.warning && (
+                <p className="mt-0.5">
+                  {risk.certain ? 'Engine chắc chắn đây là lỗi' : 'Engine nghi'}, rủi ro{' '}
+                  {SEVERITY_NAMES[risk.severity] ?? risk.severity} ({risk.score} điểm). Lý do:
+                </p>
+              )}
+              <ul className="mt-1 list-disc pl-4">
+                {risk.reasons.map((reason) => (
+                  <li key={reason}>{reason}</li>
+                ))}
+              </ul>
+            </section>
+          )}
           <section className="border-b border-line py-4" data-testid="box-details">
             <h2 className="mb-3 flex items-center justify-between gap-2 text-sm font-semibold">
               Chi tiết cuboid
@@ -456,6 +581,20 @@ export function ObjectPanel({
               <dd className="tabular-nums">
                 {box.heading.toFixed(2)} rad · {((box.heading * 180) / Math.PI).toFixed(0)}°
               </dd>
+              {box.lift !== undefined && (
+                <>
+                  <dt className="text-muted">So với mặt đường</dt>
+                  <dd
+                    className={`tabular-nums ${sunk ? 'font-semibold text-rose-700' : ''}`}
+                    data-testid="box-lift"
+                  >
+                    {box.lift >= 0
+                      ? `Đáy cao hơn ${box.lift.toFixed(2)} m`
+                      : `Đáy thấp hơn ${(-box.lift).toFixed(2)} m`}
+                    {sunk && ' · nghi chìm dưới mặt đường · viền box và phần chìm tô đỏ'}
+                  </dd>
+                </>
+              )}
               <dt className="text-muted">Điểm trong box</dt>
               <dd className={`tabular-nums ${box.points < 5 ? 'text-amber-700' : ''}`}>
                 {box.points}
@@ -482,15 +621,19 @@ export function ObjectPanel({
               trackFrames={frames.length}
               existing={reviewOf(box)}
               onSaved={onSaved}
-              onNext={next ? () => onSelect(next.id) : null}
+              onNext={onNext}
             />
           </div>
         </>
       ) : (
         <p className="pt-4 text-sm text-muted" data-testid="box-hint">
-          {selected
-            ? 'Đối tượng đang chọn không có cuboid ở frame này.'
-            : 'Bấm vào một cuboid trong point cloud, hoặc chọn trong danh sách trên, để xem chi tiết và review.'}
+          {missing
+            ? 'Đối tượng này có ở frame trước và sau nhưng không có cuboid ở frame này: engine nghi thiếu cuboid. Nếu vật vẫn ở đó, cần gán thêm cuboid.'
+            : selected
+              ? 'Đối tượng đang chọn không có cuboid ở frame này.'
+              : issues.length
+                ? 'Chọn một chỗ trong danh sách "Cần kiểm tra" để bắt đầu, hoặc bấm vào cuboid trong point cloud.'
+                : 'Bấm vào một cuboid trong point cloud, hoặc chọn trong danh sách trên, để xem chi tiết và review.'}
         </p>
       )}
     </>

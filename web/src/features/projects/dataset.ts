@@ -12,7 +12,7 @@ export const LIMITS = {
   annotation: 10 * 1024 * 1024,
   image: 20 * 1024 * 1024,
   total: 200 * 1024 * 1024,
-  images: 1000,
+  images: 100,
 };
 export const IMAGE_TYPES = ['.jpg', '.jpeg', '.png', '.webp', '.gif'];
 export const ANNOTATION_TYPES = ['.xml', '.json', '.txt', '.names', '.yaml', '.yml'];

@@ -26,6 +26,7 @@
     "guideline:extract": "node scripts/guideline.ts",
     "policy:check": "node scripts/policy.ts",
     "verify": "node scripts/verify.ts",
+    "risk3d": "node scripts/risk3d.ts",
     "analyze": "node scripts/analyze.ts"
   },
   "dependencies": {

@@ -1,0 +1,363 @@
+{
+  "scene_policy": {
+    "schema_version": "1.0.0",
+    "policy_version": "1.11.0",
+    "purpose": "Chấm rủi ro cho cuboid 3D của một segment LiDAR. Mọi quy tắc chỉ đọc scene.json (cuboid, pose của xe, số điểm và độ khít đã đo lúc import); không quy tắc nào đọc point cloud. File này quy định ngưỡng, điểm và loại lỗi; code trong core/risk3d chỉ thực hiện.",
+    "sources": [
+      {
+        "id": "waymo_sample",
+        "ref": "Một segment Waymo Open Dataset v2 (validation 10203656353524179475_7625_000_7645_000): 198 frame, 7.271 cuboid, 137 đối tượng, nhãn gốc coi là đúng."
+      }
+    ],
+    "scoring": {
+      "queue_from": 30,
+      "max_score": 100,
+      "high_from": 70,
+      "medium_from": 40,
+      "sum": "Điểm của một cuboid là tổng điểm các quy tắc bắt lỗi, tối đa max_score. Cuboid từ queue_from điểm là một case. Quy tắc có level warning không cộng điểm.",
+      "error_type": "Khi hai quy tắc cho lỗi nghi ngờ khác nhau, ghi lỗi của quy tắc có điểm cao hơn."
+    },
+    "tracks": {
+      "note": "Cuboid cùng id qua các frame là một đối tượng. Vị trí và hướng được đổi sang hệ toạ độ cố định bằng pose của xe trước khi so giữa các frame. Quy tắc so với hai frame kề chỉ chạy khi đối tượng có mặt ở cả frame liền trước và liền sau, nên cuboid ở frame đầu và frame cuối của một đối tượng không được các quy tắc đó chấm. Khi một cuboid lệch, hai cuboid kề nó cũng lệch một nửa so với trung điểm; chỉ cuboid lệch nhiều nhất trong ba cuboid liền nhau bị gắn cờ."
+    },
+    "types": {
+      "note": "Kích thước tính bằng mét: length theo hướng của cuboid, width ngang, height đứng. Khoảng kích thước lấy từ segment mẫu rồi nới rộng; CYCLIST không có trong segment mẫu nên khoảng của nó chưa có số đo. position_jump_m và heading_jump_rad là mức lệch so với hai frame kề mà từ đó cuboid bị gắn cờ; empty_within_m là khoảng cách tới xe mà trong đó một cuboid không có điểm nào là bất thường. outside_ratio, slack_ratio, moved_ratio, empty_side_m và level_shift_m là mức của fit.points_outside, fit.loose, fit.moved, fit.empty_side và fit.lowered/fit.raised, đặt trên trung vị lớn nhất đo được ở nhãn đúng; CYCLIST lấy theo PEDESTRIAN. SIGN không có level_shift_m vì không đứng trên mặt đường.",
+      "VEHICLE": {
+        "size": {
+          "length": [1.2, 26],
+          "width": [0.6, 4],
+          "height": [0.8, 5.5]
+        },
+        "position_jump_m": 0.6,
+        "heading_jump_rad": 0.35,
+        "empty_within_m": 30,
+        "outside_ratio": 0.45,
+        "slack_ratio": 0.32,
+        "moved_ratio": 0.5,
+        "empty_side_m": 0.6,
+        "level_shift_m": 0.3
+      },
+      "PEDESTRIAN": {
+        "size": {
+          "length": [0.2, 2.2],
+          "width": [0.2, 2.2],
+          "height": [0.5, 2.4]
+        },
+        "position_jump_m": 0.4,
+        "heading_jump_rad": 1.0,
+        "empty_within_m": 20,
+        "outside_ratio": 0.45,
+        "slack_ratio": 0.55,
+        "moved_ratio": 0.4,
+        "empty_side_m": 0.4,
+        "level_shift_m": 0.45
+      },
+      "CYCLIST": {
+        "size": {
+          "length": [0.8, 3.2],
+          "width": [0.3, 1.6],
+          "height": [0.8, 2.4]
+        },
+        "position_jump_m": 0.5,
+        "heading_jump_rad": 0.6,
+        "empty_within_m": 20,
+        "outside_ratio": 0.45,
+        "slack_ratio": 0.55,
+        "moved_ratio": 0.4,
+        "empty_side_m": 0.4,
+        "level_shift_m": 0.45
+      },
+      "SIGN": {
+        "size": {
+          "length": [0.01, 3],
+          "width": [0.1, 6],
+          "height": [0.1, 4]
+        },
+        "position_jump_m": 0.3,
+        "heading_jump_rad": 0.35,
+        "empty_within_m": 20,
+        "outside_ratio": 0.75,
+        "slack_ratio": 0.45,
+        "moved_ratio": 0.1,
+        "empty_side_m": 0.3
+      }
+    },
+    "rules": [
+      {
+        "id": "box.below_ground",
+        "score": 70,
+        "error_type": "BBOX",
+        "description": "Kiểm tra từng object: đáy chìm dưới mặt đường cục bộ vượt dung sai. Không dùng z=0, không cần track hoặc điểm nằm trong box. Thiếu lift thì không kết luận.",
+        "params": {
+          "below_m": 0.25,
+          "max_distance_m": 50
+        }
+      },
+      {
+        "id": "track.type_change",
+        "score": 70,
+        "error_type": "CLASS",
+        "text": "Một đối tượng mang loại khác với loại của nó ở phần lớn các frame.",
+        "params": {},
+        "measured": "Segment mẫu: 0 trong 137 đối tượng đổi loại."
+      },
+      {
+        "id": "track.position_jump",
+        "score": 50,
+        "error_type": "BBOX",
+        "text": "Tâm cuboid lệch khỏi trung điểm của hai frame kề nhiều hơn mức của loại đó, theo phương ngang hoặc phương đứng.",
+        "params": {
+          "vertical_jump_m": 0.4
+        },
+        "measured": "Segment mẫu, lệch ngang lớn nhất: VEHICLE 0,27 m, PEDESTRIAN 0,17 m, SIGN 0,06 m. Lệch đứng lớn nhất 0,20 m."
+      },
+      {
+        "id": "track.position_drift",
+        "score": 30,
+        "error_type": "BBOX",
+        "text": "Tâm cuboid lệch khỏi trung điểm của hai frame kề từ soft_factor lần mức của track.position_jump nhưng chưa tới mức đó, và phép dò (moved) cũng bảo dời cuboid về phía track, ít nhất nửa quãng lệch. Hai dấu hiệu độc lập cùng chỉ một lỗi thì đủ thành case.",
+        "params": {
+          "soft_factor": 0.6,
+          "min_points": 20
+        },
+        "measured": "Segment mẫu: 0 cuboid trên nhãn đúng. Lỗi dời ngang 0,5 m cài từng frame: số vào hàng đợi tăng từ 95 lên 122/150, không thêm case thừa."
+      },
+      {
+        "id": "track.heading_jump",
+        "score": 40,
+        "error_type": "BBOX",
+        "text": "Hướng của cuboid lệch khỏi cả hai frame kề nhiều hơn mức của loại đó, trong khi hai frame kề cùng hướng với nhau. Lệch từ flip_from_rad được coi là cuboid bị quay ngược đầu.",
+        "params": {
+          "flip_from_rad": 2.6
+        },
+        "measured": "Segment mẫu, lệch lớn nhất: VEHICLE 0,014 rad, PEDESTRIAN 0,31 rad, SIGN 0."
+      },
+      {
+        "id": "track.size_change",
+        "score": 40,
+        "error_type": "BBOX",
+        "text": "Một cạnh của cuboid khác trung bình của hai frame kề nhiều hơn relative_change, trong khi vật thật không đổi kích thước.",
+        "params": {
+          "relative_change": 0.1
+        },
+        "measured": "Segment mẫu: kích thước của một đối tượng không đổi qua các frame (lệch lớn nhất 0)."
+      },
+      {
+        "id": "track.end_off",
+        "score": 30,
+        "error_type": "BBOX",
+        "text": "Cuboid không có frame kề ở một phía (frame đầu hay cuối của đối tượng, hoặc sát chỗ đối tượng vắng mặt) lệch khỏi vị trí ngoại suy từ hai frame liền nhau ở phía kia, hoặc quay hay đổi cỡ so với hai frame đó khi chúng giống nhau. Ngoại suy kém chắc hơn trung điểm nên mức là mức của track.position_jump, track.heading_jump và track.size_change nhân factor, và điểm thấp hơn.",
+        "params": {
+          "factor": 1.5
+        },
+        "measured": "Segment mẫu: 0 cuboid trên nhãn đúng. Lỗi cài từng frame ở cuboid đầu/cuối track giờ được bắt (dời 1 m: 146 lên 150/150, quay ngược đầu 144 lên 149/150, phóng to 1,3 lần 144 lên 150/150), không thêm case thừa."
+      },
+      {
+        "id": "box.size_out_of_range",
+        "score": 40,
+        "error_type": "CLASS",
+        "text": "Một cạnh của cuboid nằm ngoài khoảng kích thước của loại đó.",
+        "params": {},
+        "measured": "Segment mẫu: không cuboid nào nằm ngoài khoảng."
+      },
+      {
+        "id": "points.empty_near",
+        "score": 40,
+        "error_type": "EXTRA_OBJECT",
+        "text": "Cuboid ở gần xe mà không có điểm LiDAR nào của vật bên trong. Với các loại trong above_ground_types (đứng trên mặt đường), chỉ đếm điểm cao hơn dải mặt đường (moved[2] trong scene.json), vì cuboid gán vào chỗ trống trên đường vẫn ôm điểm mặt đường; loại khác, hoặc scene chưa đo độ khít, đếm mọi điểm (counted).",
+        "params": {
+          "above_ground_types": ["VEHICLE", "PEDESTRIAN", "CYCLIST"]
+        },
+        "measured": "Segment mẫu, đếm mọi điểm: trong 20 m không cuboid nào rỗng; từ 20 đến 40 m có 0,4% VEHICLE, 8% PEDESTRIAN và 2,4% SIGN rỗng; từ 60 m trở ra 19–36% rỗng. Đếm điểm cao hơn mặt đường, trong tầm empty_within_m: VEHICLE 2/775 rỗng (đếm mọi điểm: 1), PEDESTRIAN 0/101; SIGN 12/470 nên SIGN vẫn đếm mọi điểm."
+      },
+      {
+        "id": "points.dropped",
+        "score": 30,
+        "error_type": "BBOX",
+        "text": "Số điểm trong cuboid tụt xuống dưới ratio của trung bình hai frame kề, trong khi cả hai frame kề đều có từ min_neighbour_points điểm: cuboid có thể đã trượt khỏi vật.",
+        "params": {
+          "ratio": 0.1,
+          "min_neighbour_points": 30
+        },
+        "measured": "Segment mẫu: 15 trong 4.245 cuboid (0,35%) có hai frame kề từ 20 điểm mà tụt dưới 10%; đó là vật bị che trong chốc lát."
+      },
+      {
+        "id": "track.never_observed",
+        "score": 30,
+        "error_type": "EXTRA_OBJECT",
+        "text": "Đối tượng có mặt từ min_frames frame mà không frame nào có điểm LiDAR trong cuboid, và có lúc ở trong within_m. Chỉ cuboid đầu tiên của đối tượng mang case, để một đối tượng là một case.",
+        "params": {
+          "min_frames": 3,
+          "within_m": 60
+        },
+        "measured": "Segment mẫu: 3 trong 137 đối tượng không frame nào có điểm (2 VEHICLE, 1 SIGN)."
+      },
+      {
+        "id": "track.single_frame",
+        "score": 20,
+        "error_type": "EXTRA_OBJECT",
+        "text": "Đối tượng chỉ có mặt ở đúng một frame, không phải frame đầu hay frame cuối của segment.",
+        "params": {},
+        "measured": "Segment mẫu: 1 trong 137 đối tượng."
+      },
+      {
+        "id": "fit.moved",
+        "score": 40,
+        "error_type": "BBOX",
+        "text": "Dời cuboid đi tới 1 m (giữ hướng và kích thước) thì nó ôm được nhiều điểm của vật hơn hẳn, suốt nhiều frame liền nhau: cuboid lệch khỏi vật. Phần thiếu của một cuboid là 1 - (số điểm tại chỗ / số điểm ở chỗ tốt nhất), lấy từ moved trong scene.json; quy tắc lấy trung vị trên window cuboid liền nhau của đối tượng (chỉ cuboid mà chỗ tốt nhất có từ min_points điểm) và so với moved_ratio của loại. Một chuỗi cửa sổ vượt mức là một case, đặt ở cuboid thiếu nhiều nhất.",
+        "params": {
+          "window": 5,
+          "min_points": 30
+        },
+        "measured": "Segment mẫu, trung vị 5 frame lớn nhất trên nhãn đúng: VEHICLE 0,47 (xe dài đứng sát vật lớn khác), PEDESTRIAN 0,36, SIGN 0,03."
+      },
+      {
+        "id": "fit.empty_side",
+        "score": 40,
+        "error_type": "BBOX",
+        "text": "Mặt cuboid quay về phía xe trống, trong khi phép dò (moved) cũng bảo dời cuboid ra xa xe theo đúng phương đó, suốt nhiều frame liền nhau: cuboid nằm lệch ra phía trước vật. Khoảng trống của một cuboid tính bằng mét: trên phương mà moved dời từ 0,25 m ra xa xe, lấy slack của mặt đó, không quá độ dời + 0,25 m. Quy tắc lấy trung vị trên window cuboid liền nhau (chỉ cuboid mà chỗ tốt nhất có từ min_points điểm) và so với empty_side_m của loại. Bắt được lỗi lệch mà fit.moved bỏ qua vì phần điểm thiếu chưa tới moved_ratio.",
+        "params": {
+          "window": 5,
+          "min_points": 30
+        },
+        "measured": "Segment mẫu, trung vị 5 frame lớn nhất trên nhãn đúng: VEHICLE 0,39 m; PEDESTRIAN và SIGN không quá 0,2 m. Xe con dời ngang 1 m về phía xe suốt 10 frame: 1,08 m."
+      },
+      {
+        "id": "fit.floating",
+        "score": 40,
+        "error_type": "BBOX",
+        "text": "Đáy cuboid cao hơn mặt đường dưới tâm nó (lift trong scene.json) quá above_m, suốt nhiều frame liền nhau: cuboid lơ lửng. Quá certain_m thì không thể là nhãn đúng: finding mang certain_score điểm (thành rủi ro cao) và certain, viewer cắm ghim đỏ như lỗi đã xác nhận. Mặt đường là mặt phẳng khớp với điểm thấp nhất quanh chân cuboid, nên trên dốc và sát mép đường vẫn đo đúng; chỗ không thấy mặt đường (bụi cây, bị che) không có lift. Chỉ cho các loại trong types, trong max_distance_m tới xe, cuboid có từ min_points điểm (counted, cả phần sát mặt đường, để cuboid bị hạ thấp vẫn được xét); trung vị trên window cuboid liền nhau.",
+        "params": {
+          "window": 5,
+          "min_points": 20,
+          "above_m": 0.5,
+          "certain_m": 1.0,
+          "certain_score": 70,
+          "max_distance_m": 50,
+          "types": ["VEHICLE", "PEDESTRIAN", "CYCLIST"]
+        },
+        "measured": "Segment mẫu, nhãn đúng, trong 50 m, trung vị 5 frame cao nhất: VEHICLE 0,40 m, PEDESTRIAN 0,07 m. Đo bằng phân vị 10% của vành quanh cuboid (trước 3d-1.8.0) chiếc xe tải đỗ trên dốc ra 0,5–0,7 m vì phía dốc xuống thấp hơn; mặt phẳng ra 0,4 m. Một VEHICLE cao 2,98 m có đáy cao hơn mặt đường 2,3 m suốt 44 frame (có lẽ là xe chở trên xe tải) vẫn thành 1 case."
+      },
+      {
+        "id": "fit.sunk",
+        "score": 40,
+        "error_type": "BBOX",
+        "text": "Đáy cuboid thấp hơn mặt đường dưới tâm nó quá below_m, suốt nhiều frame liền nhau: cuboid chìm xuống đường. Quá certain_m thì chắc chắn sai, như fit.floating. Cùng điều kiện như fit.floating.",
+        "params": {
+          "window": 5,
+          "min_points": 20,
+          "below_m": 0.5,
+          "certain_m": 1.0,
+          "certain_score": 70,
+          "max_distance_m": 50,
+          "types": ["VEHICLE", "PEDESTRIAN", "CYCLIST"]
+        },
+        "measured": "Segment mẫu, trung vị 5 frame thấp nhất trên nhãn đúng, trong 50 m: VEHICLE -0,37 m, PEDESTRIAN -0,40 m (người đi bộ sát mép đường). Trước khi bỏ mặt phẳng gồ ghề (bụi cây, không thấy mặt đường) có người đi bộ tới -0,73 m."
+      },
+      {
+        "id": "fit.lowered",
+        "score": 40,
+        "error_type": "BBOX",
+        "text": "Một đoạn cuboid của một đối tượng thấp hơn chính nó ở phần còn lại của track quá level_shift_m của loại, so với mặt đường (lift trừ trung vị lift của cả track): cuboid bị hạ xuống. Sát mép đường hay trên dốc, mặt đường đo lệch cùng một lượng suốt track nên bị trừ đi; lỗi nhỏ hơn below_m của fit.sunk vẫn thấy. Cần track có từ min_frames cuboid đo được lift; cùng điều kiện như fit.floating.",
+        "params": {
+          "window": 5,
+          "min_points": 20,
+          "min_frames": 10,
+          "max_distance_m": 50,
+          "types": ["VEHICLE", "PEDESTRIAN", "CYCLIST"]
+        },
+        "measured": "Segment mẫu, nhãn đúng, trung vị 5 frame xa mức của track nhất: VEHICLE 0,19 m, PEDESTRIAN 0,33 m (người bước lên, xuống vỉa hè)."
+      },
+      {
+        "id": "fit.raised",
+        "score": 40,
+        "error_type": "BBOX",
+        "text": "Như fit.lowered nhưng đoạn cuboid cao hơn phần còn lại của track: cuboid bị nâng lên. Tham số đọc từ fit.lowered.",
+        "params": {
+          "window": 5,
+          "min_points": 20
+        },
+        "measured": "Như fit.lowered."
+      },
+      {
+        "id": "fit.points_outside",
+        "score": 40,
+        "error_type": "BBOX",
+        "text": "Một phần lớn điểm của vật nằm ngay ngoài cuboid, suốt nhiều frame liền nhau: cuboid lệch khỏi vật, nhỏ hơn vật hoặc quay sai. Tỉ lệ của một cuboid là outside / (counted + outside); quy tắc lấy trung vị của tỉ lệ đó trên window cuboid liền nhau của đối tượng (chỉ cuboid có từ min_points điểm) và so với outside_ratio của loại. Một chuỗi cửa sổ vượt mức là một case, đặt ở cuboid có tỉ lệ cao nhất.",
+        "params": {
+          "window": 5,
+          "min_points": 20
+        },
+        "measured": "Segment mẫu, trung vị 5 frame lớn nhất trên nhãn đúng: VEHICLE 0,39, PEDESTRIAN 0,39, SIGN 0,70 (SIGN dựa vào tường, cột). Tỉ lệ của từng cuboid riêng lẻ có đuôi dài hơn (VEHICLE 0,48) nhưng chỉ kéo dài 2–6 frame, nên quy tắc dùng trung vị."
+      },
+      {
+        "id": "fit.loose",
+        "score": 30,
+        "error_type": "BBOX",
+        "text": "Cuboid rộng hơn vật ở cả hai mặt mà lidar nhìn thấy, suốt nhiều frame liền nhau. Khoảng trống của một cuboid là slack nhỏ hơn trong hai phương, chia cho nửa cạnh tương ứng; vật bị che chỉ làm một mặt trống nên quy tắc lấy phương nhỏ hơn. Trung vị trên window cuboid liền nhau so với slack_ratio của loại; một chuỗi vượt mức là một case.",
+        "params": {
+          "window": 5,
+          "min_points": 20
+        },
+        "measured": "Segment mẫu, trung vị 5 frame lớn nhất trên nhãn đúng: VEHICLE 0,30, PEDESTRIAN 0,51, SIGN 0,42."
+      },
+      {
+        "id": "points.sparse",
+        "level": "warning",
+        "error_type": "OTHER",
+        "text": "Cuboid có ít hơn below điểm LiDAR: quá ít để engine kiểm vị trí và kích thước (các quy tắc fit.* cần từ 20 điểm), nên reviewer phải xem ảnh camera. Chỉ cảnh báo, vì vật ở xa hay bị che thì ít điểm là bình thường.",
+        "params": {
+          "below": 10
+        },
+        "measured": "Segment mẫu: 1.810 trong 7.271 cuboid (25%) dưới 10 điểm, trong đó 685 không có điểm nào; 293 cuboid trong số đó ở trong 40 m. 10 frame đầu: 36 trong 251."
+      },
+      {
+        "id": "pair.duplicate",
+        "score": 40,
+        "error_type": "EXTRA_OBJECT",
+        "text": "Hai cuboid trong cùng frame chồng lên nhau theo cả hai chiều: phần thể tích của mỗi cuboid nằm trong cuboid kia đều từ min_share trở lên, tức là một vật được gán hai lần. Case đặt ở cuboid có ít điểm của vật hơn. Thay cho pair.centre_inside (tâm một cuboid nằm trong cuboid khác), quy tắc chỉ cảnh báo và báo nhầm nhiều.",
+        "params": {
+          "min_share": 0.5
+        },
+        "measured": "Segment mẫu, nhãn đúng: phần chồng hai chiều lớn nhất 0,25 (xe nhỏ 2,6 m trong xe 4,3 m; hai người đứng sát). pair.centre_inside trên cùng nhãn có 225 trường hợp: 80 người trong xe, 144 xe trong xe, đều là cảnh thật."
+      },
+      {
+        "id": "orientation.lidar_axis",
+        "score": 40,
+        "error_type": "BBOX",
+        "text": "Trục dài của cụm điểm LiDAR lệch trục dài cuboid. Chỉ xe dài, gần, đủ điểm và cụm kéo dài rõ; so modulo 180 độ, không kết luận đầu/đuôi. Đây là nghi ngờ vì che khuất và vật sát nhau có thể làm sai phép đo.",
+        "params": {
+          "min_points": 40,
+          "min_anisotropy": 4,
+          "min_length_width_ratio": 1.5,
+          "max_distance_m": 40,
+          "min_span_ratio": 0.6,
+          "min_angle_rad": 0.52
+        }
+      },
+      {
+        "id": "orientation.frame1_reference",
+        "score": 30,
+        "error_type": "BBOX",
+        "text": "Cùng VEHICLE object ID có mặt ở frame 1, tâm world đứng yên từ frame 1 tới frame đang xét nhưng hướng world đổi quá ngưỡng. Frame 1 chỉ là mốc chưa xác nhận đúng; reviewer cần kiểm tra cả hai frame. Xe di chuyển/rẽ hoặc thiếu frame 1 thì bỏ qua.",
+        "params": {
+          "max_displacement_m": 0.5,
+          "min_angle_rad": 0.6,
+          "min_points": 20
+        }
+      }
+    ],
+    "gaps": {
+      "max_frames": 5,
+      "likely_from_points": 10,
+      "note": "Đối tượng vắng mặt từ 1 tới max_frames frame giữa hai lần có mặt được liệt kê trong gaps của báo cáo như một chỗ có thể thiếu cuboid. Không có cuboid nào để gắn điểm, nên đây không phải case. Exporter nội suy một cuboid ở mỗi frame vắng (ghosts trong scene.json) và đếm điểm của vật trong đó: từ likely_from_points điểm ở một frame thì vật vẫn còn đó và gần như chắc thiếu cuboid (likely_missing); ít hơn thì có thể vật bị che. Segment mẫu không có chỗ nào như vậy."
+    },
+    "open_questions": [
+      "Mọi ngưỡng đặt theo một segment Waymo có nhãn đúng và lỗi cài bằng máy; chưa đo trên lỗi thật của người gán.",
+      "Nhãn Waymo rất mượt (kích thước của một đối tượng không đổi, hướng lệch dưới 0,02 rad). Bộ dữ liệu gán từng frame riêng sẽ dao động nhiều hơn và cần ngưỡng riêng.",
+      "CYCLIST chưa có số đo.",
+      "Mức của fit.* đặt sát trên trung vị lớn nhất của một segment; với VEHICLE, vật lớn đứng sát xe làm nhãn đúng cũng thiếu tới 47% điểm so với chỗ tốt nhất.",
+      "fit.floating, fit.sunk, fit.lowered và fit.raised đo mặt đường từ điểm quanh chân cuboid; xa quá 50 m, hay ở chỗ không thấy mặt đường (bụi cây, bị che), không xét."
+    ]
+  }
+}

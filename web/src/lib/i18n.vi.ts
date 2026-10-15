@@ -155,8 +155,8 @@ export const vi: Record<string, string> = {
     'Dự án này chỉ có dữ liệu trên máy đã nhập. Chạy npm run storage:push trên máy đó để chia sẻ.',
   'Annotation, metadata và guideline tối đa 10 MB mỗi file.':
     'Tệp nhãn, metadata và guideline tối đa 10 MB mỗi tệp.',
-  'Tối đa 1000 ảnh, một annotation file, một metadata file và một guideline.':
-    'Tối đa 1000 ảnh, một tệp nhãn, một tệp metadata và một guideline.',
+  'Tối đa 100 ảnh, một annotation file, một metadata file và một guideline.':
+    'Tối đa 100 ảnh, một tệp nhãn, một tệp metadata và một guideline.',
   'Gửi mã cho người cần tham gia; họ tự nhập mã ở trang Projects. Mã dùng được nhiều lần và quyết định vai trò.':
     'Gửi mã cho người cần tham gia; họ tự nhập mã ở trang Dự án. Mã dùng được nhiều lần và quyết định vai trò.',
   'Tài khoản này đã là Reviewer của project. Đổi vai trò trong danh sách thành viên.':

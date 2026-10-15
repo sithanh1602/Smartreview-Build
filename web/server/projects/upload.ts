@@ -12,10 +12,12 @@ export const LIMITS = {
   total: 200 * 1024 * 1024,
   file: 20 * 1024 * 1024,
   annotation: 10 * 1024 * 1024,
-  files: 1004,
+  images: 100,
+  // The images plus one annotation, metadata, guideline and rule-choice file.
+  files: 104,
   // Per-image formats (PASCAL VOC, YOLO, …) send one annotation file for each image, plus a
   // class list or two.
-  annotationFiles: 1010,
+  annotationFiles: 110,
 };
 const GUIDELINE_TYPES = ['.md', '.markdown', '.txt', '.docx', '.pdf', '.json'];
 export function safePath(name: unknown) {
@@ -106,7 +108,7 @@ export async function receiveUpload(req: Req, directory: string, format: string)
         if (!spec.multiple && annotations.size)
           throw new ReviewError(400, 'Chỉ chọn một annotation file.');
         if (annotations.size >= LIMITS.annotationFiles)
-          throw new ReviewError(413, 'Quá nhiều tệp nhãn (tối đa 1010).');
+          throw new ReviewError(413, 'Quá nhiều tệp nhãn (tối đa 110).');
         if (!spec.extensions.includes(ext))
           throw new ReviewError(400, 'Annotation extension không khớp format.');
         if (annotations.has(name)) throw new ReviewError(400, 'Trùng tên tệp nhãn: ' + name);
@@ -141,6 +143,7 @@ export async function receiveUpload(req: Req, directory: string, format: string)
             400,
             'Media chỉ hỗ trợ PNG/JPEG/WebP/GIF; không nhận SVG, ZIP hoặc video.',
           );
+        if (media.size >= LIMITS.images) throw new ReviewError(413, 'Tối đa 100 ảnh mỗi project.');
         if (media.has(name)) throw new ReviewError(400, 'Trùng media filename: ' + name);
         media.set(name, path.join(directory, 'media', name));
       }
@@ -180,7 +183,7 @@ export async function receiveUpload(req: Req, directory: string, format: string)
     fail(
       new ReviewError(
         413,
-        'Tối đa 1000 ảnh, một annotation file, một metadata file và một guideline.',
+        'Tối đa 100 ảnh, một annotation file, một metadata file và một guideline.',
       ),
     ),
   );

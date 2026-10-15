@@ -124,6 +124,17 @@ export function DisplayPanel({
       <Group title="Cuboid" source="lidar_box">
         <Check label="Hiện cuboid" checked={settings.boxes} onChange={(boxes) => set({ boxes })} />
         <Check
+          label="Hướng cuboid (orientation)"
+          checked={settings.orientation}
+          disabled={!settings.boxes}
+          onChange={(orientation) => set({ orientation })}
+        />
+        {settings.boxes && settings.orientation && (
+          <p className="text-xs text-muted">
+            Mũi tên trên box biểu thị hướng trong nhãn, giúp kiểm tra box xoay sai.
+          </p>
+        )}
+        <Check
           label="Tên cuboid"
           checked={settings.labels}
           disabled={!settings.boxes}

@@ -1,0 +1,4 @@
+# AI Check (web/server/ai/predict.py), tách frame (web/scripts/extract_frames.py) và các script
+# demo trong thư mục này. Ultralytics kéo theo PyTorch.
+ultralytics
+opencv-python

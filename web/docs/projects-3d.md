@@ -84,6 +84,8 @@ tạm để trình duyệt tải thẳng từ Dropbox.
   có bù chuyển động không, dung lượng lưu, người tạo, vai trò của người xem).
 - Đang import: dòng trạng thái, tự hỏi lại backend mỗi giây.
 - `CREATED` / `FAILED`: lý do lỗi và form chọn lại tệp của segment (chỉ Leader).
+- Khối **thành viên** như project 2D (`ProjectPeople`): Leader thêm Reviewer / Annotator bằng tên đăng nhập hoặc mã mời, đổi vai trò, xoá; Reviewer thêm được Annotator. Quy tắc giống `docs/project-roles.md`, dữ liệu nằm ở `project_members_3d` và `project_invites_3d`.
+- Nút **Mở review 3D** hiện vòng xoay và "Đang mở review 3D…" trong lúc mã của viewer được tải về.
 - Leader tạo project có nút xoá project; leader khác xem và quản lý được nhưng không xoá được.
 
 ## Viewer point cloud
@@ -147,7 +149,7 @@ chọn; frame không có nó thì bảng báo vậy.
 
 Một quyết định gắn với **một cuboid trong một frame**, tên là `<timestamp>:<object id>`. Tốc độ
 của đối tượng được tính trong trình duyệt từ vị trí cuboid ở hai frame kề, đổi sang hệ toàn cục
-bằng pose của xe. Chưa có điểm rủi ro: bảng không hiện gì về rủi ro.
+bằng pose của xe. Điểm rủi ro của 3D Risk Engine hiện dưới dạng cờ rủi ro (xem mục dưới).
 
 Lưu trong DB theo đúng cấu trúc 2D: `risk_cases_3d` giữ tên cuboid (`annotation_reference`,
 `frame_reference` là timestamp, `media_reference` là segment, `score` 0, `is_suspicious` 0),
@@ -156,15 +158,28 @@ Lưu trong DB theo đúng cấu trúc 2D: `risk_cases_3d` giữ tên cuboid (`an
 
 ## Cờ lỗi và điều khiển bằng cử chỉ
 
-**Cờ lỗi.** Mỗi cuboid có quyết định `ERROR` ở frame đang xem mang một lá cờ `⚑ n` ngay trên nó
-trong point cloud (`viewer/flags.ts`).
+**Cờ lỗi và cờ rủi ro.** Ở frame đang xem, mỗi cuboid sau mang một **ghim định vị** (hình giọt
+nước kiểu bản đồ, số ở giữa) với mũi ghim cắm đúng nóc cuboid trong point cloud (`viewer/flags.ts`,
+SVG dựng bởi `pinSvg()`; danh sách và thẻ dùng cùng hình qua `viewer/Pin.tsx`):
 
-- **Màu là loại lỗi**: Class cam, Cuboid đỏ, Tracking tím, Extra Object hồng, Other xanh dương.
+- **Cờ lỗi**: cuboid có quyết định `ERROR`.
+- **Cờ rủi ro**: cuboid nằm trong báo cáo của 3D Risk Engine (`GET /projects3d/:id/risk`, tức
+  `risk.json`) mà chưa ai review, hoặc review là `UNSURE`. Review `CORRECT` thì cờ rủi ro biến
+  mất; review `ERROR` thì cờ chuyển thành cờ lỗi. Project import trước khi có engine (endpoint trả 404) chỉ có cờ lỗi.
+
+- **Ba màu**: đỏ là lỗi đã xác nhận (review `ERROR`), cam là rủi ro cao (severity `high`), vàng là
+  rủi ro trung bình hoặc thấp (`medium` / `low`). Loại lỗi (Class, Cuboid…) không mang màu nữa mà
+  nằm trong tooltip và thẻ thông tin.
+- Ghim đang chọn to hơn 1,3 lần, viền trắng. Khi bật nhãn tên cuboid, nhãn của cuboid có ghim
+  dời sang bên phải ghim để không chồng lên nhau.
 - **Số** đánh từ 1 trong từng frame, theo thứ tự ID của đối tượng, nên cùng một nhóm đối tượng bị
   gắn cờ thì giữ nguyên số khi sang frame khác. Lưu hay sửa một quyết định thì cờ cập nhật ngay.
-- Danh sách "Cuboid trong frame" hiện cùng lá cờ đó ở từng dòng, kèm chú thích màu.
+- Danh sách "Cuboid trong frame" hiện cùng ghim đó ở từng dòng, kèm chú thích ba màu và số cờ
+  mỗi màu.
 - Chọn một cuboid có cờ (bấm, hoặc gọi bằng cử chỉ) thì giữa trên vùng vẽ hiện **thẻ thông tin
-  cờ**: số cờ, loại cuboid, ID, loại lỗi, nhãn đúng đề xuất và ghi chú của reviewer.
+  cờ**: số cờ, loại cuboid, ID, loại lỗi, nhãn đúng đề xuất và ghi chú của reviewer. Với cờ rủi
+  ro, thẻ hiện loại lỗi bị nghi, mức và điểm rủi ro, cùng các lý do engine đưa ra.
+- Cờ lỗi và cờ rủi ro đánh số chung một dãy theo ID. Cử chỉ chỉ gọi được cờ số 1–9.
 
 **Webcam.** Nút **Webcam** trên header bật điều khiển bằng cử chỉ tay (`viewer/HandControl.tsx`),
 dùng `@mediapipe/tasks-vision` (HandLandmarker, tối đa hai bàn tay). MediaPipe chạy trong trình
@@ -237,6 +252,7 @@ Thư mục chính của mọi project 3D là `Project3D`, cả trên Dropbox (tr
 
 ```
 /Project3D/<project_id>/<uuid>/scene.json               lidar, pose và cuboid của từng frame
+/Project3D/<project_id>/<uuid>/risk.json                báo cáo của Risk Engine 3D
 /Project3D/<project_id>/<uuid>/frames/<timestamp>.bin   point cloud của một frame
 ```
 
@@ -279,8 +295,8 @@ db:migrate" (503).
 
 Bước chuyển đổi cần một Python có `numpy` và `pyarrow` (`server/projects3d/requirements.txt`).
 Mặc định là `<smartreview>/.venv/bin/python`: `./setup.sh` tạo venv đó và cài hai gói, nên máy mới
-không phải cấu hình gì. Máy muốn dùng Python khác thì đặt trong `web/.env`; khi đó `./setup.sh`
-chỉ kiểm tra Python ấy và không tạo `.venv` cho project 3D:
+không phải cấu hình gì. Máy muốn dùng Python khác thì đặt trong `web/.env`; `./setup.sh` vẫn cài
+hai gói vào `.venv` và nhắc rằng `web/.env` đang trỏ ra ngoài repo:
 
 ```
 SMARTREVIEW_3D_PYTHON=/absolute/path/to/python
@@ -290,17 +306,25 @@ Thiếu Python hoặc thiếu hai gói đó thì import trả 503 kèm hướng 
 
 ## API
 
-| Route                                            | Ai                 | Kết quả                                                      |
-| ------------------------------------------------ | ------------------ | ------------------------------------------------------------ |
-| `GET /api/projects3d`                            | Mọi tài khoản      | Leader: mọi project 3D. Member: project đã được thêm vào     |
-| `POST /api/projects3d` `{ name, description? }`  | Leader             | 201, trạng thái `CREATED`, `format` `waymo-v2`               |
-| `GET /api/projects3d/:id`, `/import-status`      | Thành viên, Leader | Project, `my_role`, `progress`                               |
-| `POST /api/projects3d/:id/import`                | Leader             | Multipart, mỗi field mang tên component của tệp. 201 `READY` |
-| `DELETE /api/projects3d/:id`                     | Leader tạo project | Xoá dòng DB và thư mục `Project3D/<id>`; leader khác: 403    |
-| `GET /api/projects3d/:id/scene`                  | Thành viên, Leader | `scene.json` của project `READY`                             |
-| `GET /api/projects3d/:id/frames/<timestamp>.bin` | Thành viên, Leader | Point cloud của một frame; không có thì 404                  |
-| `GET …/sheets/<timestamp>.jpg`                   | Thành viên, Leader | Ảnh ghép các camera của frame                                |
-| `GET …/cameras/<CAMERA>/<timestamp>.jpg`         | Thành viên, Leader | Ảnh gốc của một camera ở một frame                           |
+| Route                                            | Ai                 | Kết quả                                                         |
+| ------------------------------------------------ | ------------------ | --------------------------------------------------------------- |
+| `GET /api/projects3d`                            | Mọi tài khoản      | Leader: mọi project 3D. Member: project đã được thêm vào        |
+| `POST /api/projects3d` `{ name, description? }`  | Leader             | 201, trạng thái `CREATED`, `format` `waymo-v2`                  |
+| `GET /api/projects3d/:id`, `/import-status`      | Thành viên, Leader | Project, `my_role`, `progress`                                  |
+| `POST /api/projects3d/:id/import`                | Leader             | Multipart, mỗi field mang tên component của tệp. 201 `READY`    |
+| `DELETE /api/projects3d/:id`                     | Leader tạo project | Xoá dòng DB và thư mục `Project3D/<id>`; leader khác: 403       |
+| `GET/POST /api/projects3d/:id/members`           | Như 2D             | Danh sách thành viên; thêm thẳng bằng tên đăng nhập             |
+| `GET …/members/candidates`                       | Leader, Reviewer   | Tài khoản thành viên chưa ở trong project                       |
+| `PATCH/DELETE …/members/:userId`                 | Leader             | Đổi vai trò, xoá khỏi project                                   |
+| `GET/POST /api/projects3d/:id/invites`           | Leader             | Hai mã mời (reviewer, annotator); POST tạo mã mới               |
+| `POST /api/projects3d/join` `{ code }`           | Member             | Vào project 3D bằng mã mời                                      |
+| `GET /api/projects3d/:id/scene`                  | Thành viên, Leader | `scene.json` của project `READY`                                |
+| `GET /api/projects3d/:id/risk`                   | Thành viên, Leader | Báo cáo của Risk Engine 3D ([risk-3d.md](risk-3d.md))           |
+| `GET /api/projects3d/:id/risk/precision`         | Thành viên, Leader | Mỗi quy tắc đúng bao nhiêu theo review, engine bỏ sót bao nhiêu |
+| `POST /api/projects3d/:id/risk/rescore`          | Leader             | Chấm lại scene đã lưu bằng engine hiện tại, ghi đè `risk.json`  |
+| `GET /api/projects3d/:id/frames/<timestamp>.bin` | Thành viên, Leader | Point cloud của một frame; không có thì 404                     |
+| `GET …/sheets/<timestamp>.jpg`                   | Thành viên, Leader | Ảnh ghép các camera của frame                                   |
+| `GET …/cameras/<CAMERA>/<timestamp>.jpg`         | Thành viên, Leader | Ảnh gốc của một camera ở một frame                              |
 
 | `GET /api/projects3d/:id/reviews` | Thành viên, Leader | `{ dataset_revision, reviews }`, khoá là `<timestamp>:<object id>` |
 | `POST/PUT …/boxes/<timestamp>/<object id>/review` | Thành viên, Leader | Tạo (201) hoặc sửa một quyết định; PUT cần `version` đang có |
@@ -341,15 +365,13 @@ Python hoặc chưa migrate.
 
 ## Chưa làm
 
-- Engine chấm rủi ro 3D: chưa có điểm, chưa có hàng đợi "case đáng nghi"; người review tự đi qua
-  từng frame.
+- Hàng đợi "case đáng nghi" trong viewer: Risk Engine 3D đã chấm lúc import và lưu báo cáo
+  ([risk-3d.md](risk-3d.md)), nhưng viewer chưa dùng nó; người review vẫn tự đi qua từng frame.
 - Đánh dấu đối tượng thiếu cuboid (`frame_reviews_3d`), hoàn thành và gửi cho Annotator
   (`project_handoffs_3d`), sửa cuboid ngay trong viewer, ảnh camera.
 - Loại lỗi dùng lại ENUM của 2D, nên lỗi cuboid được lưu trong DB là `BBOX`.
 - Viewer mới được xem bằng Chromium vẽ phần mềm với 12 frame và API giả lập; chưa đo tốc độ phát
   khi mỗi frame (khoảng 2,7 MB) được đọc qua Dropbox.
-- Thành viên và mã mời của project 3D: bảng đã có, chưa có API và giao diện. Hiện chỉ Leader tạo
-  project mới thấy nó.
 - Chưa chạy trên MySQL và Dropbox thật: migration 008, các câu lệnh của `Project3DService`, hai
   route đọc và
   việc đẩy 534 MB lên Dropbox mới được kiểm bằng test với pool giả và kho giả.

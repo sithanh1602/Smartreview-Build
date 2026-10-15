@@ -1,16 +1,39 @@
 {
   "verifier_policy": {
-    "schema_version": "1.0.0",
+    "schema_version": "1.1.0",
     "purpose": "Kiểm lại nhãn của từng box bằng chính phần ảnh nằm trong box. Một mô hình so ảnh với các câu mô tả của từng nhãn; file này quy định câu mô tả, cách cắt ảnh và số điểm cho từng mức bất đồng. Mô hình không tự cho điểm.",
-    "model": "google/siglip2-base-patch16-224",
+    "engines": {
+      "note": "Hai engine nhận cùng một yêu cầu và trả cùng dạng điểm (các nhãn chia nhau một đơn vị). default là engine chạy khi lệnh không chọn engine. calibrated: bảng score_by_lead đã được đo với engine đó hay chưa; báo cáo của engine chưa đo ghi calibrated: false và điểm của nó chỉ để so sánh.",
+      "default": "siglip",
+      "siglip": {
+        "model": "google/siglip2-base-patch16-224",
+        "calibrated": true,
+        "pool": "mean",
+        "pool_note": "Mỗi nhãn được đại diện bằng trung bình các câu mô tả của nó, để nhãn có nhiều câu không được lợi hơn nhãn có ít câu.",
+        "note": "So ảnh cắt với từng câu mô tả. Khoảng 60 box mỗi giây trên GPU 4 GB."
+      },
+      "qwen": {
+        "model": "Qwen/Qwen2.5-VL-3B-Instruct",
+        "calibrated": false,
+        "note": "Được hỏi một câu trắc nghiệm, mỗi nhãn một lựa chọn kèm các tên lấy từ captions; pool không áp dụng. Khoảng 4 box mỗi giây trên GPU 4 GB (nạp 4-bit). Chưa có số đo trên 4.900 box; trên 100 ảnh nó bắt 45,7% box đổi nhãn và báo nhầm 4,3% ở mức 30 điểm, gần bằng siglip (46,9% và 3,6%)."
+      }
+    },
     "crop": {
       "margin": 0.15,
       "shape": "pad",
       "min_side_px": 24,
-      "note": "margin: phần lề giữ thêm quanh box, tính theo cạnh của box. shape: mô hình nhìn một ảnh vuông; pad đặt ảnh cắt vào giữa một nền xám vuông thay vì kéo méo nó. Box có cạnh dài dưới min_side_px không được kiểm: ảnh cắt quá nhỏ để mô hình nhận ra vật."
+      "note": "margin: phần lề giữ thêm quanh box, tính theo cạnh của box. shape: mô hình nhìn một ảnh vuông; pad đặt ảnh cắt vào giữa một nền xám vuông thay vì kéo méo nó. Box có cạnh dài dưới min_side_px không được kiểm: ảnh cắt quá nhỏ để mô hình nhận ra vật. Box dưới cỡ tối thiểu của chính nhãn nó (quy tắc min_side trong file nhãn: barrier và pole là 32 px) cũng không được kiểm, vì policy coi box đó là không đúng, không sai."
     },
-    "pool": "mean",
-    "pool_note": "Mỗi nhãn được đại diện bằng trung bình các câu mô tả của nó, để nhãn có nhiều câu không được lợi hơn nhãn có ít câu.",
+    "with_risk_engine": {
+      "skip_states": ["grey", "ignored"],
+      "max_score": 100,
+      "note": "Khi chạy trong một project, verifier đi cùng Risk Engine. Nó chỉ kiểm box mà Risk Engine chấm: box vùng xám (grey) và box dưới cỡ tối thiểu hoặc gần như bị che hết (ignored) không được kiểm. Điểm kết hợp của một box là điểm Risk Engine cộng điểm verifier, tối đa max_score, cùng cách cộng với scoring.sum của _dataset.json. Báo cáo của Risk Engine không bị chạy lại hay sửa: box được verifier cho điểm nhận thêm finding verifier.wrong_label, và vào hàng đợi review khi điểm kết hợp đạt tiers.flagged của _dataset.json. Box chỉ ở mức cảnh báo không đổi điểm và không vào hàng đợi."
+    },
+    "second_look": {
+      "engine": "qwen",
+      "from": "warning",
+      "note": "Chỉ chạy khi người dùng chọn. Engine thứ hai xem lại các box mà engine mặc định nghi từ mức from trở lên (khoảng một phần tư số box), không xem mọi box. Một box được xác nhận khi engine thứ hai cũng cho nó từ tiers.flagged điểm. Điểm của engine thứ hai không cộng vào điểm kết hợp vì bảng điểm chưa đo với nó. Đo trên 100 ảnh: trong các box được xác nhận, 85% là lỗi thật, so với 77% khi chỉ có siglip."
+    },
     "captions": {
       "note": "Câu mô tả theo bảng đặt tên của policy: SUV và minivan là car; xe bán tải và xe van chở hàng là truck; minibus là bus. Viết bằng tiếng Anh vì mô hình khớp câu tiếng Anh chắc hơn.",
       "car": [
@@ -68,6 +91,7 @@
         "id": "verifier.wrong_label",
         "error_type": "CLASS",
         "text": "Phần ảnh trong box giống một nhãn khác hơn nhãn đang gán.",
+        "queue_from": "Box vào danh sách nghi sai nhãn (cases) từ mức tiers.flagged của _dataset.json, cùng mốc với hàng đợi của Risk Engine.",
         "lead": "Điểm mô hình cho nhãn nó chọn trừ điểm nó cho nhãn đang gán (0–1). Hai nhãn của một cặp trong not_distinguished tính chung một điểm.",
         "score_by_lead": [
           {
@@ -84,6 +108,7 @@
           }
         ],
         "measured": {
+          "engine": "siglip",
           "note": "Đo trên 4.900 box có nhãn đúng (700 box mỗi nhãn, cạnh dài từ 24 px, ảnh 1280×720). Báo nhầm: tỉ lệ box đúng nhãn bị gắn ở mức đó. Bắt được: tỉ lệ box bị đổi sang nhãn sai mà mô hình gắn ở mức đó. Con số là phần trăm; mức 30 điểm gồm cả các box đạt 50 điểm.",
           "false_alarm_percent": {
             "car": {
@@ -176,7 +201,9 @@
       "Nhãn đúng dùng để đo gọi xe bán tải và xe van là car, còn câu mô tả ở đây xếp chúng vào truck theo bảng đặt tên của policy. Một phần báo nhầm giữa car và truck là do khác quy ước, chưa tách ra được.",
       "barrier và pole chưa có số đo: dữ liệu đo không có hai nhãn này.",
       "Box đèn và biển báo phần lớn dưới 48 px; mô hình nhận chúng kém (báo nhầm 7–9% ở mức 30 điểm).",
-      "Chưa đo trên dữ liệu ngoài bộ đã dùng để đặt ngưỡng."
+      "Chưa đo trên dữ liệu ngoài bộ đã dùng để đặt ngưỡng.",
+      "Câu mô tả chưa phủ hết định nghĩa của nhãn: truck thiếu xe cứu hộ và xe chở rác, bus thiếu xe buýt trường học, two_wheeler thiếu xe đạp điện. Thêm câu là đổi mức khớp của mọi box, nên phải đo lại bảng measured trước khi thêm.",
+      "Engine qwen chưa có bảng điểm riêng: nó dùng score_by_lead đã đặt theo siglip."
     ],
     "rules": []
   }

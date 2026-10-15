@@ -127,13 +127,16 @@
   .viewer3d-sensor {
     @apply -translate-y-3.5 rounded-sm bg-[#0d1117]/75 px-1.5 py-px text-[11px] text-[#d0d7de];
   }
-  /* Flag over a cuboid reviewed as wrong: filled with the colour of the error (--flag). */
-  .viewer3d-flag {
-    @apply rounded-md px-1.5 py-px text-xs font-bold whitespace-nowrap text-white shadow;
-    background: var(--flag);
+  /* Map pin of a flag over a cuboid (flags.ts pinSvg); its point is on the top of the cuboid.
+     The selected one grows from its point and gets a white edge. */
+  .viewer3d-pin svg {
+    @apply block origin-bottom drop-shadow-md;
   }
-  .viewer3d-flag--selected {
-    @apply ring-2 ring-white;
+  .viewer3d-pin--selected svg {
+    @apply scale-130;
+  }
+  .viewer3d-pin--selected path {
+    stroke: #ffffff;
   }
   /* The 3D workspace keeps its header slim, so the shared account and toggle buttons are
      drawn smaller there. */
@@ -143,6 +146,10 @@
   /* Name tag of a cuboid; its left edge takes the cuboid's colour. */
   .viewer3d-box {
     @apply rounded-sm border-l-[3px] bg-[#0d1117]/70 px-1.5 py-px text-[11px] whitespace-nowrap text-[#d0d7de];
+  }
+  /* A cuboid's name tag moved off to the right of its pin. */
+  .viewer3d-box--pinned {
+    @apply ml-3.5;
   }
   .viewer3d-box--selected {
     @apply bg-white font-semibold text-[#0d1117];

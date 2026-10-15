@@ -25,10 +25,17 @@ const json = (method: string, data?: unknown): RequestInit => ({
 // Who created the project and who reviews and annotates it. The leader adds members by
 // username, moves or removes them, and can hand out an invite code per role instead. A
 // reviewer can add annotators.
-export function ProjectPeople({ project }: { project: Pick<Project, 'id' | 'my_role'> }) {
+export function ProjectPeople({
+  project,
+  collection = '/projects',
+}: {
+  project: Pick<Project, 'id' | 'my_role'>;
+  // The API collection the project belongs to: 3D projects have their own.
+  collection?: string;
+}) {
   const leader = project.my_role === 'leader';
   const canAdd = leader || project.my_role === 'reviewer';
-  const base = `/projects/${project.id}`;
+  const base = `${collection}/${project.id}`;
   const [people, setPeople] = useState<People | null>(null);
   // Member accounts not in the project yet, offered while typing a username.
   const [candidates, setCandidates] = useState<string[]>([]);
