@@ -1,6 +1,7 @@
 import type { ApiError, DatasetData, Metrics, Review, ReviewValues, User } from '../types.ts';
 
-type Session = { user: User };
+// expiresAt: when the hour-long session ends; the server signs the user out then.
+export type Session = { user: User; expiresAt: string };
 // Responses are JSON documents; callers name the shape they asked for.
 async function parseResponse<T = any>(response: Response): Promise<T> {
   let data;
@@ -22,8 +23,7 @@ async function parseResponse<T = any>(response: Response): Promise<T> {
   }
   return data;
 }
-let refreshPending: Promise<Session> | null = null;
-const expired = () => window.dispatchEvent(new Event('smartreview:session-expired'));
+export const expired = () => window.dispatchEvent(new Event('smartreview:session-expired'));
 export function withSessionLock<T>(fn: () => Promise<T>): Promise<T> {
   return globalThis.navigator?.locks
     ? (navigator.locks.request('smartreview-session', fn) as Promise<T>)
@@ -38,26 +38,13 @@ export async function authRequest<T = Session>(path: string, data?: unknown): Pr
   });
   return parseResponse<T>(response);
 }
-export function refreshSession() {
-  if (!refreshPending) {
-    refreshPending = withSessionLock(async () => {
-      const current = await fetch('/api/auth/me', {
-        credentials: 'same-origin',
-        cache: 'no-store',
-      });
-      if (current.ok) return parseResponse<Session>(current);
-      if (current.status !== 401) return parseResponse<Session>(current);
-      return authRequest('refresh');
-    })
-      .catch((error: ApiError) => {
-        if (error.status === 401) expired();
-        throw error;
-      })
-      .finally(() => {
-        refreshPending = null;
-      });
-  }
-  return refreshPending;
+// The current session. There is no refresh: a 401 means the hour is over, or the user signed out.
+export async function getSession() {
+  const response = await fetch('/api/auth/me', { credentials: 'same-origin', cache: 'no-store' });
+  return parseResponse<Session>(response).catch((error: ApiError) => {
+    if (error.status === 401) expired();
+    throw error;
+  });
 }
 // The last answer to each GET, kept so that re-rendering the pages in another language shows
 // the data already on screen instead of asking for it again. Any write empties it, because the
@@ -78,12 +65,8 @@ export async function request<T = any>(path: string, options: RequestInit = {}):
     answers.clear();
     reusable = null;
   } else if (reusable?.has(path)) return structuredClone(reusable.get(path)) as T;
-  let response = await fetch(`/api${path}`, { ...options, credentials: 'same-origin' });
-  if (response.status === 401) {
-    await refreshSession();
-    response = await fetch(`/api${path}`, { ...options, credentials: 'same-origin' });
-    if (response.status === 401) expired();
-  }
+  const response = await fetch(`/api${path}`, { ...options, credentials: 'same-origin' });
+  if (response.status === 401) expired();
   const data = await parseResponse<T>(response);
   if (reading) {
     answers.delete(path);
@@ -95,13 +78,8 @@ export async function request<T = any>(path: string, options: RequestInit = {}):
 // A binary file from the API (a frame's point cloud). Not kept in `answers`: the browser's
 // own cache holds these.
 export async function requestBytes(path: string, signal?: AbortSignal): Promise<ArrayBuffer> {
-  const get = () => fetch(`/api${path}`, { credentials: 'same-origin', signal });
-  let response = await get();
-  if (response.status === 401) {
-    await refreshSession();
-    response = await get();
-    if (response.status === 401) expired();
-  }
+  const response = await fetch(`/api${path}`, { credentials: 'same-origin', signal });
+  if (response.status === 401) expired();
   if (!response.ok) await parseResponse(response);
   return response.arrayBuffer();
 }

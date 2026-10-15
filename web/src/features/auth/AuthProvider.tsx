@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
-import { authRequest, refreshSession, withSessionLock } from '../../lib/api';
+import { authRequest, getSession, withSessionLock } from '../../lib/api';
+import type { Session } from '../../lib/api';
 import type { ApiError, MemberRole, User } from '../../types.ts';
 
 interface AuthValue {
@@ -37,7 +38,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [workRole, setWorkRole] = useState(storedWorkRole);
+  // When the hour-long session ends; the user is signed out at that moment.
+  const [expiresAt, setExpiresAt] = useState<string | null>(null);
   const version = useRef(0);
+  function start(session: Session) {
+    setUser(session.user);
+    setExpiresAt(session.expiresAt);
+    setError('');
+  }
   function chooseWorkRole(role: MemberRole | null) {
     setWorkRole(role);
     try {
@@ -50,11 +58,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   async function restore() {
     const current = version.current;
     try {
-      const result = await refreshSession();
-      if (current === version.current) {
-        setUser(result.user);
-        setError('');
-      }
+      const result = await getSession();
+      if (current === version.current) start(result);
     } catch (e) {
       if (current === version.current) {
         if ((e as ApiError).status === 401) setUser(null);
@@ -68,6 +73,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const expire = () => {
       version.current++;
       setUser(null);
+      setExpiresAt(null);
       setError('');
       setLoading(false);
     };
@@ -84,12 +90,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       document.removeEventListener('visibilitychange', visible);
     };
   }, []);
+  // Sign out when the session's hour is over, whether or not the page is being used.
+  useEffect(() => {
+    if (!expiresAt) return;
+    // setTimeout overflows past about 24 days; a session is far shorter.
+    const timer = setTimeout(
+      () => window.dispatchEvent(new Event('smartreview:session-expired')),
+      Math.max(0, Date.parse(expiresAt) - Date.now()),
+    );
+    return () => clearTimeout(timer);
+  }, [expiresAt]);
   async function login(username: string, password: string) {
     version.current++;
     const result = await withSessionLock(() => authRequest('login', { username, password }));
     chooseWorkRole(null);
-    setUser(result.user);
-    setError('');
+    start(result);
     setLoading(false);
     return result.user;
   }
@@ -98,6 +113,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     version.current++;
     chooseWorkRole(null);
     setUser(null);
+    setExpiresAt(null);
     setError('');
     const channel = globalThis.BroadcastChannel ? new BroadcastChannel('smartreview-auth') : null;
     channel?.postMessage('logout');
@@ -109,6 +125,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     channel.onmessage = () => {
       version.current++;
       setUser(null);
+      setExpiresAt(null);
       setError('');
       setLoading(false);
     };

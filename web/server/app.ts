@@ -6,7 +6,7 @@ import { ReviewError, matchesReview } from '../shared/review.ts';
 import http from 'node:http';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { cookie, checkOrigin, handleAuth } from './auth/http.ts';
+import { cookie, checkOrigin, handleAuth, SESSION_COOKIE } from './auth/http.ts';
 import type { AuthService } from './auth/service.ts';
 import type { ProjectService } from './projects/service.ts';
 import type { Project3DService } from './projects3d/service.ts';
@@ -64,7 +64,7 @@ export function createHandler({
         return json(res, 200, { ok: true });
       if (url.pathname.startsWith('/api/')) {
         if (!auth) throw new ReviewError(503, 'Dịch vụ đăng nhập chưa sẵn sàng.');
-        req.user = await auth.authenticate(cookie(req, 'sr_access'));
+        req.user = await auth.authenticate(cookie(req, SESSION_COOKIE));
         if (!['GET', 'HEAD'].includes(req.method)) checkOrigin(req);
         // Project routes check the caller's role in that project; everything else (the
         // default dataset, guideline analysis) is the leader's.

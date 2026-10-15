@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { request } from '../../lib/api';
 import { ProjectStatus } from '../projects/ProjectLayout';
 import { DeleteProjectButton } from '../projects/DeleteProjectButton';
+import { HideProjectButton } from '../projects/HideProjectButton';
 import { roleLabel } from '../auth/AuthGate';
 import { useAuth } from '../auth/AuthProvider';
 import type { Project3D } from '../../types.ts';
@@ -123,9 +124,20 @@ export function Projects3DList() {
                         </span>
                       </p>
                     </Link>
-                    {/* Only the creator deletes. */}
+                    {/* Only the creator deletes and hides. */}
                     {leader && p.created_by === user.id && (
-                      <div className="mt-5">
+                      <div className="mt-5 flex flex-wrap items-start gap-3">
+                        <HideProjectButton
+                          project={p}
+                          base="/projects3d"
+                          onChanged={(hidden) =>
+                            setRows(
+                              (current) =>
+                                current &&
+                                current.map((row) => (row.id === p.id ? { ...row, hidden } : row)),
+                            )
+                          }
+                        />
                         <DeleteProjectButton
                           project={p}
                           base="/projects3d"

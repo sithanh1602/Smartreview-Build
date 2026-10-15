@@ -29,7 +29,7 @@ try {
   const projects3d = new Project3DService(pool, storageRoot, remote);
   await projects3d.recover();
   if (dataset && reviews) await projects.registerDemo(dataset, reviews, datasetPath);
-  const auth = new AuthService(pool);
+  const auth = new AuthService(pool, { leaderCode: process.env.LEADER_SIGNUP_CODE });
   await auth.cleanup();
   const sessionCleanup = setInterval(
     () => auth.cleanup().catch(() => console.error('Session cleanup failed.')),

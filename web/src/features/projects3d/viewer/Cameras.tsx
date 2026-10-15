@@ -4,7 +4,7 @@ import { Spinner } from '../../../components/Spinner';
 import { requestBytes } from '../../../lib/api';
 import type { Scene3D } from './engine.ts';
 
-// Images fetched through the API become object URLs, so a session refresh is handled like for
+// Images fetched through the API become object URLs, so an ended session is handled like for
 // any other request. The most recent ones are kept; older ones are released.
 function useImage(path: string | null, ahead: string[] = [], keep = 60) {
   const cache = useRef(new Map<string, Promise<string>>());

@@ -53,17 +53,20 @@ export class ProjectMembers {
     this.pool = pool;
     this.t = tables;
   }
-  // What `user` is in the project. Every leader is a leader in every project; only deleting is
-  // kept for the creator (see `owns`). A project a member has no part in reads as missing, so
-  // its existence is not revealed.
+  // What `user` is in the project. Every leader is a leader in every project unless its creator
+  // hid it; only deleting and hiding are kept for the creator (see `owns`). A project the user
+  // may not see reads as missing, so its existence is not revealed.
   async role(projectId: string, user: User): Promise<ProjectRole> {
     if (!/^[a-f0-9-]{36}$/.test(projectId)) throw missing();
     const [[row]] = await this.pool.execute<Rows>(
-      `SELECT p.created_by,m.role FROM ${this.t.projects} p LEFT JOIN ${this.t.members} m ON m.project_id=p.id AND m.user_id=? WHERE p.id=?`,
+      `SELECT p.created_by,p.hidden,m.role FROM ${this.t.projects} p LEFT JOIN ${this.t.members} m ON m.project_id=p.id AND m.user_id=? WHERE p.id=?`,
       [user.id, projectId],
     );
     if (!row) throw missing();
-    if (user.role === 'leader') return 'leader';
+    if (user.role === 'leader') {
+      if (row.hidden && row.created_by !== user.id) throw missing();
+      return 'leader';
+    }
     if (!row.role) throw missing();
     return row.role;
   }

@@ -62,7 +62,7 @@ const publicProject = ({
   storage_key,
   storage_synced_at,
   ...row
-}: ProjectRow) => row;
+}: ProjectRow): ProjectRow => ({ ...row, hidden: Boolean(row.hidden) });
 export class ProjectService {
   pool: Db;
   storageRoot: string;
@@ -204,13 +204,36 @@ export class ProjectService {
     }
     return { deleted: true, cleanupPending };
   }
-  // Without a user: every project (scripts). A leader sees every project, its own and those of
-  // other leaders; a member sees the projects it joined. `my_role` is the user's role there.
+  // The creator hides the project from other leaders, or shows it again. Members who joined
+  // keep their access either way.
+  async setHidden(id: string, input: Untrusted, user: User) {
+    if (
+      !input ||
+      typeof input !== 'object' ||
+      Array.isArray(input) ||
+      Object.keys(input).some((k) => k !== 'hidden') ||
+      typeof input.hidden !== 'boolean'
+    )
+      throw new ReviewError(400, 'Gửi { hidden: true } hoặc { hidden: false }.');
+    const [result] = await this.pool.execute<Result>(
+      'UPDATE projects SET hidden=? WHERE id=? AND created_by=?',
+      [input.hidden, id, user.id],
+    );
+    if (!result.affectedRows)
+      throw new ReviewError(403, 'Chỉ Leader tạo project được ẩn hoặc hiện project này.');
+    return { id, hidden: input.hidden };
+  }
+  // Without a user: every project (scripts). A leader sees its own projects and those other
+  // leaders did not hide; a member sees the projects it joined. `my_role` is the user's role there.
   async list(user?: User) {
     const order = ' ORDER BY p.created_at DESC, p.id';
-    const [rows] =
-      !user || user.role === 'leader'
-        ? await this.pool.query<Rows>(PROJECT_VIEW + order)
+    const [rows] = !user
+      ? await this.pool.query<Rows>(PROJECT_VIEW + order)
+      : user.role === 'leader'
+        ? await this.pool.execute<Rows>(
+            PROJECT_VIEW + ' WHERE p.hidden=0 OR p.created_by=?' + order,
+            [user.id],
+          )
         : await this.pool.execute<Rows>(
             PROJECT_VIEW.replace('SELECT p.*', 'SELECT p.*,pm.role AS my_role') +
               ' JOIN project_members pm ON pm.project_id=p.id AND pm.user_id=?' +
