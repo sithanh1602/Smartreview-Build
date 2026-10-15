@@ -301,7 +301,9 @@ test('a cuboid floating above the road or sunk into it over a run is a case', ()
   );
   const down = only(drive(9, () => ({ ...fits, lift: -(below_m + 0.3) })));
   assert.deepEqual(
-    down.ids.map(([, c]) => c),
+    down.ids
+      .map(([, c]) => (c as string[]).filter((id) => id !== 'box.below_ground'))
+      .filter((c) => c.length),
     [['fit.sunk']],
   );
   // A sign is not on the road, and nothing is judged beyond the distance the road is measured.
@@ -318,15 +320,16 @@ test('a cuboid too far above or below the road to be right is a certain, high-ri
     const { certain_m, certain_score } = rule(id).params;
     const sign = id === 'fit.floating' ? 1 : -1;
     const far = only(drive(9, () => ({ ...fits, lift: sign * (certain_m + 0.2) }))).report;
-    assert.equal(far.cases.length, 1);
-    assert.equal(far.cases[0].certain, true);
-    assert.equal(far.cases[0].score, certain_score);
-    assert.equal(far.cases[0].severity, 'high');
+    assert.equal(far.cases.length, id === 'fit.sunk' ? 9 : 1);
+    const temporal = far.cases.find((c) => c.findings.some((f) => f.check_id === id))!;
+    assert.equal(temporal.certain, true);
+    assert.equal(temporal.score, certain_score);
+    assert.equal(temporal.severity, 'high');
     // Over the rule's level but within certain_m: a doubt, not certain.
     const near = only(drive(9, () => ({ ...fits, lift: sign * (certain_m - 0.2) }))).report;
-    assert.equal(near.cases.length, 1);
+    assert.equal(near.cases.length, id === 'fit.sunk' ? 9 : 1);
     assert.equal(near.cases[0].certain, undefined);
-    assert.notEqual(near.cases[0].severity, 'high');
+    assert.equal(near.cases[0].severity === 'high', id === 'fit.sunk');
   }
 });
 
@@ -343,10 +346,14 @@ test('a run of cuboids lowered or raised against the rest of their track is a ca
   const lowered = only(drive(frames, (i) => ({ ...fits, lift: run(i) ? -(shift + 0.1) : 0 })));
   assert.ok(shift + 0.1 < rule('fit.sunk').params.below_m);
   assert.deepEqual(
-    lowered.ids.map(([, c]) => c),
+    lowered.ids
+      .map(([, c]) => (c as string[]).filter((id) => id !== 'box.below_ground'))
+      .filter((c) => c.length),
     [['fit.lowered']],
   );
-  const [from, to] = lowered.report.cases[0].findings[0].evidence.frame_indexes as number[];
+  const [from, to] = lowered.report.cases
+    .flatMap((c) => c.findings)
+    .find((f) => f.check_id === 'fit.lowered')!.evidence.frame_indexes as number[];
   assert.ok(from >= 6 && to <= 11, `${from}–${to}`);
   const raised = only(drive(frames, (i) => ({ ...fits, lift: run(i) ? shift + 0.1 : 0 })));
   assert.deepEqual(
@@ -355,7 +362,10 @@ test('a run of cuboids lowered or raised against the rest of their track is a ca
   );
   // Too short a track has no level of its own to compare with.
   const short = only(drive(min_frames - 1, (i) => ({ ...fits, lift: i > 4 ? -(shift + 0.1) : 0 })));
-  assert.equal(short.ids.length, 0);
+  assert.ok(
+    short.report.cases.every((c) => c.findings.every((f) => f.check_id === 'box.below_ground')),
+  );
+  assert.equal(short.report.cases.length, Math.max(0, min_frames - 6));
 });
 
 test('calibration reports what correct labels reach against each threshold', () => {
@@ -370,4 +380,52 @@ test('calibration reports what correct labels reach against each threshold', () 
   // Labels that wobble more than the threshold would be flagged: tight.
   const wild = calibrateScene(drive(9, (i) => ({ center: [10 + i, i % 2 ? 0.5 : -0.5, 1] })));
   assert.equal(wild.types.VEHICLE.position_jump_m.tight, true);
+});
+
+test('local ground penetration flags individual objects, including empty boxes and unknown types', () => {
+  const scene = drive(3, (i) => ({ lift: i === 1 ? -0.9 : 0, counted: 0 }));
+  scene.frames[1].boxes.push(car('other', 12, { type: 'UNKNOWN', lift: -0.6 }));
+  const cases = analyzeScene(scene).cases.filter((c) =>
+    c.findings.some((f) => f.check_id === 'box.below_ground'),
+  );
+  assert.deepEqual(cases.map((c) => c.object_id).sort(), ['a', 'other']);
+  assert.ok(cases.every((c) => c.frame_index === 1 && c.severity === 'high'));
+});
+
+test('negative world Z alone, unknown road, tolerance and invalid measurements do not imply sinking', () => {
+  for (const lift of [undefined, NaN, Infinity, -Infinity, -0.2, -0.25, 0, 0.1]) {
+    const result = analyzeScene(drive(1, () => ({ center: [10, 0, -3], lift })));
+    assert.ok(!result.cases.some((c) => c.findings.some((f) => f.check_id === 'box.below_ground')));
+  }
+});
+
+test('LiDAR axis checks ignore flips and weak evidence', () => {
+  const axis = { heading: Math.PI / 2, points: 100, anisotropy: 8, span: 4 };
+  const check = (lidarAxis?: SceneBox['lidarAxis']) =>
+    analyzeScene(drive(1, () => ({ lidarAxis }))).cases.some((c) =>
+      c.findings.some((f) => f.check_id === 'orientation.lidar_axis'),
+    );
+  assert.equal(check(axis), true);
+  assert.equal(check({ ...axis, heading: Math.PI }), false);
+  assert.equal(check({ ...axis, points: 3 }), false);
+  assert.equal(check({ ...axis, anisotropy: 1 }), false);
+  assert.equal(check(), false);
+});
+test('frame 1 heading reference requires stationary same-ID car and compensates ego pose', () => {
+  const matches = (s: Scene) =>
+    analyzeScene(s).cases.flatMap((c) =>
+      c.findings.filter((f) => f.check_id === 'orientation.frame1_reference'),
+    );
+  const scene = drive(4, (i) => ({ center: [10, 0, 1], heading: i ? Math.PI : 0 }));
+  assert.equal(matches(scene).length, 3);
+  assert.equal(matches(drive(4, (i) => ({ heading: i ? Math.PI : 0 }))).length, 0);
+  scene.frames[0].boxes = [];
+  assert.equal(matches(scene).length, 0);
+  const rotated = drive(4, (i) => ({
+    center: i ? [0, -10, 1] : [10, 0, 1],
+    heading: i ? -Math.PI / 2 : 0,
+  }));
+  for (const f of rotated.frames.slice(1))
+    f.pose = [0, -1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
+  assert.equal(matches(rotated).length, 0);
 });

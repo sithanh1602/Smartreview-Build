@@ -6,7 +6,7 @@
 import policyFile from '../../policy3d/_scene.json' with { type: 'json' };
 
 const policy = policyFile.scene_policy;
-export const ENGINE_3D_VERSION = '3d-1.9.0';
+export const ENGINE_3D_VERSION = '3d-1.11.0';
 export const POLICY_3D_VERSION = policy.policy_version;
 
 export interface SceneBox {
@@ -29,6 +29,8 @@ export interface SceneBox {
   // How far the cuboid's bottom is above the road under its centre, in metres; below zero,
   // under it. Absent where the road around it could not be seen.
   lift?: number;
+  // Undirected PCA axis in vehicle coordinates, measured from nearby above-road points.
+  lidarAxis?: { heading: number; points: number; anisotropy: number; span: number };
 }
 export interface SceneFrame {
   timestamp: number;
@@ -305,6 +307,19 @@ interface Seen {
   distance: number;
 }
 
+// Shared by scoring and the viewer: coloring must not depend on a cached risk report.
+export function isBelowLocalGround(box: Pick<SceneBox, 'lift' | 'center' | 'size'>): boolean {
+  const ground = rule('box.below_ground');
+  return (
+    !!ground &&
+    Number.isFinite(box.lift) &&
+    box.lift! < -ground.params.below_m! &&
+    Number.isFinite(box.size[2]) &&
+    box.size[2] > 0 &&
+    Math.hypot(box.center[0], box.center[1]) <= ground.params.max_distance_m!
+  );
+}
+
 export function analyzeScene(scene: Scene): Risk3DReport {
   const found = new Map<string, Finding3D[]>();
   const key = (seen: Pick<Seen, 'timestamp' | 'box'>) => `${seen.timestamp}:${seen.box.id}`;
@@ -356,9 +371,90 @@ export function analyzeScene(scene: Scene): Risk3DReport {
     }
   });
 
+  const referenceRule = rule('orientation.frame1_reference');
+  if (referenceRule)
+    for (const track of tracks.values()) {
+      const first = track[0];
+      if (
+        first.frame !== 0 ||
+        first.box.type !== 'VEHICLE' ||
+        (pointsIn(first.box) ?? 0) < referenceRule.params.min_points!
+      )
+        continue;
+      let stationary = true;
+      for (const seen of track.slice(1)) {
+        stationary &&=
+          Math.hypot(seen.world[0] - first.world[0], seen.world[1] - first.world[1]) <=
+          referenceRule.params.max_displacement_m!;
+        if (
+          !stationary ||
+          seen.box.type !== 'VEHICLE' ||
+          (pointsIn(seen.box) ?? 0) < referenceRule.params.min_points!
+        )
+          continue;
+        const delta = turn(seen.yaw, first.yaw);
+        if (delta > referenceRule.params.min_angle_rad!)
+          flag(
+            seen,
+            'orientation.frame1_reference',
+            `Hướng xe đứng yên lệch ${round((delta * 180) / Math.PI, 1)}° so với cùng object ở frame 1. Kiểm tra cả nhãn mốc và nhãn hiện tại.`,
+            {
+              reference_frame_index: 0,
+              reference_timestamp: first.timestamp,
+              reference_heading_world: first.yaw,
+              heading_world: seen.yaw,
+              angle_rad: round(delta),
+              reference_verified: false,
+            },
+          );
+      }
+    }
+
   // Rules on one cuboid.
   for (const seen of every) {
     const { box } = seen;
+    const axisRule = rule('orientation.lidar_axis'),
+      axis = box.lidarAxis;
+    if (
+      axisRule &&
+      axis &&
+      box.type === 'VEHICLE' &&
+      [axis.heading, axis.points, axis.anisotropy, axis.span, box.heading, ...box.size].every(
+        Number.isFinite,
+      ) &&
+      axis.points >= axisRule.params.min_points! &&
+      axis.anisotropy >= axisRule.params.min_anisotropy! &&
+      seen.distance <= axisRule.params.max_distance_m! &&
+      box.size[1] > 0 &&
+      box.size[0] / box.size[1] >= axisRule.params.min_length_width_ratio! &&
+      axis.span >= box.size[0] * axisRule.params.min_span_ratio!
+    ) {
+      const delta = Math.acos(Math.min(1, Math.abs(Math.cos(box.heading - axis.heading))));
+      if (delta > axisRule.params.min_angle_rad!)
+        flag(
+          seen,
+          'orientation.lidar_axis',
+          `Trục cuboid lệch ${round((delta * 180) / Math.PI, 1)}° so với trục cụm điểm LiDAR; cần kiểm tra hướng và điểm của vật lân cận.`,
+          { ...axis, angle_rad: round(delta), undirected: true, reference: 'lidar_pca' },
+        );
+    }
+    const ground = rule('box.below_ground');
+    if (ground && isBelowLocalGround(box)) {
+      const depth = -box.lift!;
+      flag(
+        seen,
+        'box.below_ground',
+        `Đáy cuboid chìm ${round(depth, 2)} m dưới mặt đường cục bộ; vượt dung sai ${ground.params.below_m} m. Cần kiểm tra vị trí trục Z.`,
+        {
+          depth_m: round(depth),
+          lift_m: box.lift,
+          tolerance_m: ground.params.below_m,
+          submerged_height_ratio: round(Math.min(1, depth / box.size[2])),
+          frame_indexes: [seen.frame, seen.frame],
+          reference: 'local_road',
+        },
+      );
+    }
     const limits = limitsOf(box.type);
     if (!limits) continue;
     if (rule('box.size_out_of_range')) {
@@ -764,7 +860,20 @@ export function analyzeScene(scene: Scene): Risk3DReport {
     for (const finding of findings) checks[finding.check_id].flagged++;
     const score = Math.min(
       policy.scoring.max_score,
-      findings.reduce((sum, finding) => sum + finding.score, 0),
+      findings.reduce(
+        (sum, finding) =>
+          sum +
+          (['box.below_ground', 'fit.sunk', 'fit.lowered'].includes(finding.check_id)
+            ? 0
+            : finding.score),
+        0,
+      ) +
+        Math.max(
+          0,
+          ...findings
+            .filter((f) => ['box.below_ground', 'fit.sunk', 'fit.lowered'].includes(f.check_id))
+            .map((f) => f.score),
+        ),
     );
     // The strongest finding that carries points speaks for the cuboid.
     const leading = findings.reduce<Finding3D | null>(

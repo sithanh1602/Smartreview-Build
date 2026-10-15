@@ -591,7 +591,7 @@ export function ObjectPanel({
                     {box.lift >= 0
                       ? `Đáy cao hơn ${box.lift.toFixed(2)} m`
                       : `Đáy thấp hơn ${(-box.lift).toFixed(2)} m`}
-                    {sunk && ' · chìm, phần dưới mặt đường tô đỏ'}
+                    {sunk && ' · nghi chìm dưới mặt đường · viền box và phần chìm tô đỏ'}
                   </dd>
                 </>
               )}

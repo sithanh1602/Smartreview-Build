@@ -1,3 +1,4 @@
+import { isBelowLocalGround } from '../../../../core/risk3d/engine.ts';
 import type { Box3D } from './engine.ts';
 import type { Risk3DCase, Risk3DGap, Risk3DReport } from '../../../../core/risk3d/engine.ts';
 import { cssColor } from './colors.ts';
@@ -83,7 +84,7 @@ export type Risk = Pick<
 };
 export const boxKey = (timestamp: number, objectId: string) => `${timestamp}:${objectId}`;
 // The rules that find a cuboid sunk into the road, over a run of frames.
-const SINKING = new Set(['fit.sunk', 'fit.lowered']);
+const SINKING = new Set(['fit.sunk', 'fit.lowered', 'box.below_ground']);
 // The cuboids the 3D Risk Engine found sunk, by box key: every cuboid of the object in the run
 // of frames a fit.sunk or fit.lowered case covers (evidence.frame_indexes), not only the one
 // the case is on. The viewer paints red the part of these below the road.
@@ -92,6 +93,10 @@ export function sunkBoxes(
   report: Risk3DReport | null,
 ): Set<string> {
   const keys = new Set<string>();
+  // Old/missing reports must not hide a measured penetration already in the scene.
+  for (const frame of frames)
+    for (const box of frame.boxes)
+      if (isBelowLocalGround(box)) keys.add(boxKey(frame.timestamp, box.id));
   for (const c of report?.cases ?? [])
     for (const finding of c.findings) {
       if (!SINKING.has(finding.check_id)) continue;

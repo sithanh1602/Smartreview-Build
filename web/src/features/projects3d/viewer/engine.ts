@@ -57,6 +57,7 @@ export interface ViewSettings {
   // Cuboids take the colour of their type, or of the decision their review holds.
   boxColor: 'type' | 'review';
   labels: boolean;
+  orientation: boolean;
   sensors: boolean;
   lasers: Record<string, boolean>;
   types: Record<string, boolean>;
@@ -75,7 +76,6 @@ const CACHE_SIZE = 40;
 const BYTES_PER_POINT = 22;
 // 12 edges of the box and one segment on its top face pointing where it is heading.
 const BOX_EDGES = [0, 1, 1, 3, 3, 2, 2, 0, 4, 5, 5, 7, 7, 6, 6, 4, 0, 4, 1, 5, 2, 6, 3, 7];
-const VERTICES_PER_BOX = BOX_EDGES.length + 2;
 // The part of a sunk cuboid below the road is painted in this colour.
 const SUNK_COLOR = 0xef4444;
 const CAMERA_HOME = { position: [-35, 0, 22], target: [8, 0, 0] } as const;
@@ -495,6 +495,8 @@ export class PointCloudEngine {
     this.controls.update();
   }
   private boxColor(box: Box3D, timestamp: number) {
+    if (Number.isFinite(box.lift) && box.lift! < 0 && this.sunk.has(boxKey(timestamp, box.id)))
+      return SUNK_COLOR;
     return this.settings.boxColor === 'review'
       ? REVIEW_COLORS[this.reviews[boxKey(timestamp, box.id)]?.decision ?? 'NONE']
       : (BOX_COLORS[box.type] ?? BOX_COLORS.UNKNOWN);
@@ -570,7 +572,8 @@ export class PointCloudEngine {
         (flag) => [flag.objectId, flag],
       ),
     );
-    const position = new Float32Array(boxes.length * VERTICES_PER_BOX * 3),
+    const verticesPerBox = BOX_EDGES.length + (this.settings.orientation ? 6 : 0);
+    const position = new Float32Array(boxes.length * verticesPerBox * 3),
       color = new Float32Array(position.length);
     const tint = new THREE.Color();
     let o = 0;
@@ -589,10 +592,26 @@ export class PointCloudEngine {
         for (const y of [-sy / 2, sy / 2])
           for (const x of [-sx / 2, sx / 2]) corners.push(local(x, y, z));
       const segments = BOX_EDGES.map((i) => corners[i]);
-      segments.push(local(0, 0, sz / 2), local(sx / 2, 0, sz / 2));
+      if (this.settings.orientation) {
+        // Heading rotates local +X. Raise the arrow above the roof and extend its tip
+        // beyond the front face so it remains distinguishable from cuboid edges.
+        const head = Math.max(0.12, Math.min(0.5, sx * 0.2, sy * 0.4));
+        const tip = sx / 2 + head;
+        const z = sz / 2 + 0.06;
+        segments.push(
+          local(0, 0, z),
+          local(tip, 0, z),
+          local(tip, 0, z),
+          local(tip - head, head * 0.65, z),
+          local(tip, 0, z),
+          local(tip - head, -head * 0.65, z),
+        );
+      }
       const chosen = box.id === this.selected,
         own = this.boxColor(box, timestamp);
-      tint.setHex(chosen ? SELECTED_COLOR : own);
+      const sunk =
+        Number.isFinite(box.lift) && box.lift! < 0 && this.sunk.has(boxKey(timestamp, box.id));
+      tint.setHex(sunk ? SUNK_COLOR : chosen ? SELECTED_COLOR : own);
       if (chosen) {
         this.highlight.position.set(cx, cy, cz);
         this.highlight.scale.set(sx, sy, sz);
@@ -639,7 +658,8 @@ export class PointCloudEngine {
         marker.center.set(0.5, 1);
         this.boxLabels.add(marker);
       }
-      for (const vertex of segments) {
+      for (const [index, vertex] of segments.entries()) {
+        if (index === BOX_EDGES.length) tint.setHex(sunk ? SUNK_COLOR : 0x00e5ff);
         position.set(vertex, o);
         tint.toArray(color, o);
         o += 3;
@@ -730,6 +750,7 @@ export class PointCloudEngine {
       next.types !== before.types ||
       next.boxColor !== before.boxColor ||
       next.labels !== before.labels ||
+      next.orientation !== before.orientation ||
       next.boxes !== before.boxes;
     if (boxesChanged) this.rebuildBoxes();
     if (pointsChanged) this.report(this.rebuildPoints());

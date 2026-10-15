@@ -170,3 +170,24 @@ Quy ước khi viết:
 - [ ] `node --test tests/risk3d.test.ts` qua.
 - [ ] `docs/risk-3d.md` (bảng quy tắc) đã cập nhật nếu điểm, ngưỡng hay quy tắc thay đổi.
 - [ ] Không có gì của policy 2D (`policy/`, `docs/policy-format.md`) bị sửa theo.
+
+### 1.10.0 — Box chìm dưới mặt đường, từng frame
+
+`box.below_ground`: mọi class có `lift` hữu hạn, chiều cao hợp lệ và khoảng cách ngang
+không quá 50 m được kiểm tra riêng từng frame. Nếu `lift < -0.25 m`, tạo risk BBOX
+70 điểm. Dung sai 25 cm hạn chế nhiễu/vỉa hè; đây là mặc định cần kiểm chứng trên dữ liệu
+thực, không phải cam kết độ chính xác. Không dùng `center.z < 0`, không cần track dài hay
+điểm trong box (box chìm hoàn toàn vẫn có thể rỗng). Thiếu phép đo mặt đường thì không kết luận.
+
+Giữ các finding theo track để giải thích, nhưng chỉ lấy điểm lớn nhất trong nhóm
+`box.below_ground`, `fit.sunk`, `fit.lowered` để tránh cộng trùng cùng bằng chứng.
+Viewer tô đỏ toàn bộ viền box bị phát hiện, kể cả đang chọn, và phần chìm trong suốt.
+Màu này là cảnh báo hình học, không tự thay đổi quyết định review hoặc xác nhận nhãn sai.
+Các project cũ cần “Chấm lại bằng engine hiện tại”; nếu scene chưa có `lift`, phải import lại.
+
+### Orientation (1.11.0)
+
+- `orientation.lidar_axis`: PCA trên điểm gần xe, bỏ mặt đường và điểm thuộc box khác; vùng XY hình tròn tránh cắt theo box xoay sai. Chỉ VEHICLE dài/rộng ≥ 1.5, trong 40 m, ≥ 40 điểm, tỉ lệ trị riêng ≥ 4, độ trải ≥ 60% chiều dài. Lệch trục > 0.52 rad tạo risk 40 điểm. Không phân biệt đầu/đuôi 180°; che khuất và vật lân cận có thể gây báo nhầm.
+- `orientation.frame1_reference`: cùng object ID ở frame đầu segment (UI frame 1, index 0). So hướng world đã bù pose ego; chỉ xe đứng yên với mọi tâm quan sát cách mốc ≤ 0.5 m, mốc và hiện tại ≥ 20 điểm. Lệch > 0.6 rad tạo risk 30 điểm. Mốc chưa được xác nhận đúng; cần kiểm tra cả hai frame. Không áp dụng cho xe di chuyển/rẽ hoặc thiếu mốc.
+- Không ép xe cùng hướng LiDAR/ego: xe ngược chiều và giao lộ hợp lệ.
+- Cần import lại để có lidarAxis; rescore không đo lại cloud. Rule frame 1 vẫn chạy trên scene cũ. Ngưỡng mới chưa được hiệu chỉnh trên bộ nhãn thật đã kiểm duyệt, không kết luận chắc chắn sai.

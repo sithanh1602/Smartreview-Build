@@ -528,3 +528,32 @@ test('the cuboids painted as sunk are those of the run a sinking case covers', (
   assert.deepEqual([...sunkBoxes(frames, report)].sort(), ['11:a', '12:a', '13:a']);
   assert.equal(sunkBoxes(frames, null).size, 0);
 });
+
+test('single-frame ground findings color only the affected object and frame', () => {
+  const frames = [10, 11, 12].map((timestamp) => ({
+    timestamp,
+    boxes: [{ id: 'a' }, { id: 'b' }],
+  })) as any;
+  const report = {
+    cases: [
+      {
+        object_id: 'b',
+        frame_index: 1,
+        findings: [{ check_id: 'box.below_ground', evidence: { frame_indexes: [1, 1] } }],
+      },
+    ],
+  } as any;
+  assert.deepEqual([...sunkBoxes(frames, report)], ['11:b']);
+});
+
+test('measured ground penetration stays red without a report or with an old empty report', () => {
+  const boxes = [
+    { id: 'sunk', center: [10, 0, 0], size: [4, 2, 2], lift: -0.8 },
+    { id: 'negative-z', center: [10, 0, -3], size: [4, 2, 2], lift: 0 },
+    { id: 'unknown-ground', center: [10, 0, -3], size: [4, 2, 2] },
+    { id: 'noise', center: [10, 0, 0], size: [4, 2, 2], lift: -0.2 },
+  ];
+  const frames = [{ timestamp: 10, boxes }] as any;
+  for (const report of [null, { cases: [] } as any])
+    assert.deepEqual([...sunkBoxes(frames, report)], ['10:sunk']);
+});
