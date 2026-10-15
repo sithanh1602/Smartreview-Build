@@ -319,14 +319,14 @@
         "check": "context.light_in_vehicle",
         "template": "forbidden_inside",
         "params": {
-          "container": ["car", "truck", "bus", "motorcycle"],
+          "container": ["car", "truck", "bus", "two_wheeler"],
           "containment": 0.9,
           "not_duplicate_iou": 0.8
         },
         "applies_to": "any",
         "score": 40,
         "error_type": "EXTRA_OBJECT",
-        "text": "Box đèn tín hiệu nằm trọn trong box của một car, truck, bus hoặc motorcycle: thường là đèn hậu, đèn phanh hoặc đèn xi-nhan của xe đó.",
+        "text": "Box đèn tín hiệu nằm trọn trong box của một car, truck, bus hoặc two_wheeler: thường là đèn hậu, đèn phanh hoặc đèn xi-nhan của xe đó.",
         "exceptions": ["Đèn tín hiệu thật ở xa phía sau một xe lớn lọt vào box xe đó."],
         "principle": "N4",
         "examples": ["LIGHT-2", "LIGHT-3", "LIGHT-7"],
@@ -372,7 +372,7 @@
         "check": "geometry.light_below_vehicles",
         "template": "below_objects",
         "params": {
-          "objects": ["car", "truck", "bus", "motorcycle", "bicycle"],
+          "objects": ["car", "truck", "bus", "two_wheeler"],
           "anchor": "center",
           "their_edge": "top",
           "min_share": 0.75,

@@ -115,10 +115,37 @@
   .sr-button {
     @apply inline-flex min-h-10 items-center justify-center gap-2 rounded-full border border-line bg-panel px-4 py-2 text-sm font-semibold transition hover:border-accent hover:bg-accent/5;
   }
+  .sr-button[aria-pressed='true'] {
+    @apply border-accent bg-accent/5 text-accent;
+  }
   /* A locked region (see ProjectLayout): its controls look unavailable, except the one that
      is busy and shows why. */
   .page-lock[inert] :is(a, button, input, select, summary):not([data-busy]) {
     @apply opacity-50;
+  }
+  /* Name tag of a lidar in the point cloud viewer; the engine creates these elements. */
+  .viewer3d-sensor {
+    @apply -translate-y-3.5 rounded-sm bg-[#0d1117]/75 px-1.5 py-px text-[11px] text-[#d0d7de];
+  }
+  /* Flag over a cuboid reviewed as wrong: filled with the colour of the error (--flag). */
+  .viewer3d-flag {
+    @apply rounded-md px-1.5 py-px text-xs font-bold whitespace-nowrap text-white shadow;
+    background: var(--flag);
+  }
+  .viewer3d-flag--selected {
+    @apply ring-2 ring-white;
+  }
+  /* The 3D workspace keeps its header slim, so the shared account and toggle buttons are
+     drawn smaller there. */
+  .viewer3d-header .sr-button {
+    @apply min-h-6! px-2! py-0! text-[11px]!;
+  }
+  /* Name tag of a cuboid; its left edge takes the cuboid's colour. */
+  .viewer3d-box {
+    @apply rounded-sm border-l-[3px] bg-[#0d1117]/70 px-1.5 py-px text-[11px] whitespace-nowrap text-[#d0d7de];
+  }
+  .viewer3d-box--selected {
+    @apply bg-white font-semibold text-[#0d1117];
   }
   .eyebrow {
     @apply text-[11px] font-semibold tracking-[0.14em] text-muted uppercase;

@@ -25,6 +25,7 @@ export function CaseQueue({
   reviews,
   groups,
   onGrouping,
+  footer,
 }: {
   reviewPath?: string;
   cases: Case[];
@@ -39,6 +40,8 @@ export function CaseQueue({
   // Given when the queue is grouped by image.
   groups?: ImageGroup[];
   onGrouping: (grouping: 'image' | 'case') => void;
+  // Stays at the bottom of the queue, below the scrolling list.
+  footer?: React.ReactNode;
 }) {
   const navigate = useNavigate();
   const to = (c: Case) => ({ pathname: `${reviewPath}/${encodeURIComponent(c.id)}`, search });
@@ -258,6 +261,7 @@ export function CaseQueue({
           </div>
         )}
       </div>
+      {footer && <div className="shrink-0 border-t border-line p-3">{footer}</div>}
     </aside>
   );
 }

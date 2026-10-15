@@ -35,6 +35,8 @@ Bố cục trên Dropbox (trong App folder):
 /projects/<project_id>/ai/latest.json          kết quả AI Check gần nhất
 ```
 
+Project 3D dùng thư mục riêng `/Project3D/<project_id>/<uuid>/`; xem [projects-3d.md](projects-3d.md).
+
 Đo trên Dropbox thật ngày 2026-10-10: đẩy 15 file nhỏ mất khoảng 5 giây, mở
 project khoảng 0,5 giây, ảnh đầu tiên khoảng 0,5 giây, ảnh đã có trong RAM trả ngay.
 

@@ -54,6 +54,23 @@ test('agreement, low confidence, invalid output and unsupported labels are not e
   assert.equal(r.skipped.unsupported_label, 1);
   assert.equal(r.skipped.no_matching_prediction, 1);
 });
+test('extra-annotation check is off by default and flags only what the model sees nothing at', () => {
+  const data = dataset([
+    annotation('seen'),
+    annotation('faint', 'car', 300),
+    annotation('alone', 'car', 600),
+    { ...annotation('tiny', 'car', 900), geometry: { ...box(900), width: 10 } },
+    annotation('custom', 'custom', 1200),
+  ]);
+  const predictions = [prediction(), prediction('car', 300, 0.3)];
+  assert.equal(comparePredictions(data, predictions, ['car']).findings.length, 0);
+  const r = comparePredictions(data, predictions, ['car'], { extra: true });
+  assert.deepEqual(
+    r.findings.map((f) => [f.id, f.check_id, f.prediction]),
+    [['alone', 'ai.extra_annotation', null]],
+  );
+  assert.equal(r.skipped.no_matching_prediction, 3);
+});
 test('one prediction cannot flag multiple annotations; frames stay isolated', () => {
   const r = comparePredictions(
     dataset([annotation('a'), annotation('b')]),

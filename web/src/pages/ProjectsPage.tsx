@@ -6,6 +6,7 @@ import { request } from '../lib/api';
 import { ProjectStatus } from '../features/projects/ProjectLayout';
 import { DeleteProjectButton } from '../features/projects/DeleteProjectButton';
 import { JoinProjectForm } from '../features/projects/JoinProjectForm';
+import { Projects3DList } from '../features/projects3d/Projects3DList';
 import { roleLabel } from '../features/auth/AuthGate';
 import { useAuth } from '../features/auth/AuthProvider';
 import type { Project } from '../types.ts';
@@ -19,6 +20,15 @@ export function ProjectsPage() {
   const leader = user?.role === 'leader';
   // A member works in one role at a time and sees the projects joined in that role.
   const shown = rows && (leader ? rows : rows.filter((p) => p.my_role === workRole));
+  // A leader sees every project: its own first, those of other leaders below.
+  const groups = !shown
+    ? []
+    : !leader
+      ? [{ title: '', rows: shown }]
+      : [
+          { title: 'Project của tôi', rows: shown.filter((p) => p.created_by === user.id) },
+          { title: 'Project của Leader khác', rows: shown.filter((p) => p.created_by !== user.id) },
+        ].filter((group, i) => !i || group.rows.length);
   useEffect(() => {
     const c = new AbortController();
     setError('');
@@ -44,9 +54,14 @@ export function ProjectsPage() {
           </p>
         </div>
         {leader && (
-          <Link className="sr-button border-accent/40 text-accent" to="/projects/new">
-            {hint('+ New Project')}
-          </Link>
+          <div className="flex flex-wrap gap-3">
+            <Link className="sr-button border-accent/40 text-accent" to="/projects/new">
+              {hint('+ New Project')}
+            </Link>
+            <Link className="sr-button" to="/projects/new-3d">
+              + Project 3D mới
+            </Link>
+          </div>
         )}
       </div>
       {!leader && (
@@ -83,56 +98,80 @@ export function ProjectsPage() {
             : 'Bạn chưa tham gia project nào với vai trò này. Nhập mã mời ở trên để bắt đầu.'}
         </div>
       ) : (
-        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-          {shown.map((p) => (
-            <article key={p.id} className="panel block p-6 hover:border-accent/40">
-              <Link className="block" to={`/projects/${p.id}`}>
-                <div className="mb-5 flex items-start justify-between gap-4">
-                  <h2 className="break-words text-xl font-semibold">{p.name}</h2>
-                  <ProjectStatus status={p.status} />
-                </div>
-                <p className="mb-6 line-clamp-2 text-sm text-muted">
-                  {p.description || 'Annotated dataset'}
-                </p>
-                <div className="flex gap-6 text-sm">
-                  <span>
-                    {p.metadata?.total_annotations ?? '—'}
-                    {hint(' annotations')}
-                  </span>
-                  <span className="text-accent">
-                    {p.metadata?.total_cases ?? '—'}
-                    {hint(' risk cases')}
-                  </span>
-                </div>
-                <p className="mt-4 text-xs text-muted">
-                  {p.format} · {p.created_at?.slice(0, 10)}
-                </p>
-                <p
-                  className="mt-2 flex flex-wrap gap-x-3 text-xs text-muted"
-                  data-testid="project-people-summary"
-                >
-                  <span>Leader: {p.creator_name ?? '—'}</span>
-                  <span>Reviewer: {p.reviewer_count}</span>
-                  <span>Annotator: {p.annotator_count}</span>
-                  <span>
-                    Vai trò của bạn: <b>{roleLabel[p.my_role]}</b>
-                  </span>
-                </p>
-              </Link>
-              {leader && (
-                <div className="mt-5">
-                  <DeleteProjectButton
-                    project={p}
-                    onDeleted={() =>
-                      setRows((current) => current && current.filter((row) => row.id !== p.id))
-                    }
-                  />
-                </div>
-              )}
-            </article>
-          ))}
-        </div>
+        groups.map((group) => (
+          <section
+            key={group.title}
+            className="mb-10 last:mb-0"
+            aria-label={group.title || undefined}
+            data-testid="project-group"
+          >
+            {group.title && (
+              <p className="eyebrow mb-4 text-muted">
+                {group.title} · {group.rows.length}
+              </p>
+            )}
+            {!group.rows.length ? (
+              <div className="panel p-6 text-sm text-muted">
+                {hint('Bạn chưa tạo project nào. Chọn + New Project để bắt đầu.')}
+              </div>
+            ) : (
+              <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+                {group.rows.map((p) => (
+                  <article key={p.id} className="panel block p-6 hover:border-accent/40">
+                    <Link className="block" to={`/projects/${p.id}`}>
+                      <div className="mb-5 flex items-start justify-between gap-4">
+                        <h2 className="break-words text-xl font-semibold">{p.name}</h2>
+                        <ProjectStatus status={p.status} />
+                      </div>
+                      <p className="mb-6 line-clamp-2 text-sm text-muted">
+                        {p.description || 'Annotated dataset'}
+                      </p>
+                      <div className="flex gap-6 text-sm">
+                        <span>
+                          {p.metadata?.total_annotations ?? '—'}
+                          {hint(' annotations')}
+                        </span>
+                        <span className="text-accent">
+                          {p.metadata?.total_cases ?? '—'}
+                          {hint(' risk cases')}
+                        </span>
+                      </div>
+                      <p className="mt-4 text-xs text-muted">
+                        {p.format} · {p.created_at?.slice(0, 10)}
+                      </p>
+                      <p
+                        className="mt-2 flex flex-wrap gap-x-3 text-xs text-muted"
+                        data-testid="project-people-summary"
+                      >
+                        <span>Leader: {p.creator_name ?? '—'}</span>
+                        <span>Reviewer: {p.reviewer_count}</span>
+                        <span>Annotator: {p.annotator_count}</span>
+                        <span>
+                          Vai trò của bạn: <b>{roleLabel[p.my_role]}</b>
+                        </span>
+                      </p>
+                    </Link>
+                    {/* Only the creator deletes; a project without one is every leader's. */}
+                    {leader && (p.created_by === null || p.created_by === user.id) && (
+                      <div className="mt-5">
+                        <DeleteProjectButton
+                          project={p}
+                          onDeleted={() =>
+                            setRows(
+                              (current) => current && current.filter((row) => row.id !== p.id),
+                            )
+                          }
+                        />
+                      </div>
+                    )}
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
+        ))
       )}
+      <Projects3DList />
     </>
   );
 }

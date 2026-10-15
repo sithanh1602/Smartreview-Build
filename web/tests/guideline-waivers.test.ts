@@ -87,7 +87,7 @@ test('a waived check stands down for the named labels only, and says so', () => 
 test('only a chosen guideline rule that permits what a check flags becomes a waiver', () => {
   const from = (rules: object[], choices: object) => waiversFrom({ rules, choices }, ids);
   assert.deepEqual(from([rule({})], { 'G-001': 'guideline' }), {
-    'context.person_two_wheeler': ['motorcycle', 'person'],
+    'context.person_two_wheeler': ['person', 'two_wheeler'],
   });
   // Not chosen, or the policy was kept: scoring stays as it is.
   assert.deepEqual(from([rule({})], {}), {});
@@ -115,7 +115,7 @@ test('only a chosen guideline rule that permits what a check flags becomes a wai
       ],
       { 'G-001': 'guideline', 'G-002': 'guideline' },
     ),
-    { 'context.person_two_wheeler': ['bicycle', 'person'] },
+    { 'context.person_two_wheeler': ['person', 'two_wheeler'] },
   );
 });
 

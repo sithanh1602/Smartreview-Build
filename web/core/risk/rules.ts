@@ -6,8 +6,7 @@ import frameFile from '../../policy/_frame.json' with { type: 'json' };
 import car from '../../policy/car.json' with { type: 'json' };
 import truck from '../../policy/truck.json' with { type: 'json' };
 import bus from '../../policy/bus.json' with { type: 'json' };
-import motorcycle from '../../policy/motorcycle.json' with { type: 'json' };
-import bicycle from '../../policy/bicycle.json' with { type: 'json' };
+import twoWheeler from '../../policy/two_wheeler.json' with { type: 'json' };
 import person from '../../policy/person.json' with { type: 'json' };
 import trafficLight from '../../policy/traffic_light.json' with { type: 'json' };
 import trafficSign from '../../policy/traffic_sign.json' with { type: 'json' };
@@ -85,8 +84,7 @@ const labelFiles = [
   car,
   truck,
   bus,
-  motorcycle,
-  bicycle,
+  twoWheeler,
   person,
   trafficLight,
   trafficSign,

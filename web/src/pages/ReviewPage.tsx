@@ -18,6 +18,10 @@ import { CaseQueue } from '../features/review/CaseQueue';
 import { CaseDetail } from '../features/review/CaseDetail';
 import { usePanels } from '../features/review/usePanels';
 import { groupByImage } from '../features/review/grouping';
+import { useAiCheck } from '../features/ai/useAiCheck';
+import { LabelCheckButton } from '../features/ai/LabelCheckButton';
+import { useProject } from '../features/projects/useProject';
+import { CompleteReviewButton, HandoffNotice } from '../features/handoff/CompleteReviewButton';
 
 export type Grouping = 'image' | 'case';
 const GROUPING_KEY = 'smartreview-queue-grouping';
@@ -31,10 +35,11 @@ function storedGrouping(): Grouping {
 import type { LayoutContext } from '../layouts/AppLayout';
 function ReviewWorkspace() {
   const {
-    data: { cases, meta, reviews },
+    data: { cases, meta, reviews, metrics },
     reviewedIds,
     scope,
     reviewPath,
+    projectId,
   } = useLoadedDataset();
   const { caseId } = useParams();
   const headerSlot = useOutletContext<LayoutContext | null>()?.headerSlot;
@@ -70,6 +75,12 @@ function ReviewWorkspace() {
   const panels = usePanels();
   const [grouping, setGrouping] = useState<Grouping>(storedGrouping);
   const [wholeImage, setWholeImage] = useState(false);
+  const ai = useAiCheck(projectId),
+    project = useProject(projectId),
+    leader = project.data?.my_role === 'leader',
+    // Decisions are locked only while the annotators have the review.
+    handoff = project.data?.handoff?.status === 'SENT' ? project.data.handoff : null;
+  const [aiShown, setAiShown] = useState(true);
   const groups = groupByImage(filtered);
   // Grouped, an image's cases follow one another; otherwise the plain sorted list is used.
   const ordered = grouping === 'image' ? groups.flatMap((g) => g.cases) : filtered;
@@ -129,6 +140,17 @@ function ReviewWorkspace() {
         replace: true,
       });
   }
+  // The finding for this annotation: from the project's latest AI result while the button is
+  // on, or the one the AI Check page handed over.
+  const aiFinding =
+    (aiShown &&
+      ai.report?.status === 'READY' &&
+      ai.report.dataset_revision === meta.dataset_id &&
+      ai.report.findings.find((f) => f.annotation_id === selected?.id)) ||
+    (location.state?.aiRevision === meta.dataset_id &&
+    location.state?.aiFinding?.annotation_id === selected?.id
+      ? location.state.aiFinding
+      : undefined);
   if (filtered.length && (!caseId || (exists && !selected)))
     return (
       <Navigate
@@ -178,17 +200,39 @@ function ReviewWorkspace() {
           onFilter={setFilter}
           search={location.search}
           onReset={() => setParams({})}
+          footer={
+            project.data && handoff && <HandoffNotice handoff={handoff} className="text-xs" />
+          }
         />
       </div>
       {selected ? (
         <CaseDetail
           key={selected.id}
           item={selected}
-          aiFinding={
-            location.state?.aiRevision === meta.dataset_id &&
-            location.state?.aiFinding?.annotation_id === selected.id
-              ? location.state.aiFinding
-              : undefined
+          aiFinding={aiFinding}
+          locked={Boolean(handoff)}
+          finish={
+            // Offered on the last case of the queue, where "save and next" has nowhere to go.
+            project.data && !handoff && index === ordered.length - 1 ? (
+              <CompleteReviewButton
+                project={project.data}
+                metrics={metrics}
+                onSent={project.retry}
+                className="sr-button min-h-9 w-full border-accent bg-accent py-1.5 text-white hover:bg-accent/90"
+              />
+            ) : undefined
+          }
+          aiButton={
+            projectId && (
+              <LabelCheckButton
+                ai={ai}
+                leader={leader}
+                shown={aiShown}
+                onShown={setAiShown}
+                count={aiFinding ? 1 : 0}
+                className="sr-button min-h-8 px-3 py-1 text-xs"
+              />
+            )
           }
           index={index}
           count={ordered.length}

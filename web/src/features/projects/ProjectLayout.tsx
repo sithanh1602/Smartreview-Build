@@ -42,13 +42,14 @@ export const statusLabel: Record<string, string> = {
   READY: 'Ready',
   FAILED: 'Import Failed',
 };
-export function ProjectStatus({ status }: { status: string }) {
+// `label` replaces the usual wording of a status where the step means something else (3D).
+export function ProjectStatus({ status, label }: { status: string; label?: string }) {
   return (
     <span
       className={`rounded-full border px-3 py-1 text-xs ${status === 'READY' ? 'border-accent/30 text-accent' : status === 'FAILED' ? 'border-rose-400/30 text-rose-700' : 'border-amber-400/30 text-amber-800'}`}
     >
       {['UPLOADING', 'VALIDATING', 'NORMALIZING', 'ANALYZING'].includes(status) && <Spinner />}
-      {hint(statusLabel[status] || status)}
+      {hint(label || statusLabel[status] || status)}
     </span>
   );
 }

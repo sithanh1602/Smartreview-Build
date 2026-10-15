@@ -34,9 +34,9 @@ export class ProjectMembers {
   constructor(pool: Db) {
     this.pool = pool;
   }
-  // What `user` is in the project. A project the user has no part in reads as missing, so its
-  // existence is not revealed. Projects without a creator (the demo and those made before
-  // roles existed) belong to every leader.
+  // What `user` is in the project. Every leader is a leader in every project; only deleting is
+  // kept for the creator (see `owns`). A project a member has no part in reads as missing, so
+  // its existence is not revealed.
   async role(projectId: string, user: User): Promise<ProjectRole> {
     if (!/^[a-f0-9-]{36}$/.test(projectId)) throw missing();
     const [[row]] = await this.pool.execute<Rows>(
@@ -44,12 +44,18 @@ export class ProjectMembers {
       [user.id, projectId],
     );
     if (!row) throw missing();
-    if (user.role === 'leader') {
-      if (row.created_by !== null && row.created_by !== user.id) throw missing();
-      return 'leader';
-    }
+    if (user.role === 'leader') return 'leader';
     if (!row.role) throw missing();
     return row.role;
+  }
+  // Whether `user` may delete the project: its creator, or any leader when it has none (the
+  // demo and projects made before roles existed).
+  async owns(projectId: string, user: User) {
+    const [[row]] = await this.pool.execute<Rows>('SELECT created_by FROM projects WHERE id=?', [
+      projectId,
+    ]);
+    if (!row) throw missing();
+    return user.role === 'leader' && (row.created_by === null || row.created_by === user.id);
   }
   async people(projectId: string): Promise<ProjectPeople> {
     const [[creator]] = await this.pool.execute<Rows>(

@@ -1,58 +1,24 @@
 import { Spinner } from '../components/Spinner';
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { request } from '../lib/api';
+import { useAiCheck } from '../features/ai/useAiCheck';
 import { FrameViewer } from '../features/review/FrameViewer';
 import { useProject } from '../features/projects/useProject';
-import type { AiReport } from '../types.ts';
 
 export function AiCheckPage() {
   const { projectId } = useParams();
   return <AiWorkspace key={projectId} projectId={projectId} />;
 }
 function AiWorkspace({ projectId }: { projectId: string | undefined }) {
-  const [report, setReport] = useState<AiReport | null>(null),
-    [error, setError] = useState(''),
-    [busy, setBusy] = useState(false),
-    [attempt, setAttempt] = useState(0);
+  const ai = useAiCheck(projectId),
+    { report, error, busy } = ai;
   const [selected, setSelected] = useState<string | null>(null),
     [filter, setFilter] = useState('all'),
     [showAi, setShowAi] = useState(true);
-  const endpoint = `/projects/${projectId}/ai-check`;
   // Members read the results; only the leader starts a run.
   const leader = useProject(projectId).data?.my_role === 'leader';
-  useEffect(() => {
-    const controller = new AbortController();
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    async function load() {
-      try {
-        const data = await request<AiReport>(endpoint, { signal: controller.signal });
-        if (controller.signal.aborted) return;
-        setReport(data);
-        setError('');
-        if (data.status === 'RUNNING') timer = setTimeout(load, 1500);
-      } catch (e) {
-        if (!controller.signal.aborted) setError((e as Error).message);
-      }
-    }
-    load();
-    return () => {
-      controller.abort();
-      clearTimeout(timer);
-    };
-  }, [endpoint, attempt]);
   async function start() {
-    setBusy(true);
-    setError('');
-    try {
-      setReport(await request<AiReport>(endpoint, { method: 'POST' }));
-      setSelected(null);
-      setAttempt((a) => a + 1);
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
+    if (await ai.start()) setSelected(null);
   }
   const findings = ((report?.status === 'READY' && report.findings) || []).filter(
     (f) => filter === 'all' || f.check_id === filter,
@@ -92,7 +58,7 @@ function AiWorkspace({ projectId }: { projectId: string | undefined }) {
       {error && (
         <div role="alert" className="panel mb-4 p-4 text-rose-700">
           {error}
-          <button className="sr-button ml-3" onClick={() => setAttempt((a) => a + 1)}>
+          <button className="sr-button ml-3" onClick={ai.reload}>
             Tải lại
           </button>
         </div>
@@ -171,6 +137,7 @@ function AiWorkspace({ projectId }: { projectId: string | undefined }) {
               <option value="ai.class_disagreement">Bất đồng nhãn</option>
               <option value="ai.bbox_disagreement">Bất đồng khung bao</option>
               <option value="ai.missing_annotation">Có thể thiếu nhãn</option>
+              <option value="ai.extra_annotation">Có thể thừa nhãn</option>
             </select>
           </label>
           {!findings.length ? (
@@ -192,9 +159,11 @@ function AiWorkspace({ projectId }: { projectId: string | undefined }) {
                     </strong>
                     <p className="mt-2 break-all text-sm">{f.observation.media_name}</p>
                     <p className="mt-2 text-xs">
-                      {f.annotation
-                        ? `${f.annotation.label} → AI: ${f.prediction.label}`
-                        : `Chưa có nhãn · AI: ${f.prediction.label}`}
+                      {!f.prediction
+                        ? `${f.annotation?.label} · AI không thấy đối tượng`
+                        : f.annotation
+                          ? `${f.annotation.label} → AI: ${f.prediction.label}`
+                          : `Chưa có nhãn · AI: ${f.prediction.label}`}
                     </p>
                     <p className="mt-1 text-xs text-muted">
                       {f.annotation_id
@@ -232,7 +201,11 @@ function AiWorkspace({ projectId }: { projectId: string | undefined }) {
                       ? 'Khung liền: annotation hiện tại'
                       : 'Khung xám: annotation đang có trong ảnh'}
                   </span>{' '}
-                  · <span className="text-blue-700">Khung xanh nét đứt: AI đề xuất</span>
+                  {current.prediction && (
+                    <>
+                      · <span className="text-blue-700">Khung xanh nét đứt: AI đề xuất</span>
+                    </>
+                  )}
                 </p>
                 <label className="mb-3 flex items-center gap-2 text-sm">
                   <input
@@ -256,12 +229,14 @@ function AiWorkspace({ projectId }: { projectId: string | undefined }) {
                 />
                 <h3 className="mt-5 font-semibold">Why Flagged (Lý do cảnh báo)</h3>
                 <p className="mt-2">{current.reason}</p>
-                <p className="mt-2 text-sm">
-                  Confidence (Độ tin cậy AI): {(current.prediction.confidence * 100).toFixed(1)}%
-                  {current.iou !== null && Number.isFinite(current.iou) && (
-                    <> · IoU (Độ trùng khớp): {current.iou.toFixed(3)}</>
-                  )}
-                </p>
+                {current.prediction && (
+                  <p className="mt-2 text-sm">
+                    Confidence (Độ tin cậy AI): {(current.prediction.confidence * 100).toFixed(1)}%
+                    {current.iou !== null && Number.isFinite(current.iou) && (
+                      <> · IoU (Độ trùng khớp): {current.iou.toFixed(3)}</>
+                    )}
+                  </p>
+                )}
                 <p className="mt-3 text-sm text-muted">
                   Điểm ưu tiên là quy tắc xếp hàng, không phải xác suất nhãn sai. Hãy đối chiếu ảnh
                   trước khi lưu quyết định.

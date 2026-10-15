@@ -6,12 +6,17 @@ import { imageResolver, importDataset, isFormat, namesImages } from '../../core/
 import { applyEnvRisk, parseImageTable } from '../../core/importers/signals.ts';
 import { normalizeDataset } from '../../core/schema/normalize.ts';
 import { LEGACY_ENGINE_VERSION, LATEST_ENGINE_VERSION, checksFor } from '../../core/risk/engine.ts';
+import { mergeLabels } from '../../core/risk/policy.ts';
 import { waiversFrom } from '../../shared/guideline-waivers.ts';
 import { buildDataset, loadDataset } from '../repository.ts';
 import { ReviewStore } from '../reviews/store.ts';
 import { ReviewError } from '../../shared/review.ts';
 import { receiveUpload, safePath } from './upload.ts';
 import { ProjectMembers } from './members.ts';
+import { ProjectHandoffs, compareReturn, sameShape } from './handoff.ts';
+import { returnedDataset } from './return.ts';
+import { FrameReviewStore } from '../frames/store.ts';
+import type { SourceFile } from '../../core/importers/index.ts';
 import type { RemoteStorage } from '../storage/remote.ts';
 import type { AssetSource, DatasetOptions } from '../repository.ts';
 import type { Untrusted } from '../../shared/review.ts';
@@ -21,6 +26,7 @@ import type {
   Db,
   LoadedDataset,
   ProjectContext,
+  ProjectRole,
   Req,
   Result,
   Rows,
@@ -52,6 +58,7 @@ export class ProjectService {
   deleting: Set<string>;
   ai: AiService;
   members: ProjectMembers;
+  handoffs: ProjectHandoffs;
   remote: RemoteStorage | null;
   demos: Map<string, string>;
   assets: Map<string, Buffer>;
@@ -67,6 +74,7 @@ export class ProjectService {
     this.assetBytes = 0;
     this.ai = new AiService(this);
     this.members = new ProjectMembers(pool);
+    this.handoffs = new ProjectHandoffs(pool);
   }
   async recover() {
     await this.pool.query<Rows>(
@@ -148,17 +156,13 @@ export class ProjectService {
     }
     return { deleted: true, cleanupPending };
   }
-  // Without a user: every project (scripts). A leader sees the projects it created and those
-  // without a creator; a member sees the projects it joined. `my_role` is the user's role there.
+  // Without a user: every project (scripts). A leader sees every project, its own and those of
+  // other leaders; a member sees the projects it joined. `my_role` is the user's role there.
   async list(user?: User) {
     const order = ' ORDER BY p.created_at DESC, p.id';
-    const [rows] = !user
-      ? await this.pool.query<Rows>(PROJECT_VIEW + order)
-      : user.role === 'leader'
-        ? await this.pool.execute<Rows>(
-            PROJECT_VIEW + ' WHERE p.created_by=? OR p.created_by IS NULL' + order,
-            [user.id],
-          )
+    const [rows] =
+      !user || user.role === 'leader'
+        ? await this.pool.query<Rows>(PROJECT_VIEW + order)
         : await this.pool.execute<Rows>(
             PROJECT_VIEW.replace('SELECT p.*', 'SELECT p.*,pm.role AS my_role') +
               ' JOIN project_members pm ON pm.project_id=p.id AND pm.user_id=?' +
@@ -342,6 +346,103 @@ export class ProjectService {
     this.cache.delete(id);
     return true;
   }
+  // The annotator returns the dataset after fixing it: the same images with new annotations,
+  // in any format the importer reads. The project switches to it as a new revision, decisions
+  // on labels that did not change are kept, and the reviewers get a list of what became of
+  // every error they sent.
+  async returnFixed(id: string, files: SourceFile[], user: User, role: ProjectRole) {
+    const report = await this.handoffs.sent(id, user, role);
+    const row = await this.row(id);
+    const { dataset: old, reviews: oldReviews } = await this.context(id);
+    if (row.demo_key) throw new ReviewError(409, 'Dataset demo không nhận bản sửa.');
+    const { data, frames } = returnedDataset(old.normalized, files, { id, name: row.name });
+    const json = JSON.stringify(data, null, 2);
+    const meta = typeof row.metadata === 'string' ? JSON.parse(row.metadata) : row.metadata;
+    const options = {
+      namespace: id,
+      apiPrefix: `/api/projects/${id}`,
+      engineVersion: meta?.engine_version || LEGACY_ENGINE_VERSION,
+      waivers: meta?.guideline_waivers,
+    };
+    const remoteKey: string | null = row.storage_key;
+    const source: AssetSource = remoteKey
+      ? this.remoteSource(remoteKey)
+      : {
+          remote: false,
+          locate: (image) => path.join(path.dirname(row.dataset_path), image),
+          read: (asset) => fs.readFile(asset),
+        };
+    const dataset = await buildDataset(json, options, source);
+    if (dataset.meta.dataset_id === old.meta.dataset_id)
+      throw new ReviewError(422, 'File không có thay đổi nào so với bản đã gửi.');
+    // The sent dataset is kept beside the new one; the project reads dataset.json.
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    if (remoteKey) {
+      const before = await this.readRemote(`${remoteKey}/dataset.json`);
+      if (before)
+        await this.remote!.write(`${remoteKey}/dataset.sent-${stamp}.json`, new Uint8Array(before));
+      await this.remote!.write(`${remoteKey}/dataset.json`, Buffer.from(json));
+    } else {
+      await fs.copyFile(
+        row.dataset_path,
+        path.join(path.dirname(row.dataset_path), `dataset.sent-${stamp}.json`),
+      );
+      await fs.writeFile(row.dataset_path, json);
+    }
+    dataset.meta.project_name = row.name;
+    const reviews = new ReviewStore(this.pool, dataset);
+    await reviews.initialize();
+    await this.pool.execute<Rows>(
+      'UPDATE projects SET dataset_revision_id=?,metadata=? WHERE id=?',
+      [reviews.datasetId, JSON.stringify(dataset.meta), id],
+    );
+    this.cache.set(id, Promise.resolve({ dataset, reviews }));
+    // Decisions follow labels that are exactly as they were; everything else is reviewed anew.
+    const decisions = await oldReviews.list();
+    const byFrame = new Map<string, typeof dataset.allCases>();
+    for (const c of dataset.allCases)
+      byFrame.set(c.frame_ref, [...(byFrame.get(c.frame_ref) ?? []), c]);
+    const taken = new Set<string>();
+    for (const before of old.allCases) {
+      const decision = decisions[before.id];
+      if (!decision) continue;
+      const same = (byFrame.get(frames.get(before.frame_ref)!) ?? []).find(
+        (c) =>
+          !taken.has(c.id) &&
+          c.class_name === before.class_name &&
+          sameShape(c.geometry, before.geometry),
+      );
+      if (!same) continue;
+      taken.add(same.id);
+      await reviews.save(same, decision, 'create');
+    }
+    const result = compareReturn(
+      report,
+      { dataset_revision: dataset.meta.dataset_id, annotations: dataset.normalized.annotations },
+      frames,
+      (frame) =>
+        dataset.assets.has(frame)
+          ? `/api/projects/${id}/assets/${encodeURIComponent(frame)}?dataset=${dataset.meta.dataset_id}`
+          : null,
+    );
+    // Regions marked as missing stay on the image until a label covers them.
+    const added = new Set(result.missing.filter((m) => m.outcome === 'added').map((m) => m.id));
+    const frameReviews = await new FrameReviewStore(this.pool, oldReviews.datasetId).list();
+    const next = new FrameReviewStore(this.pool, reviews.datasetId);
+    for (const [frame, review] of Object.entries(frameReviews)) {
+      const target = frames.get(frame);
+      if (!target) continue;
+      const regions = review.missing_regions.filter((r) => !added.has(`${frame}:${r.id}`));
+      await next.save(target, {
+        status: regions.length === review.missing_regions.length ? review.status : 'IN_PROGRESS',
+        missing_regions: regions,
+        note: review.note,
+        version: 0,
+      });
+    }
+    await this.handoffs.returned(id, user, result);
+    return result;
+  }
   async context(id: string): Promise<ProjectContext> {
     const row = await this.row(id);
     if (row.status !== 'READY')
@@ -465,7 +566,8 @@ export class ProjectService {
             }),
           },
         };
-      data = normalizeDataset(data);
+      // Labels the policy merged (motorcycle, bicycle) are stored under their one name.
+      data = mergeLabels(normalizeDataset(data));
       const datasetPath = path.join(directory, 'dataset.json');
       const json = JSON.stringify(data, null, 2);
       await fs.writeFile(datasetPath, json, { flag: 'wx' });

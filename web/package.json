@@ -24,11 +24,14 @@
     "user:update": "node scripts/user.ts --update",
     "db:prepare": "node scripts/db-prepare.ts",
     "guideline:extract": "node scripts/guideline.ts",
-    "policy:check": "node scripts/policy.ts"
+    "policy:check": "node scripts/policy.ts",
+    "verify": "node scripts/verify.ts",
+    "analyze": "node scripts/analyze.ts"
   },
   "dependencies": {
     "@heroui/react": "^3.2.6",
     "@heroui/styles": "^3.2.6",
+    "@mediapipe/tasks-vision": "^1.1.0",
     "ajv": "^8.20.0",
     "busboy": "^1.6.0",
     "fast-xml-parser": "^5.11.2",
@@ -37,7 +40,8 @@
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "react-router-dom": "7.9.4",
-    "sharp": "^0.35.5"
+    "sharp": "^0.35.5",
+    "three": "^0.186.1"
   },
   "devDependencies": {
     "@playwright/test": "1.56.1",
@@ -46,6 +50,7 @@
     "@types/node": "^26.6.4",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
+    "@types/three": "^0.186.0",
     "@vitejs/plugin-react": "^5.1.0",
     "prettier": "^3.6.2",
     "tailwindcss": "4.1.16",

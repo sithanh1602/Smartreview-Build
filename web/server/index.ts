@@ -1,4 +1,5 @@
 import { ProjectService } from './projects/service.ts';
+import { Project3DService } from './projects3d/service.ts';
 import path from 'node:path';
 import { createPool } from './db/pool.ts';
 import { ReviewStore } from './reviews/store.ts';
@@ -20,12 +21,12 @@ try {
   const pool = createPool();
   const reviews = dataset ? new ReviewStore(pool, dataset) : null;
   if (reviews) await reviews.initialize();
-  const projects = new ProjectService(
-    pool,
-    process.env.SMARTREVIEW_STORAGE || path.join(webRoot, 'storage'),
-    remoteStorageFromEnv(),
-  );
+  const storageRoot = process.env.SMARTREVIEW_STORAGE || path.join(webRoot, 'storage'),
+    remote = remoteStorageFromEnv();
+  const projects = new ProjectService(pool, storageRoot, remote);
   await projects.recover();
+  const projects3d = new Project3DService(pool, storageRoot, remote);
+  await projects3d.recover();
   if (dataset && reviews) await projects.registerDemo(dataset, reviews, datasetPath);
   const auth = new AuthService(pool);
   await auth.cleanup();
@@ -38,6 +39,7 @@ try {
     dataset,
     reviews,
     projects,
+    projects3d,
     auth,
     secureCookies: process.env.AUTH_COOKIE_SECURE === 'true',
     distRoot: path.join(webRoot, 'dist'),

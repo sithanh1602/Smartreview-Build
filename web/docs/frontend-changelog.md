@@ -2,6 +2,129 @@
 
 Ghi lại mỗi lần sửa xong một chức năng hoặc thay đổi lớn ở frontend. Mục mới nhất ở trên cùng.
 
+## 2026-10-13 · Leader thấy project của nhau, chia hai nhóm
+
+- **Thay đổi**: tài khoản leader thấy mọi project 2D và 3D, không chỉ project mình tạo. Trang Projects chia hai nhóm: **Project của tôi** ở trên, **Project của Leader khác** ở dưới (kèm số lượng); phần Project 3D chia tương tự. Nhóm dưới chỉ hiện khi có project. Member không đổi.
+- **Quyền**: leader khác mở, review, import, chạy AI Check và quản lý thành viên được như người tạo. Nút xóa chỉ hiện với leader tạo project (và project 2D không có người tạo); backend trả 403 nếu leader khác gọi xóa.
+- Project 2D không có người tạo (demo, project cũ) nằm ở nhóm dưới.
+- File: `server/projects/{members,service,http}.ts`, `server/projects3d/{service,http}.ts`, `src/pages/{ProjectsPage,ProjectDashboardPage,Project3DPage}.tsx`, `src/features/projects3d/Projects3DList.tsx`.
+- Kiểm tra: typecheck qua, `tests/projects3d.test.ts` 5/5 qua. Chưa chạy test dùng MySQL và chưa thử trên trình duyệt với hai tài khoản leader.
+
+## 2026-10-12 · Webcam: giữ yên 1 giây để ngắt lệnh thu phóng
+
+- **Vấn đề**: đang phóng to mà muốn đổi sang cử chỉ khác thì phải nắm tay hoặc co ngón lại, và động tác đó bị đọc thành thu nhỏ.
+- **Sửa**: thu phóng xong, giữ yên bàn tay 1 giây thì lệnh được ngắt. Ô webcam hiện "Giữ yên 1 giây để ngắt lệnh" kèm thanh chạy, rồi "Đã ngắt lệnh thu phóng". Sau khi ngắt, nắm tay, chỉ ngón hay hạ tay đều không thu phóng; muốn thu phóng tiếp thì chụm lại hoặc xoè năm ngón lại từ đầu.
+- Dừng ngắn hơn 1 giây thì chưa ngắt, nên phóng to rồi thu nhỏ liền tay vẫn như cũ.
+- Kiểm tra: thêm một test với bàn tay dựng sẵn (11/11 qua): phóng to, giữ 1,2 giây, nắm lại rồi chỉ ngón thì mức thu phóng giữ nguyên trong 2%; không giữ hoặc giữ 0,5 giây thì nắm lại vẫn thu nhỏ; xoè tay lại từ đầu rồi chụm thì thu nhỏ được. Chưa thử với bàn tay thật và chưa mở lại trình duyệt sau thay đổi này.
+
+## 2026-10-12 · Webcam: bộ cử chỉ mới, chống rung, ghi lại bàn tay
+
+- **Bộ cử chỉ thay hẳn** theo yêu cầu: giơ ngón trỏ rồi đưa trái / phải / lên / xuống để kéo khung; chụm các đầu ngón rồi bung ra để phóng to; từ bàn tay mở chụm lại để thu nhỏ. Giữ lại: giơ 1–9 ngón đứng yên để gọi cờ. Bỏ: chụm ngón để xoay, vuốt để chuyển frame, nắm tay để phát / dừng, và cách thu phóng bằng hai tay.
+- **Chống rung**: toạ độ đi qua bộ lọc One Euro, có vùng chết cho chuyển động nhỏ, và các thế tay vào / ra ở hai ngưỡng khác nhau để không chập chờn. Ngón trỏ hay bàn tay xoè vừa dùng để kéo hoặc thu phóng không bị đọc ngay thành số 1 hay số 5.
+- **Ghi bàn tay**: ô webcam có ô chọn nhãn và nút **● Ghi / ■ Dừng & lưu**, tải về tệp JSON các điểm bàn tay. Đặt tệp vào `tests/fixtures/gestures/` thì test phát lại và so với nhãn.
+- Ô webcam hiện đang đọc gì: "Kéo khung", "Phóng to", "Thu nhỏ", "Gọi cờ ⚑ n".
+- Kiểm tra: `tests/gestures.test.ts` 10/10 với bàn tay dựng sẵn (kéo bốn hướng, đứng yên có rung, chỉ lại chỗ khác không giật, phóng to / thu nhỏ, giữ nguyên thế tay, giơ ngón từ nắm tay không thu phóng, gọi cờ, ngón trỏ nghỉ thành số 1). Trong Chromium với webcam giả: ô webcam chạy, ghi và tải được tệp JSON. **Chưa thử với bàn tay thật.**
+
+## 2026-10-12 · Review 3D: cờ lỗi và điều khiển bằng cử chỉ qua webcam (MediaPipe)
+
+- **Cờ lỗi**: cuboid có quyết định Lỗi ở frame đang xem mang cờ `⚑ n` trong point cloud; màu theo loại lỗi (Class cam, Cuboid đỏ, Tracking tím, Extra Object hồng, Other xanh dương), số đánh từ 1 theo ID đối tượng. Danh sách "Cuboid trong frame" hiện cùng lá cờ thay cho dấu "!", kèm chú thích màu.
+- **Thẻ thông tin cờ**: chọn cuboid có cờ thì giữa trên vùng vẽ hiện số cờ, loại, ID, loại lỗi, nhãn đúng đề xuất và ghi chú.
+- **Webcam**: nút mới trên header bật ô webcam ở góc dưới trái vùng vẽ (`viewer/HandControl.tsx`): hình lật gương, khung xương bàn tay, cử chỉ đang đọc được, thanh "giữ", và danh sách cử chỉ. Giơ 1–10 ngón giữ yên để gọi cờ số đó; chụm ngón để xoay / dời / thu phóng; vuốt bàn tay mở để sang frame; nắm tay để phát / dừng. Không cử chỉ nào lưu quyết định review.
+- Thêm phụ thuộc `@mediapipe/tasks-vision`; nó và model chỉ tải khi bật webcam.
+- Kiểm tra bằng Chromium với webcam giả ở 1440px: ba cuboid lỗi ra ba cờ đúng màu; bấm cờ 2 thì thẻ hiện "Lỗi Cuboid" kèm ghi chú; bật Webcam thì MediaPipe chạy sau khoảng 6 giây, báo "Chưa thấy cử chỉ"; tắt thì ô biến mất; sang frame không có lỗi thì không còn cờ. **Chưa thử với bàn tay thật**; luật cử chỉ mới được kiểm bằng test với bàn tay dựng sẵn.
+- Chi tiết: [projects-3d.md](projects-3d.md#cờ-lỗi-và-điều-khiển-bằng-cử-chỉ).
+
+## 2026-10-12 · Review 3D: nút ẩn/hiện dải ảnh camera và bảng bên phải
+
+- Header của trang review 3D có hai nút, có biểu tượng và chữ, sáng màu khi thanh tương ứng đang hiện: **Ảnh camera** (dải ảnh dưới point cloud; chỉ có khi project có ảnh) và **Bảng review** (bảng Review / Hiển thị bên phải). Bấm để ẩn hoặc hiện.
+- Ngay trên từng thanh cũng có nút ẩn: **Ẩn ảnh camera** ở đầu dải ảnh (thay dòng chữ nhỏ trước đây) và **Ẩn** cạnh hai thẻ Review / Hiển thị. Hiện lại bằng nút trên header.
+- Ẩn cả hai thì point cloud chiếm trọn màn hình dưới header. Bấm vào một cuboid khi bảng đang ẩn thì bảng tự hiện lại để xem chi tiết và review.
+- Kiểm tra bằng Chromium với ảnh thật ở 1440×860: vùng point cloud 1120×639 khi hiện cả hai, 1440×827 khi ẩn cả hai; nút trên header đổi trạng thái theo; bấm cuboid lúc bảng ẩn thì bảng và chi tiết cuboid hiện lại; không tràn ngang ở 390px.
+
+## 2026-10-12 · Review 3D: ảnh camera ở dải dưới to hơn
+
+- Các ô trong dải "Ảnh camera" không còn cố định 120×80: chúng chia đều bề ngang dải, tối đa 240×160 (đúng cỡ gốc của ảnh ghép, nên không bị phóng vỡ) và giữ tỉ lệ 3:2 (`viewer/Cameras.tsx`).
+- Ở 1440×860 mỗi ô là 218×145 (trước là 120×80); dải cao 173px và vùng point cloud còn 658px (trước 724px). Màn hẹp thì các ô nhỏ lại tới 128px rồi cuộn ngang; không tràn ngang ở 390px.
+
+## 2026-10-12 · Ảnh camera cho project 3D
+
+- **Form tạo project 3D** (`Import3DForm.tsx`): thêm component tuỳ chọn `camera_image`; ô mới "Thư mục ảnh camera rời" cho ảnh JPEG đặt tên `<camera>/<frame>.jpg`; ở nguồn Tệp nén chọn được nhiều tệp `.zip` cùng lúc. Khối "Component nhận diện được" hiện thêm dòng `camera_image` và dòng "Ảnh camera rời" (số camera, số ảnh, dung lượng, số ảnh mỗi camera), cảnh báo ảnh sai tên, và từ chối khi có cả hai nguồn ảnh. Giới hạn tổng lên 2 GB.
+- **Viewer**: dải **Ảnh camera** dưới vùng point cloud (`viewer/Cameras.tsx`), năm ô theo thứ tự trái sang phải, đổi theo frame; cả dải chỉ tải một ảnh ghép nhỏ cho mỗi frame. Bấm một ô để mở ảnh gốc phủ lên point cloud, có ‹ › đổi camera, ✕ hoặc Esc để đóng; ảnh đang mở đổi theo frame. Nút "Ẩn ảnh camera" thu dải còn một dòng. Project không có ảnh thì không có dải.
+- **Trang project 3D**: mục Dữ liệu thêm dòng "Ảnh camera" (số ảnh và tên các camera).
+- Tên cuboid trong point cloud không còn nổi lên trên lớp phủ (vùng vẽ được cô lập thứ tự xếp lớp).
+- Kiểm tra bằng Chromium với dữ liệu thật (198 frame, 990 ảnh) ở 1440px và 390px, API giả lập trả đúng các tệp đã xuất: chọn `waymo-test.zip` cùng tệp zip ảnh thì đủ 6 component; chọn thư mục ảnh rời thì báo "5 camera · 990 ảnh"; dải ảnh cao 108px, vùng point cloud 724px; mở FRONT ra ảnh 1920×1280; đổi camera và sang frame sau thì ảnh đổi theo; Esc đóng; không tràn ngang ở 390px. Chưa xem chế độ EN và giao diện tối.
+- Backend và lưu trữ: [projects-3d.md](projects-3d.md#ảnh-camera).
+
+## 2026-10-12 · Review 3D: bỏ danh sách frame, header mỏng
+
+- Bỏ hẳn danh sách frame của trang `/projects3d/:id/viewer` (cột bên trái, rồi dải ảnh nhỏ thử ở dưới và ở trên vùng vẽ đều đã gỡ; `FrameList.tsx` / `FrameStrip.tsx` không còn). Chuyển frame bằng thanh phát và phím ← →. Hệ quả: không còn chỗ xem tiến độ review của từng frame hay lọc frame có lỗi.
+- Header được giữ nhưng mỏng lại, từ 48px còn 29px: chỉ còn biểu tượng logo, nút **← tên project** (ra khỏi chỗ làm việc, về trang project), tên segment, số frame, tài khoản, đổi ngôn ngữ và giao diện. Các nút dùng chung được vẽ nhỏ hơn riêng trong header này (`.viewer3d-header` trong `styles.css`).
+- Vùng point cloud chiếm hết phần bên trái: 831px trên màn cao 860px.
+- Kiểm tra bằng Chromium với 12 frame thật ở 1440px và 390px: header cao 29px (57px ở 390px vì xuống hai hàng); số frame trong header đổi theo khi sang frame sau; nút ← về đúng `/projects3d/:id`; không tràn ngang.
+
+## 2026-10-12 · Thẻ project 3D bấm được cả thẻ
+
+- Ở trang Dự án, thẻ của project 3D trước chỉ mở project khi bấm đúng vào tên. Giờ cả thẻ là liên kết tới `/projects3d/:id`, giống thẻ project 2D; nút "Xóa dự án" vẫn nằm ngoài liên kết (`Projects3DList.tsx`).
+
+## 2026-10-12 · Chọn cuboid và review 3D
+
+- Trang `/projects3d/:id/viewer` thành chỗ làm việc review (theo ảnh mẫu): point cloud bên trái, bảng bên phải có hai thẻ **Review** và **Hiển thị**. Danh sách frame bên trái của bản đầu đã được gỡ ở mục phía trên.
+- Chọn cuboid: bấm vào cuboid trong point cloud hoặc trong danh sách "Cuboid trong frame"; Esc hoặc bấm chỗ trống để bỏ chọn. Cuboid đang chọn vẽ trắng, tô mờ. Đối tượng vẫn được chọn khi chuyển frame.
+- Bốn nút góc nhìn ở góc trên phải vùng vẽ: Trên, Mặt trước, Mặt bên, Phối cảnh.
+- Thẻ Review (`viewer/ObjectPanel.tsx`): chi tiết cuboid (Track ID, loại, kích thước, vị trí, hướng, số điểm, tốc độ, số frame xuất hiện) và form quyết định như 2D, thêm lựa chọn **Áp dụng cho cả N frame của đối tượng này** và nút **Lưu & tiếp**.
+- Thẻ Hiển thị thêm "Tên cuboid" và "Màu cuboid: Theo loại / Theo kết quả review" (xám chưa review, lục đúng, đỏ lỗi, vàng chưa chắc).
+- Trang project 3D hiện "Đã review x/y cuboid · n lỗi…"; nút đổi thành **Mở review 3D →**.
+- Ảnh mẫu có ảnh camera, điểm rủi ro và confidence; dữ liệu hiện có không có ba thứ đó nên giao diện không hiện.
+- Kiểm tra bằng Chromium (WebGL vẽ phần mềm) với API giả lập có trạng thái, 12 frame thật, 1440px: bấm vào giữa một cuboid thì đúng cuboid đó được chọn; lưu lỗi Class gửi `POST …/boxes/…`; đánh dấu áp dụng cả đối tượng gửi `PUT …/tracks/…` và báo "Đã lưu cho 12 frame"; sang frame sau đối tượng vẫn được chọn; Lưu & tiếp chuyển sang cuboid chưa review; danh sách frame và bộ lọc "Có cuboid lỗi" cập nhật theo. Chưa xem ở màn hẹp, chế độ EN và giao diện tối sau thay đổi này.
+- Chi tiết: [projects-3d.md](projects-3d.md#chọn-cuboid-và-review-3d).
+
+## 2026-10-12 · Trang project 3D và viewer point cloud
+
+- Tên project ở mục **Project 3D** của trang Dự án giờ mở trang `/projects3d/:id` (`src/pages/Project3DPage.tsx`): trạng thái, số frame, cuboid, điểm, lidar, số cuboid theo loại, thông tin dữ liệu, nút xoá, và nút **Mở viewer point cloud →**. Project `CREATED` / `FAILED` có form chọn lại tệp ngay trên trang; tạo project xong thì vào thẳng trang này.
+- Viewer `/projects3d/:id/viewer` (`src/pages/Viewer3DPage.tsx`) chiếm trọn màn hình: vùng vẽ nền tối bên trái, bảng **Hiển thị** bên phải (dưới vùng vẽ ở màn hẹp), thanh phát ở đáy vùng vẽ.
+  - Bảng chia theo nguồn dữ liệu: Hệ toạ độ (Xe / Toàn cục, camera bám theo xe, quỹ đạo, đặt lại góc nhìn), Point cloud (màu, cỡ điểm, từng lidar), Bù chuyển động, Cuboid (hiện/ẩn và từng loại), Cảm biến.
+  - Thanh phát: phát / dừng, lùi và tới một frame, thanh kéo, đồng hồ, tốc độ. Phím cách và ← → dùng được khi không đứng ở ô nhập.
+  - Góc trên trái vùng vẽ: số điểm, số cuboid, tốc độ xe, số cuboid theo loại.
+- Phần vẽ three.js nằm riêng ở `src/features/projects3d/viewer/engine.ts` (chuyển từ `waymo-viewer`); route viewer tải lười nên three.js không nằm trong gói của các trang khác. Thêm phụ thuộc `three`, `@types/three`.
+- `Import3DForm` nhận `project` và `onImported` để dùng lại cho project đã tạo; `requestBytes` trong `src/lib/api.ts` đọc tệp nhị phân.
+- Kiểm tra bằng Chromium (WebGL vẽ phần mềm) với API giả lập trả 12 frame thật của segment mẫu, ở 1440px và 390px: frame đầu có 124.102 điểm và 24 cuboid; tắt lidar TOP còn 14.397 điểm; tắt loại SIGN còn 11 cuboid; nút tới, phím →, phát rồi phím cách để dừng đều đúng; mỗi frame chỉ được gọi một lần; không tràn ngang ở 390px. Chưa xem chế độ EN và giao diện tối của bảng điều khiển.
+- Chi tiết: [projects-3d.md](projects-3d.md).
+
+## 2026-10-12 · Tạo project 3D từ segment Waymo
+
+- Trang Dự án có nút **+ Project 3D mới** cạnh "+ Dự án mới" (chỉ Leader), mở `/projects/new-3d` (`src/pages/NewProject3DPage.tsx`).
+- Form (`src/features/projects3d/Import3DForm.tsx`): tên, mô tả, nguồn dữ liệu **Tệp rời** (nhiều tệp `.parquet` hoặc cả thư mục) hoặc **Tệp nén (.zip)**. Khối "Component nhận diện được" xếp từng tệp vào `lidar`, `lidar_calibration`, `vehicle_pose`, `lidar_box`, `lidar_pose`, ghi Bắt buộc / Tùy chọn, dung lượng, segment, và báo ngay component còn thiếu.
+- Trong lúc xử lý: thanh tiến độ tải lên, rồi dòng trạng thái lấy từ backend (số frame đã chuyển, số tệp đã đưa lên kho chung).
+- Trang Dự án có mục **Project 3D** (`Projects3DList.tsx`) dưới danh sách 2D: trạng thái, số frame, cuboid, đối tượng, số cuboid theo loại, nút xoá. Thẻ chưa bấm vào được vì chưa có trang project 3D. Lỗi tải mục này (ví dụ chưa migrate) hiện tại chỗ, không ảnh hưởng danh sách 2D.
+- `ProjectStatus` nhận thêm `label`, `DeleteProjectButton` nhận thêm `base` để dùng lại cho 3D.
+- Chuỗi mới có bản EN trong `i18n.en.ts`.
+- Kiểm tra bằng Chromium với API giả lập ở 1366px và 390px: chọn 3 tệp rời thì báo thiếu `lidar`, `lidar_box`; chọn `waymo-test.zip` (158 MB) thì nhận đủ 5 component và gửi đúng 5 field; trang không tràn ngang ở 390px. Dòng trạng thái từ backend chưa xem được với API giả lập; chế độ EN chưa xem.
+- Backend, DB và lưu trữ: [projects-3d.md](projects-3d.md). Cần migration 008.
+
+## 2026-10-12 · Annotator tải .zip cho CVAT và gửi lại một file đã sửa
+
+- Trang `/projects/:id/fixes`: nút **Tải dataset cho CVAT (.zip)** thay cho nút CVAT giả; khối **Gửi lại bản đã sửa** (chọn một file `.zip`/`.xml`/`.json` xuất từ CVAT, trình duyệt chỉ gửi các tệp nhãn).
+- Sau khi Annotator gửi lại: review mở khoá, trang dự án báo "Annotator đã gửi lại bản đã sửa", trang fixes thành **Kiểm tra lại** với trạng thái từng lỗi (Đã sửa / Chưa đổi …), bộ lọc "Chưa đổi", khung lúc gửi và khung hiện tại, liên kết mở nhãn trong Review.
+- Khoá review giờ chỉ áp dụng khi trạng thái là đang chờ Annotator; nút Hoàn thành hiện lại sau khi Annotator gửi lại.
+- Chi tiết: `docs/review-handoff.md`.
+
+## 2026-10-12 · Nút Hoàn thành, khoá review, trang lỗi cần sửa cho Annotator
+
+- Nút **Hoàn thành** nằm dưới form quyết định của case cuối cùng trong hàng đợi trang Review (chỗ "Lưu & tiếp" hết chỗ đi), và ở trang dự án (`src/features/handoff/CompleteReviewButton.tsx`): pop-up chọn Annotator, ghi chú, gửi file kết quả. Annotator không thấy nút.
+- Sau khi gửi: form quyết định ở Review và form đánh giá ở Kiểm tra theo ảnh bị khoá (phím tắt 1/2/3 và Ctrl+Enter cũng tắt), có thông báo ai gửi cho ai.
+- Trang dự án có khối "Review đã hoàn thành" với liên kết sang trang lỗi và nút **Mở lại review** (chỉ Leader).
+- Trang mới `/projects/:id/fixes` (`src/pages/FixesPage.tsx`) cho Annotator xem từng lỗi và tải file; nút CVAT để sẵn, chưa hoạt động.
+- Chi tiết và API: `docs/review-handoff.md`. Cần migration 007.
+
+## 2026-10-12 · Nút AI Checking và Label Checking AI; AI báo nhãn có thể thừa
+
+- Trang dự án có nút **AI Checking →** mở `/projects/:id/ai-check`.
+- Trang Review và Kiểm tra theo ảnh có nút **Label Checking AI** (`src/features/ai/LabelCheckButton.tsx`, hook `useAiCheck.ts`): Leader chạy AI từ nút khi chưa có kết quả; có kết quả thì nút bật/tắt gợi ý AI trên trang.
+- Review: gợi ý AI của nhãn đang xem hiện ở tab Cảnh báo mà không cần đi từ trang AI Check.
+- Kiểm tra theo ảnh: thêm khối "AI gợi ý xem lại n nhãn hiện có", số gợi ý AI trên từng ảnh, bộ lọc "Có gợi ý AI". Kết quả AI tải một lần cho cả trang thay vì mỗi ảnh một lần.
+- Kiểm tra mới `ai.extra_annotation` (Có thể thừa nhãn), bật bằng `SMARTREVIEW_AI_FINETUNED=true`; xem `docs/ai-check.md`.
+- `.sr-button[aria-pressed='true']` có viền/chữ màu nhấn.
+
 ## 2026-10-12 · "Bắt đầu kiểm tra" chỉ lấy trước ảnh của các case rủi ro
 
 - Nút "Bắt đầu kiểm tra" không còn tải toàn bộ ảnh của dự án. Nó chỉ tải ảnh của các **case bị đánh dấu rủi ro** (đúng những gì trang Review mở), theo điểm từ cao xuống; với case thuộc một track thì gồm cả khung hình trước và sau (`StartReviewButton.tsx`).

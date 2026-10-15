@@ -15,7 +15,7 @@ Dataset đã gán nhãn (CVAT images/video, COCO, Datumaro, PASCAL VOC, YOLO, La
 ## Bắt đầu nhanh
 
 ```bash
-./setup.sh                 # cài gói Node, tạo web/.env nếu chưa có
+./setup.sh                 # cài gói Node, tạo web/.env nếu chưa có, Python cho project 3D
 # điền thông tin MySQL vào web/.env
 cd web
 npm run db:migrate         # tạo bảng (cần kết nối MySQL)
@@ -44,13 +44,13 @@ Reviewer và Annotator có cùng quyền xem và sửa trong project; Reviewer c
 
 `setup.sh` là điểm vào duy nhất để cài các gói liên quan. Script không đụng tới MySQL và không ghi đè `web/.env` đã có.
 
-| Lệnh                   | Cài gì                                                           | Khi nào cần                  |
-| ---------------------- | ---------------------------------------------------------------- | ---------------------------- |
-| `./setup.sh`           | Gói Node của `web/`, tạo `web/.env` từ `.env.example`            | Luôn cần                     |
-| `./setup.sh --ai`      | Thêm Python venv `.venv` với Ultralytics (kèm PyTorch) và OpenCV | Dùng AI Check hoặc dựng demo |
-| `./setup.sh --browser` | Thêm Chromium của Playwright                                     | Chạy `npm run test:ui`       |
-| `./setup.sh --all`     | Tất cả các mục trên                                              |                              |
-| `./setup.sh --check`   | Không cài gì, chỉ báo máy đang thiếu gì                          | Kiểm tra nhanh môi trường    |
+| Lệnh                   | Cài gì                                                                                                                                                        | Khi nào cần                  |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| `./setup.sh`           | Gói Node của `web/`, tạo `web/.env` từ `.env.example`, venv `.venv` với numpy + pyarrow cho project 3D (bỏ qua nếu `web/.env` đã đặt `SMARTREVIEW_3D_PYTHON`) | Luôn cần                     |
+| `./setup.sh --ai`      | Thêm Python venv `.venv` với Ultralytics (kèm PyTorch) và OpenCV                                                                                              | Dùng AI Check hoặc dựng demo |
+| `./setup.sh --browser` | Thêm Chromium của Playwright                                                                                                                                  | Chạy `npm run test:ui`       |
+| `./setup.sh --all`     | Tất cả các mục trên                                                                                                                                           |                              |
+| `./setup.sh --check`   | Không cài gì, chỉ báo máy đang thiếu gì                                                                                                                       | Kiểm tra nhanh môi trường    |
 
 Yêu cầu trên máy:
 

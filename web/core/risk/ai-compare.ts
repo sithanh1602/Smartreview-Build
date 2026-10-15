@@ -19,13 +19,18 @@ export interface AiFinding {
   id: string;
   annotation_id: string | null;
   frame_id: string;
-  check_id: 'ai.class_disagreement' | 'ai.bbox_disagreement' | 'ai.missing_annotation';
+  check_id:
+    | 'ai.class_disagreement'
+    | 'ai.bbox_disagreement'
+    | 'ai.missing_annotation'
+    | 'ai.extra_annotation';
   score: number;
   severity: Severity;
   confusable?: boolean;
   reason: string;
   annotation: { label: string; geometry: Geometry } | null;
-  prediction: { label: string; confidence: number; geometry: BBox };
+  // Null for an extra annotation: the model saw nothing there.
+  prediction: { label: string; confidence: number; geometry: BBox } | null;
   iou: number | null;
   frame_annotations?: FrameShape[];
 }
@@ -44,7 +49,7 @@ export interface AiComparison {
 }
 type FrameShapes = { boxes: Rect[]; unknown: boolean; list: FrameShape[] };
 type Edge = { a: BBoxAnnotation; p: Prediction; index: number; overlap: number };
-export const AI_COMPARE_VERSION = '1.3.0';
+export const AI_COMPARE_VERSION = '1.4.0';
 export const AI_THRESHOLDS = Object.freeze({
   confidence: 0.65,
   classIou: 0.5,
@@ -56,6 +61,10 @@ export const AI_THRESHOLDS = Object.freeze({
   missingDuplicateIou: 0.5,
   // A small model often swaps car/truck/bus; only a very confident swap is worth a look.
   confusableConfidence: 0.85,
+  // Extra-annotation check: even a faint detection counts as the model seeing the object,
+  // and boxes with a side under extraMinSide are too small for a miss to mean anything.
+  extraConfidence: 0.25,
+  extraMinSide: 16,
 });
 const MAX_FRAME_ANNOTATIONS = 50;
 // Dataset label names that mean the same thing as a model class (BDD100K, Cityscapes, ...).
@@ -111,10 +120,14 @@ export function comparePredictions(
   dataset: { frames: { id: string }[]; annotations: Annotation[] },
   predictions: Prediction[],
   supportedLabels: Iterable<string>,
+  // extra: report annotations the model sees nothing at. Only meaningful for a model trained
+  // on this label set; a general model misses too much for its silence to be evidence.
+  options: { extra?: boolean } = {},
 ): AiComparison {
   const supported = new Set(supportedLabels);
   const annotations = new Map<string, BBoxAnnotation[]>();
   const detections = new Map<string, Prediction[]>();
+  const seen = new Map<string, Rect[]>();
   const skipped: AiComparison['skipped'] = {
     unsupported_geometry: 0,
     unsupported_label: 0,
@@ -154,7 +167,7 @@ export function comparePredictions(
       !frameIds.has(p.frame_id) ||
       !supported.has(p.label) ||
       !Number.isFinite(p.confidence) ||
-      p.confidence < AI_THRESHOLDS.confidence ||
+      p.confidence < AI_THRESHOLDS.extraConfidence ||
       p.confidence > 1 ||
       g?.type !== 'bbox' ||
       ![g.x, g.y, g.width, g.height].every(Number.isFinite) ||
@@ -162,6 +175,9 @@ export function comparePredictions(
       g.height <= 0
     )
       continue;
+    if (!seen.has(p.frame_id)) seen.set(p.frame_id, []);
+    seen.get(p.frame_id)!.push(g);
+    if (p.confidence < AI_THRESHOLDS.confidence) continue;
     if (!detections.has(p.frame_id)) detections.set(p.frame_id, []);
     detections.get(p.frame_id)!.push(p);
   }
@@ -240,6 +256,28 @@ export function comparePredictions(
       });
     }
     skipped.no_matching_prediction += group.length - usedAnnotations.size;
+    if (options.extra)
+      for (const a of group) {
+        const g = a.geometry;
+        if (
+          usedAnnotations.has(a.id) ||
+          Math.min(g.width, g.height) < AI_THRESHOLDS.extraMinSide ||
+          (seen.get(frameId) || []).some((box) => iou(g, box) >= AI_THRESHOLDS.positionIou)
+        )
+          continue;
+        findings.push({
+          id: a.id,
+          annotation_id: a.id,
+          frame_id: frameId,
+          check_id: 'ai.extra_annotation',
+          score: 45,
+          severity: 'medium',
+          reason: `AI không thấy đối tượng nào tại khung “${a.label}” này — nhãn có thể thừa.`,
+          annotation: { label: a.label, geometry: a.geometry },
+          prediction: null,
+          iou: null,
+        });
+      }
     // Confident detections that matched no annotation and are not inside any existing shape.
     const candidates = (detections.get(frameId) || [])
       .map((p, index) => ({ p, index }))
@@ -291,7 +329,7 @@ export function comparePredictions(
   findings.sort(
     (a, b) =>
       b.score - a.score ||
-      b.prediction.confidence - a.prediction.confidence ||
+      (b.prediction?.confidence ?? 0) - (a.prediction?.confidence ?? 0) ||
       a.id.localeCompare(b.id),
   );
   return {

@@ -7,9 +7,12 @@ import type { Project } from '../../types.ts';
 export function DeleteProjectButton({
   project,
   onDeleted,
+  base = '/projects',
 }: {
   project: Pick<Project, 'id' | 'name'>;
   onDeleted: () => void;
+  // The API collection the project belongs to: 3D projects have their own.
+  base?: string;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -25,7 +28,7 @@ export function DeleteProjectButton({
     setBusy(true);
     setError('');
     try {
-      const result = await request(`/projects/${project.id}`, { method: 'DELETE' });
+      const result = await request(`${base}/${project.id}`, { method: 'DELETE' });
       if (result.cleanupPending)
         window.alert(
           ui(

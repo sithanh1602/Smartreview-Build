@@ -52,11 +52,7 @@
     ],
     "confusable_with": [
       {
-        "label": "motorcycle",
-        "when": "người lái bị gộp với xe, hoặc xe dựng không người"
-      },
-      {
-        "label": "bicycle",
+        "label": "two_wheeler",
         "when": "người lái bị gộp với xe, hoặc xe dựng không người"
       },
       {
@@ -445,14 +441,14 @@
         "template": "class_margin",
         "params": {
           "margin": 0.25,
-          "confusable_with": ["motorcycle", "bicycle"]
+          "confusable_with": ["two_wheeler"]
         },
         "applies_to": "model",
         "requires": ["label_top2", "score_top2"],
         "score": 20,
         "error_type": "CLASS",
         "suggests": "label_top2",
-        "text": "Nhãn thứ hai là motorcycle hoặc bicycle và cách nhãn person dưới 0,25: mô hình dao động giữa người lái và xe.",
+        "text": "Nhãn thứ hai là two_wheeler và cách nhãn person dưới 0,25: mô hình dao động giữa người lái và xe.",
         "principle": "N11",
         "examples": ["PERSON-9"],
         "note": "Cộng dồn với person.class_margin khi cả hai cùng bật. Chưa đo được vì cần nhãn thứ hai của mô hình.",
@@ -465,7 +461,7 @@
         "template": "forbidden_overlap",
         "params": {
           "with": "other_labels",
-          "except_with": ["motorcycle", "bicycle"],
+          "except_with": ["two_wheeler"],
           "iou": 0.8,
           "flag": "weaker",
           "class_error_within_margin": 0.15
@@ -477,7 +473,7 @@
         "principle": "N3",
         "source": "label_policy",
         "examples": [],
-        "note": "Cặp person với motorcycle hoặc bicycle được loại trừ: người lái chồng lên xe là bình thường. Điểm gắn vào box có confidence thấp hơn. Nếu hai confidence cách nhau dưới 0,15 thì lỗi nghi ngờ là CLASS và gợi ý nhãn của box kia.",
+        "note": "Cặp person với two_wheeler được loại trừ: người lái chồng lên xe là bình thường. Điểm gắn vào box có confidence thấp hơn. Nếu hai confidence cách nhau dưới 0,15 thì lỗi nghi ngờ là CLASS và gợi ý nhãn của box kia.",
         "evidence": "Không box person nào của mô hình gần trùng với một box nhãn khác mạnh hơn, nên chưa có số đo.",
         "measured": {
           "flagged_share": 0,
@@ -553,7 +549,7 @@
         "check": "context.person_two_wheeler",
         "template": "forbidden_overlap",
         "params": {
-          "with": ["motorcycle", "bicycle"],
+          "with": ["two_wheeler"],
           "iou": 0.5,
           "flag": "person"
         },
@@ -687,7 +683,7 @@
         "template": "manual",
         "text": "Người đang lái hoặc ngồi trên xe hai bánh gán person, box riêng với xe.",
         "examples": ["PERSON-7"],
-        "note": "Phần bắt được bằng số: person.overlap_two_wheeler và, ở phía box xe, luật too_tall của motorcycle và bicycle.",
+        "note": "Phần bắt được bằng số: person.overlap_two_wheeler và, ở phía box xe, luật two_wheeler.too_tall.",
         "source": "label_policy"
       },
       {
@@ -822,9 +818,8 @@
       "errors_wrong_class": 0.008,
       "wrong_class_breakdown": {
         "car": 0.004,
-        "bicycle": 0.002,
-        "traffic_sign": 0.001,
-        "motorcycle": 0.001
+        "two_wheeler": 0.003,
+        "traffic_sign": 0.001
       },
       "by_confidence": [
         {

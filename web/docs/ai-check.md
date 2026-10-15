@@ -7,6 +7,7 @@ Kết quả tồn tại qua lần khởi động lại. Lượt đang chạy b�
 - Bất đồng class: IoU ≥ 0.5, nhãn khác nhau, ưu tiên 70.
 - Bất đồng bbox: cùng nhãn, 0.15 ≤ IoU < 0.5, ưu tiên 50.
 - Có thể thiếu nhãn: AI thấy vật thể (confidence ≥ 0.75) thuộc bộ nhãn của dataset nhưng chưa có annotation tại vùng đó (score 70-80).
+- Có thể thừa nhãn (chỉ khi bật `SMARTREVIEW_AI_FINETUNED=true`): annotation thuộc bộ nhãn của model mà AI không thấy vật thể nào tại đó — không có dự đoán nào (mọi lớp, confidence ≥ 0.25) trùng IoU ≥ 0.15. Ưu tiên 45. Bỏ qua khung có cạnh dưới 16 px.
 - Chỉ dùng dự đoán confidence ≥ 0.65 (≥ 0.75 với ca thiếu), ghép một-một. Ưu tiên cùng nhãn và IoU ≥ 0.5 trước, rồi mới xét bất đồng nhãn; ghép cùng nhãn yếu được xét cuối. Trong mỗi nhóm ưu tiên, sắp theo IoU giảm dần.
 - Viewer: annotation khung liền, AI khung xanh nét đứt (hoặc tím chấm trong kiểm tra ảnh). Có lọc, chuyển case và mở trang Review hoặc Kiểm tra theo ảnh để lưu quyết định MySQL hiện có.
 - Điểm ưu tiên không phải xác suất lỗi. Model có thể sai; không sửa annotation tự động.
@@ -20,7 +21,20 @@ Có thể cấu hình trong `web/.env`:
 ```
 SMARTREVIEW_AI_PYTHON=/absolute/path/to/python
 SMARTREVIEW_AI_MODEL=/absolute/path/to/local-model.pt
+SMARTREVIEW_AI_FINETUNED=true
 ```
+
+`SMARTREVIEW_AI_FINETUNED=true` dành cho model đã fine-tune trên chính bộ nhãn của project. Chỉ khi đó
+việc model "không thấy gì" mới đủ tin để báo nhãn có thể thừa; với YOLO11n gốc (COCO) hãy để tắt,
+vì model bỏ sót quá nhiều. Worker lấy dự đoán từ confidence 0.25; các kiểm tra khác vẫn chỉ dùng ≥ 0.65.
+
+## Các nút trong giao diện
+
+- Trang dự án: **AI Checking →** mở trang AI Check (Leader bấm Bắt đầu, thành viên xem kết quả).
+- Trang Review và trang Kiểm tra theo ảnh: **Label Checking AI**. Chưa có kết quả thì Leader bấm để chạy
+  (nút hiện tiến độ x/y); thành viên thấy nút bị khoá. Có kết quả thì nút bật/tắt gợi ý AI ngay trên trang:
+  Review hiện gợi ý của nhãn đang xem; Kiểm tra theo ảnh hiện vùng có thể thiếu, các nhãn cần xem lại,
+  số gợi ý trên từng ảnh và bộ lọc "Có gợi ý AI".
 
 Python cần Ultralytics và PyTorch. Model phải tồn tại cục bộ, từ nguồn tin cậy.
 Không nhận đường dẫn model hoặc lệnh Python từ request của trình duyệt.

@@ -10,7 +10,7 @@ import {
   ENGINE_VERSIONS,
   supportsWaivers,
 } from '../core/risk/engine.ts';
-import { POLICY, POLICY_VERSION } from '../core/risk/policy.ts';
+import { POLICY, POLICY_VERSION, mergeLabels } from '../core/risk/policy.ts';
 
 // The engine scores from policy/*.json. These tests hold the files and the engine together.
 const dir = new URL('../policy/', import.meta.url);
@@ -101,8 +101,16 @@ test('every engine version still runs, each on its own policy', () => {
     ['car', 0.48, 500, 360, 680, 480, { label_top2: 'truck', score_top2: 0.4 }],
     ['person', 0.4, 100, 300, 300, 400],
   ]);
-  assert.deepEqual(ENGINE_VERSIONS, ['2.0.0', '2.1.0', '3.0.0', '4.0.0', '5.0.0']);
-  assert.equal(ENGINE_VERSION, '5.0.0');
+  assert.deepEqual(ENGINE_VERSIONS, [
+    '2.0.0',
+    '2.1.0',
+    '2.2.0',
+    '3.0.0',
+    '4.0.0',
+    '5.0.0',
+    '6.0.0',
+  ]);
+  assert.equal(ENGINE_VERSION, '6.0.0');
   for (const engineVersion of ENGINE_VERSIONS) {
     const report = analyzeDataset(structuredClone(data), { engineVersion });
     assert.equal(report.engine_version, engineVersion);
@@ -115,9 +123,18 @@ test('every engine version still runs, each on its own policy', () => {
   const old: any = analyzeDataset(structuredClone(data), { engineVersion: '4.0.0' });
   assert.equal(old.policy_version, '2.0.0');
   assert.equal(old.results[0].score, 70);
-  assert.equal(analyze([]).policy_version, '3.0.0');
+  assert.equal(analyze([]).policy_version, '4.0.0');
+  assert.equal(analyze([], { engineVersion: '5.0.0' }).policy_version, '3.0.0');
   assert.equal((analyzeDataset(data) as any).results[0].score, 20);
-  assert.deepEqual(ENGINE_VERSIONS.map(supportsWaivers), [false, false, false, true, true]);
+  assert.deepEqual(ENGINE_VERSIONS.map(supportsWaivers), [
+    false,
+    false,
+    false,
+    false,
+    true,
+    true,
+    true,
+  ]);
   assert.throws(
     () => analyzeDataset(data, { engineVersion: '4.0.0', patches: [{ op: 'disable', rule: 'x' }] }),
     /takes no patches/,
@@ -254,4 +271,45 @@ test('a project patches the policy: set, disable, narrow, add', () => {
     { op: 'narrow', rule: 'car.low_confidence', params: { below: { remove: ['x'] } } },
   ])
     assert.throws(() => analyze(boxes, { patches: [patch] }), /policy:/, JSON.stringify(patch));
+});
+
+test('motorcycle and bicycle are one label, two_wheeler, from engine 6.0.0', () => {
+  assert.equal(dataset.labels.includes('two_wheeler'), true);
+  for (const old of dataset.merged_labels.two_wheeler) {
+    assert.equal(dataset.labels.includes(old), false);
+    assert.equal(dataset.aliases[old], 'two_wheeler');
+  }
+  // The model draws one scooter twice, under both of its old names.
+  const boxes = [
+    ['motorcycle', 0.8, 600, 400, 700, 500],
+    ['bicycle', 0.6, 620, 400, 720, 500],
+    ['Bike', 0.9, 900, 400, 1000, 500],
+    ['two-wheeler', 0.9, 300, 400, 400, 500],
+  ];
+  const report = analyze(boxes);
+  assert.deepEqual(found(report, 0), []);
+  assert.deepEqual(found(report, 1), [['two_wheeler.duplicate_same_label', 50]]);
+  assert.deepEqual(
+    report.results.map((r) => r.findings.length),
+    [0, 1, 0, 0],
+  );
+  // 5.0.0 keeps them apart: two labels on one object only count from 80% overlap.
+  const before = analyze(boxes, { engineVersion: '5.0.0' });
+  assert.deepEqual(
+    before.results.map((r) => r.findings.length),
+    [0, 0, 0, 0],
+  );
+  // An import stores the merged name; other aliases are spellings and stay as written.
+  const data = mergeLabels(
+    scene([
+      ['motorcycle', 0.8, 0, 0, 50, 50],
+      ['Bike', 0.8, 0, 0, 50, 50],
+      ['rider', 0.8, 0, 0, 50, 50],
+      ['car', 0.8, 0, 0, 50, 50],
+    ]),
+  );
+  assert.deepEqual(
+    data.annotations.map((a) => a.label),
+    ['two_wheeler', 'two_wheeler', 'rider', 'car'],
+  );
 });

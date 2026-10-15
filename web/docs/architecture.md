@@ -51,21 +51,29 @@ Registry hiện có `smartreview-json`, `cvat-images`; adapter demo được scr
 
 Engine tạo lịch sử theo `(media_id, track_id)` và sort frame index. Temporal chỉ chạy khi có previous/current/next và gap mỗi bên ≤ 3 frame. Không suy đoán tracking từ object ID, vị trí hay label.
 
-| Check ID                       | Tín hiệu cần               | Điều kiện flag                                                        | Điểm    |
-| ------------------------------ | -------------------------- | --------------------------------------------------------------------- | ------- |
-| `temporal.class_inconsistency` | Track và 3 observations    | previous.label = next.label ≠ current.label                           | 50      |
-| `confidence.neighbor_drop`     | Temporal + đủ 3 confidence | confidence trung bình hai bên − hiện tại ≥ 0.20                       | 20      |
-| `geometry.bbox_validity`       | Bbox + dimensions ảnh      | width/height ≤ 0; hoặc vượt ảnh > 0.1 px                              | 70 / 40 |
-| `geometry.bbox_area`           | Temporal + 3 bbox dương    | sai lệch diện tích với trung bình hai bên ≥ 50%                       | 15      |
-| `geometry.bbox_position`       | Temporal + 3 bbox dương    | khoảng cách tâm so với trung bình hai bên / đường chéo hiện tại ≥ 0.5 | 15      |
-| `geometry.bbox_duplicate`      | Ảnh đơn (profile 2.1.0+)   | Bbox trùng lặp cao (IoU ≥ 0.85); phân biệt cùng nhãn vs khác nhãn     | 50 / 45 |
-| `geometry.bbox_tiny`           | Ảnh đơn (profile 2.1.0+)   | Kích thước cạnh < 4px hoặc diện tích < 0.001% ảnh                     | 35      |
-| `geometry.bbox_aspect`         | Ảnh đơn (profile 2.1.0+)   | Tỷ lệ cạnh bất thường (tỷ lệ dài/rộng ≥ 20:1)                         | 25      |
-| `geometry.bbox_size_outlier`   | Ảnh đơn (profile 2.1.0+)   | Diện tích lệch bất thường theo phân phối lớp (z ≥ 4, n ≥ 20 mẫu)      | 30      |
+| Check ID                       | Tín hiệu cần                        | Điều kiện flag                                                        | Điểm                 |
+| ------------------------------ | ----------------------------------- | --------------------------------------------------------------------- | -------------------- |
+| `temporal.class_inconsistency` | Track và 3 observations             | previous.label = next.label ≠ current.label                           | 50                   |
+| `confidence.neighbor_drop`     | Temporal + đủ 3 confidence          | confidence trung bình hai bên − hiện tại ≥ 0.20                       | 20 (v1) / 30–80 (v2) |
+| `confidence.low`               | Chỉ cần confidence (profile 2.2.0+) | confidence < 0.50; điểm tỷ lệ với mức thấp                            | 30–70                |
+| `geometry.bbox_validity`       | Bbox + dimensions ảnh               | width/height ≤ 0; hoặc vượt ảnh > 0.1 px                              | 70 / 40              |
+| `geometry.bbox_area`           | Temporal + 3 bbox dương             | sai lệch diện tích với trung bình hai bên ≥ 50%                       | 15                   |
+| `geometry.bbox_position`       | Temporal + 3 bbox dương             | khoảng cách tâm so với trung bình hai bên / đường chéo hiện tại ≥ 0.5 | 15                   |
+| `geometry.bbox_duplicate`      | Ảnh đơn (profile 2.1.0+)            | Bbox trùng lặp cao (IoU ≥ 0.85); phân biệt cùng nhãn vs khác nhãn     | 50 / 45              |
+| `geometry.bbox_tiny`           | Ảnh đơn (profile 2.1.0+)            | Kích thước cạnh < 4px hoặc diện tích < 0.001% ảnh                     | 35                   |
+| `geometry.bbox_aspect`         | Ảnh đơn (profile 2.1.0+)            | Tỷ lệ cạnh bất thường (tỷ lệ dài/rộng ≥ 20:1)                         | 25                   |
+| `geometry.bbox_size_outlier`   | Ảnh đơn (profile 2.1.0+)            | Diện tích lệch bất thường theo phân phối lớp (z ≥ 4, n ≥ 20 mẫu)      | 30                   |
 
-Mỗi check có `id`, `version`, `run(context)` và trả `passed`, `flagged`, hoặc `skipped` kèm reason. Không catch rồi giấu lỗi lập trình; thiếu tín hiệu được xử lý explicit trong check. Tổng điểm = min(100, tổng điểm flag). Suspicious queue mặc định score ≥ 30; High ≥ 70, Medium 40–69, Low < 40. Chế độ All có cả score 0; score 0 không chứng minh annotation đúng vì có thể nhiều check đã skip. Profile 2.0.0 (mặc định cho các dự án cũ) giữ nguyên 5 check gốc; profile 2.1.0 bổ sung 4 check ảnh đơn. Cả hai profile 2.x nằm trong `core/risk_v1` và chỉ chạy cho project đã import bằng chúng; engine 3.0.0 nằm trong `core/risk_v3`, engine 4.0.0 (policy viết trong code) trong `core/risk_v4`; project mới dùng engine 5.0.0 (`core/risk`), chấm theo các file trong `policy/` (xem [Khuôn dạng Policy](policy-format.md)).
+Mỗi check có `id`, `version`, `run(context)` và trả `passed`, `flagged`, hoặc `skipped` kèm reason. Không catch rồi giấu lỗi lập trình; thiếu tín hiệu được xử lý explicit trong check. Tổng điểm = min(100, tổng điểm flag). Suspicious queue mặc định score ≥ 30; High ≥ 70, Medium 40–69, Low < 40. Chế độ All có cả score 0; score 0 không chứng minh annotation đúng vì có thể nhiều check đã skip. Profile 2.0.0 (mặc định cho các dự án cũ) giữ nguyên 5 check gốc; profile 2.1.0 bổ sung 4 check ảnh đơn; profile 2.2.0 đưa confidence thành tín hiệu độc lập. Cả ba profile 2.x nằm trong `core/risk_v1` và chỉ chạy cho project đã import bằng chúng; engine 3.0.0 nằm trong `core/risk_v3`, engine 4.0.0 (policy viết trong code) trong `core/risk_v4`, engine 5.0.0 trong `core/risk_v5` cùng bản policy của nó; project mới dùng engine 6.0.0 (`core/risk`), chấm theo các file trong `policy/` (xem [Khuôn dạng Policy](policy-format.md)).
 
-Risk output version 1.0.0, engine version 2.0.0 / 2.1.0:
+Trước 2.2.0, confidence chỉ được đọc qua `confidence.neighbor_drop` với 20 điểm — dưới ngưỡng queue 30 — nên nó không bao giờ tự tạo được case, chỉ cộng thêm vào case mà check hình học đã tìm ra. Và vì check đó cần `track_id` cùng hai láng giềng, mọi dataset ảnh rời (BDD100K detection, COCO, CVAT images) đều skip nó, tức confidence không đóng góp gì. Profile 2.2.0 sửa hai điểm đó:
+
+- `confidence.low` xét **giá trị tuyệt đối**, không cần track hay láng giềng. Một prediction confidence 0.27 ổn định ở mọi frame trước đây được 0 điểm; nay được 48 và vào queue.
+- `confidence.neighbor_drop` v2.0.0 cho điểm tỷ lệ theo độ sụt, sàn 30 nên tự nó đủ vào queue. v1.0.0 giữ nguyên 20 điểm và vẫn là check được dùng trong profile 2.0.0/2.1.0, nên điểm của project cũ không đổi.
+
+Hai check có thể cùng bắn trên một annotation (confidence vừa thấp vừa sụt); điểm cộng dồn rồi cap ở 100 như mọi check khác. Ngưỡng 0.50 là mặc định theo điểm vận hành của detector hiện tại, chưa được hiệu chỉnh theo ground truth — khi có tập GT thì nên chọn lại ngưỡng này bằng số liệu.
+
+Risk output version 1.0.0, engine version 2.0.0 / 2.1.0 / 2.2.0:
 
 ```text
 reference: dataset_id + annotation_id + media_id + frame_id + frame_index

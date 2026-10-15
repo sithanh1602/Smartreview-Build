@@ -9,6 +9,7 @@ import { buildImageRules, missingIn } from './image-rules.ts';
 import * as legacy from '../risk_v1/engine.ts';
 import * as v3 from '../risk_v3/engine.ts';
 import * as v4 from '../risk_v4/engine.ts';
+import * as v5 from '../risk_v5/engine.ts';
 import type { Patch, Policy } from './rules.ts';
 import type { StaticContext } from './checks/shared.ts';
 import type { Annotation, Frame } from '../schema/types.ts';
@@ -54,28 +55,32 @@ const builtIn = compile();
 export const { checks, imageRules } = builtIn;
 export const severity = (score: number): Severity =>
   score >= 70 ? 'high' : score >= 40 ? 'medium' : 'low';
-export const ENGINE_VERSION = '5.0.0';
+export const ENGINE_VERSION = '6.0.0';
 // The engine version is stored with the project at import time, and a project keeps running on
 // the engine it was imported under, so its scores and dataset fingerprint never change:
-// 2.x on risk_v1, 3.0.0 on risk_v3, 4.0.0 (the policy written in code) on risk_v4.
+// 2.x on risk_v1, 3.0.0 on risk_v3, 4.0.0 (the policy written in code) on risk_v4, 5.0.0
+// (motorcycle and bicycle still two labels) on risk_v5 with the policy files it read.
 export const LATEST_ENGINE_VERSION = ENGINE_VERSION;
 export const LEGACY_ENGINE_VERSION = legacy.ENGINE_VERSION;
 export const ENGINE_VERSIONS = [
   legacy.ENGINE_VERSION,
+  legacy.IMAGE_ENGINE_VERSION,
   legacy.LATEST_ENGINE_VERSION,
   v3.ENGINE_VERSION,
   v4.ENGINE_VERSION,
+  v5.ENGINE_VERSION,
   ENGINE_VERSION,
 ];
 export function checksFor(version = ENGINE_VERSION): { id: string; version: string }[] {
   if (version === ENGINE_VERSION) return checks;
+  if (version === v5.ENGINE_VERSION) return v5.checks;
   if (version === v4.ENGINE_VERSION) return v4.checks;
   if (version === v3.ENGINE_VERSION) return v3.checks;
   return legacy.checksFor(version);
 }
 // Guideline waivers switch checks off by id; the engines before 4.0.0 know nothing of them.
 export const supportsWaivers = (version: string) =>
-  version === ENGINE_VERSION || version === v4.ENGINE_VERSION;
+  [ENGINE_VERSION, v5.ENGINE_VERSION, v4.ENGINE_VERSION].includes(version);
 
 // draft: model box at or above the working score. manual: no score, drawn by a person.
 // grey: below the working score, a hint of a missed object rather than a label.
@@ -135,6 +140,8 @@ export function analyzeDataset(
     patches = [],
   }: AnalyzeOptions = {},
 ): RiskReport | LegacyRiskReport {
+  if (engineVersion === v5.ENGINE_VERSION)
+    return v5.analyzeDataset(input, { minScore, waivers, patches }) as RiskReport;
   if (engineVersion !== ENGINE_VERSION) {
     if (patches.length)
       throw new Error(`Engine ${engineVersion} has its policy in code and takes no patches`);

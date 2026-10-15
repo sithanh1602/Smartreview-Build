@@ -1,7 +1,7 @@
 {
   "dataset_policy": {
     "schema_version": "1.0.0",
-    "policy_version": "3.0.0",
+    "policy_version": "4.0.0",
     "sources": [
       {
         "id": "label_policy",
@@ -10,14 +10,17 @@
       {
         "id": "engine",
         "ref": "SmartReview web/core/risk_v4, engine 4.0.0, policy 2.0.0"
+      },
+      {
+        "id": "previous",
+        "ref": "SmartReview web/core/risk_v5/policy, engine 5.0.0, policy 3.0.0"
       }
     ],
     "labels": [
       "car",
       "truck",
       "bus",
-      "motorcycle",
-      "bicycle",
+      "two_wheeler",
       "person",
       "traffic_light",
       "traffic_sign",
@@ -25,19 +28,27 @@
       "pole"
     ],
     "groups": {
-      "core": ["car", "truck", "bus", "motorcycle", "bicycle", "person"],
+      "core": ["car", "truck", "bus", "two_wheeler", "person"],
       "bonus": ["traffic_light", "traffic_sign", "barrier", "pole"],
       "flagged_bonus_boxes": "queue",
       "meaning": "core: box bị gắn cờ chặn ảnh khỏi tự chấp nhận, và vật bị sót cũng chặn ảnh (quy tắc mức ảnh). bonus: mô hình sinh box cho các nhãn này kém, nên việc thiếu box không chặn ảnh và quy tắc mức ảnh về chúng chỉ báo cáo.",
       "flagged_bonus_boxes_note": "queue: một box bonus đã bị gắn cờ từ 30 điểm là một lỗi cụ thể cần sửa, nên vào hàng đợi chính và chặn ảnh như box core. advisory: chỉ liệt kê ở danh sách phụ (hành vi của engine 4.0.0)."
     },
     "pairs": ["car_truck"],
+    "merged_labels": {
+      "two_wheeler": ["motorcycle", "bicycle"],
+      "note": "Các nhãn bên phải đã gộp vào nhãn bên trái. Khi import, annotation mang tên cũ (hoặc một tên khác của nó trong aliases) được đổi thành tên mới, nên dữ liệu lưu và dữ liệu xuất ra chỉ còn nhãn mới. Lý do gộp motorcycle và bicycle: trong 147 box motorcycle của mô hình, 16,3% thực ra là xe đạp, và không tín hiệu nào từ box bắt được lỗi đó."
+    },
     "label_normalisation": "Tên nhãn được đưa về chữ thường, bỏ khoảng trắng đầu cuối, khoảng trắng và gạch nối đổi thành '_', rồi tra bảng aliases.",
     "aliases": {
       "stop_sign": "traffic_sign",
-      "motor": "motorcycle",
-      "motorbike": "motorcycle",
-      "bike": "bicycle",
+      "motorcycle": "two_wheeler",
+      "bicycle": "two_wheeler",
+      "motor": "two_wheeler",
+      "motorbike": "two_wheeler",
+      "bike": "two_wheeler",
+      "two_wheel": "two_wheeler",
+      "two_wheels": "two_wheeler",
       "pedestrian": "person",
       "rider": "person"
     },
@@ -58,8 +69,7 @@
       "car": 10,
       "truck": 10,
       "bus": 10,
-      "motorcycle": 10,
-      "bicycle": 10,
+      "two_wheeler": 10,
       "person": 16,
       "traffic_light": 10,
       "traffic_sign": 10,
@@ -72,8 +82,7 @@
       "truck": [0.35, 1.4],
       "bus": [0.35, 1.5],
       "person": [1.5, 4.5],
-      "motorcycle": [0.7, 2.5],
-      "bicycle": [0.7, 2.5],
+      "two_wheeler": [0.7, 2.5],
       "traffic_light": [0.4, 3.2],
       "traffic_sign": [0.6, 1.6],
       "note": "Khoảng tỉ lệ cao/rộng của vật thấy trọn, dùng cho khuôn edge_sliver. Nhãn không có trong bảng dùng 0,2–5."
