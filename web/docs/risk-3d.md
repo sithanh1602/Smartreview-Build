@@ -66,7 +66,7 @@ Trên segment mẫu, trong 40 m, khi cài lỗi nâng hay hạ cả track 0,5 m 
 - **xe bị hạ:** 36/36, cách cũ bắt 23/36;
 - **xe bị nâng:** 31/36, cách cũ bắt 16/36.
 
-Script so sánh nằm ở `../verifier-test/scripts/ground_compare.py`.
+Script so sánh nằm ở `scripts/risk3d/ground_compare.py`.
 
 **Chỗ đối tượng vắng mặt.** Đối tượng vắng 1–5 frame giữa hai lần có mặt thì exporter nội suy một cuboid ở mỗi frame vắng (`ghosts` của frame). Phép nội suy làm trong hệ toạ độ cố định, dùng pose của xe. Cuboid nội suy được đo như cuboid thật, để biết chỗ đó còn điểm của vật không.
 
@@ -206,7 +206,7 @@ Lệnh không sửa policy; người viết policy đối chiếu rồi sửa `_
 
 ## Số đo
 
-Một segment Waymo Open Dataset v2 (198 frame, 7.271 cuboid, 137 đối tượng), nhãn gốc coi là đúng. Script đo nằm ngoài repo (`../verifier-test/scripts/inject3d.ts`). Từ `3d-1.8.0` script đo lại cuboid bị cài lỗi bằng chính hàm `count_points` của exporter (`recount3d.py`), không còn bản viết lại bằng TypeScript. Số dưới đây là của engine `3d-1.8.0` nếu không ghi khác.
+Một segment Waymo Open Dataset v2 (198 frame, 7.271 cuboid, 137 đối tượng), nhãn gốc coi là đúng. Script đo là `scripts/risk3d/inject3d.ts` (xem "Script thử" bên dưới). Từ `3d-1.8.0` script đo lại cuboid bị cài lỗi bằng chính hàm `count_points` của exporter (`recount3d.py`), không còn bản viết lại bằng TypeScript. Số dưới đây là của engine `3d-1.8.0` nếu không ghi khác.
 
 **Trên nhãn gốc:** 9 case trong 7.271 cuboid (0,12%):
 
@@ -263,13 +263,27 @@ Theo loại:
 - **Thu nhỏ 0,8 lần:** bắt nhiều ở VEHICLE nhưng gần như không ở SIGN và PEDESTRIAN, vì vật nhỏ thì cuboid nhỏ đi vẫn ôm gần hết điểm.
 - **`fit.loose`** đóng góp ít, vì mặt cuboid quay về phía xe hay bị vật khác che.
 
-**Bộ 10 frame có cài lỗi** (`../verifier-test/scripts/make_3d_errors.py`, danh sách lỗi trong `../verifier-test/output/waymo-3d-loi/LOI-DA-CAI.md`). Script sửa `lidar_box` của 10 frame đầu segment mẫu, cài 11 lỗi, để có bản import được qua app. Engine `3d-1.8.0` bắt 10 lỗi:
+**Bộ 10 frame có cài lỗi** (`scripts/risk3d/make_3d_errors.py`; script ghi danh sách lỗi vào `LOI-DA-CAI.md` cạnh file zip). Script sửa `lidar_box` của 10 frame đầu segment mẫu, cài 11 lỗi, để có bản import được qua app. Engine `3d-1.8.0` bắt 10 lỗi:
 
 - 11 case, case nào cũng nằm trên cuboid bị cài lỗi; xe tải lệch frame 2–8 có ba case: chỗ bắt đầu, giữa đoạn và chỗ kết thúc; xe dài 11,8 m bị hạ 0,6 m cả 10 frame bị `fit.sunk` bắt;
 - 1 chỗ trong `gaps` với `likely_missing` (cuboid nội suy còn 185 điểm của biển báo);
 - 36 cuboid ít điểm thành cảnh báo.
 
 Lỗi còn lại cố ý để lại vì engine chưa thấy được: xe tải 9,8 m thu nhỏ 0,8 lần (vẫn ôm 81–86% điểm). Bản 10 frame không cài lỗi cho 0 case.
+
+## Script thử
+
+Trong `scripts/risk3d/`, chạy từ `web/`. Chúng không thuộc app: dùng để đo engine khi đổi quy tắc, ngưỡng hay cách đo của exporter. Script Python cần numpy và pyarrow (`../.venv`). Script TypeScript tìm Python ở `../.venv/bin/python`, hoặc ở biến môi trường `PYTHON` nếu có.
+
+| Script              | Việc                                                                                                                                                                                     | Lệnh                                                                                  |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `inject3d.ts`       | Cài từng kiểu lỗi vào một scene đã export (nhãn coi là đúng), đếm engine bắt và báo nhầm bao nhiêu: các bảng "Lỗi cài một frame" và "Lỗi kéo dài" ở trên. `EXTRA=1` in ra từng case thừa | `node scripts/risk3d/inject3d.ts <thư mục export> [--each 150]`                       |
+| `recount3d.py`      | Phần phụ của `inject3d.ts`: đo lại cuboid bị cài lỗi bằng `count_points` của exporter                                                                                                    | (gọi từ `inject3d.ts`)                                                                |
+| `make_3d_errors.py` | Cài 11 lỗi vào `lidar_box` của một bản Waymo v2, ra thư mục và file zip import được qua app, kèm `LOI-DA-CAI.md` và `errors.json`                                                        | `../.venv/bin/python -I scripts/risk3d/make_3d_errors.py <bản Waymo> <thư mục ra>`    |
+| `ground_study.py`   | Đo mặt đường quanh từng cuboid theo từng phía, độ dốc, điểm thấp nhất của vật                                                                                                            | `../.venv/bin/python -I scripts/risk3d/ground_study.py <thư mục export> [out.json]`   |
+| `ground_compare.py` | So các cách đo mặt đường (cách cũ, mặt phẳng, theo từng phía) trên nhãn đúng và khi nâng/hạ cuboid 0,5 m và 1 m                                                                          | `../.venv/bin/python -I scripts/risk3d/ground_compare.py <thư mục export> <out.json>` |
+
+Thư mục export là đầu ra của `server/projects3d/export_waymo.py` (`scene.json` và `frames/`).
 
 ## Giới hạn
 
