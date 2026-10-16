@@ -29,6 +29,8 @@ const fields = 'd.decision,d.error_type,d.corrected_value,d.note,d.version,d.rev
 const serialize = (row: Rows[number]) =>
   ({ ...row, reviewed_at: row.reviewed_at.replace(' ', 'T') + 'Z' }) as unknown as Review;
 
+// Risk cases written by one INSERT when a dataset is registered.
+const CASE_BATCH = 500;
 export class ReviewStore {
   pool: Db;
   dataset: LoadedDataset;
@@ -40,7 +42,8 @@ export class ReviewStore {
     this.datasetId = null;
     this.suspicious = new Set(dataset.cases.map((c) => c.id));
   }
-  async initialize() {
+  // `onProgress` hears how many of the risk cases are saved.
+  async initialize(onProgress?: (done: number, total: number) => void) {
     const c = await this.pool.getConnection();
     try {
       await c.beginTransaction();
@@ -54,7 +57,30 @@ export class ReviewStore {
         [m.dataset_id],
       );
       this.datasetId = row.id;
-      for (const item of this.dataset.cases) await this.ensureCase(c, item);
+      // Many rows in one statement: one round trip for each batch, not two for each case.
+      const cases = this.dataset.cases;
+      for (let done = 0; done < cases.length; done += CASE_BATCH) {
+        onProgress?.(done, cases.length);
+        await c.query<Rows>(
+          'INSERT INTO risk_cases(dataset_revision_id,annotation_key,annotation_reference,media_reference,frame_reference,frame_index,score,severity,is_suspicious,check_ids) VALUES ? ON DUPLICATE KEY UPDATE id=id',
+          [
+            cases
+              .slice(done, done + CASE_BATCH)
+              .map((item) => [
+                this.datasetId,
+                key(item.id),
+                item.id,
+                item.reference.media_id,
+                item.reference.frame_id,
+                item.reference.frame_index,
+                item.score,
+                item.severity,
+                this.suspicious.has(item.id) ? 1 : 0,
+                JSON.stringify(item.check_ids),
+              ]),
+          ],
+        );
+      }
       await c.commit();
     } catch (error) {
       await c.rollback();
@@ -62,6 +88,30 @@ export class ReviewStore {
     } finally {
       c.release();
     }
+  }
+  // Cases a label scan put into the queue, or raised the score of, after the import.
+  async requeue(cases: Case[]) {
+    for (const item of cases) this.suspicious.add(item.id);
+    for (let done = 0; done < cases.length; done += CASE_BATCH)
+      await this.pool.query<Rows>(
+        'INSERT INTO risk_cases(dataset_revision_id,annotation_key,annotation_reference,media_reference,frame_reference,frame_index,score,severity,is_suspicious,check_ids) VALUES ? ON DUPLICATE KEY UPDATE score=VALUES(score),severity=VALUES(severity),is_suspicious=1,check_ids=VALUES(check_ids)',
+        [
+          cases
+            .slice(done, done + CASE_BATCH)
+            .map((item) => [
+              this.datasetId,
+              key(item.id),
+              item.id,
+              item.reference.media_id,
+              item.reference.frame_id,
+              item.reference.frame_index,
+              item.score,
+              item.severity,
+              1,
+              JSON.stringify(item.check_ids),
+            ]),
+        ],
+      );
   }
   async ensureCase(c: Connection, item: Case): Promise<number> {
     await c.execute<Rows>(

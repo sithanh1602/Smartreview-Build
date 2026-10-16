@@ -9,6 +9,7 @@ import { migrate } from '../server/db/migrate.ts';
 import { testPool } from './db-helpers.ts';
 let pool, auth, server, base, reviewer, annotator;
 const password = randomUUID();
+const LEADER_CODE = 'leader-' + randomUUID();
 const jar = (r) =>
   r.headers
     .getSetCookie()
@@ -34,7 +35,7 @@ const login = (user) => call('/api/auth/login', 'POST', '', { username: user.use
 before(async () => {
   pool = testPool();
   await migrate(pool);
-  auth = new AuthService(pool);
+  auth = new AuthService(pool, { leaderCode: LEADER_CODE });
   reviewer = await auth.createUser({
     username: 'review_' + randomUUID(),
     password,
@@ -86,51 +87,51 @@ test('all APIs require authentication; members reach only projects they joined',
   const reviewCookies = jar(await login(reviewer));
   assert.equal((await call('/api/meta', 'GET', reviewCookies)).status, 200);
 });
-test('session cookies are HttpOnly, scoped, and secrets are hashed in DB, absent from JSON', async () => {
+test('the only cookie is an HttpOnly access_token; secrets are hashed in DB, absent from JSON', async () => {
   const res = await login(reviewer),
     cookies = jar(res);
   const body = await res.json();
-  assert.deepEqual(Object.keys(body).sort(), ['accessExpiresIn', 'user']);
-  for (const c of res.headers.getSetCookie()) {
+  assert.deepEqual(Object.keys(body).sort(), ['expiresAt', 'user']);
+  const set = res.headers.getSetCookie();
+  const session = set.filter((c) => !/Max-Age=0/.test(c));
+  assert.equal(session.length, 1);
+  assert.match(session[0], /^access_token=[A-Za-z0-9_-]{43}; Path=\/api;/);
+  assert.match(session[0], /Max-Age=3600/);
+  for (const c of set) {
     assert.match(c, /HttpOnly/);
     assert.match(c, /SameSite=Strict/);
-    assert.doesNotMatch(c, /Max-Age|Expires=/);
   }
+  // Cookies from the version with a refresh token are removed.
+  assert.ok(set.some((c) => /^sr_refresh=; Path=\/api\/auth;.*Max-Age=0/.test(c)));
   const [[row]] = await pool.execute('SELECT * FROM auth_sessions WHERE access_hash=?', [
-    tokenHash(value(cookies, 'sr_access')),
+    tokenHash(value(cookies, 'access_token')),
   ]);
-  assert.equal(row.refresh_hash, tokenHash(value(cookies, 'sr_refresh')));
-  assert.notEqual(row.access_hash, value(cookies, 'sr_access'));
+  assert.equal(row.refresh_hash, null);
+  assert.notEqual(row.access_hash, value(cookies, 'access_token'));
+  const minutes = (Date.parse(body.expiresAt) - Date.now()) / 60000;
+  assert.ok(minutes > 59 && minutes <= 60, `session lasts an hour, got ${minutes} minutes`);
+  const me = await (await call('/api/auth/me', 'GET', cookies)).json();
+  assert.equal(me.expiresAt, body.expiresAt);
   const [[u]] = await pool.execute('SELECT password_hash FROM users WHERE id=?', [reviewer.id]);
   assert.match(u.password_hash, /^scrypt\$/);
   assert.notEqual(u.password_hash, password);
 });
-test('refresh rotates tokens atomically; logout and expiry revoke access', async () => {
+test('the session ends after its hour and cannot be extended; logout revokes it', async () => {
   const old = jar(await login(reviewer));
+  assert.equal((await call('/api/auth/me', 'GET', old)).status, 200);
   await pool.execute(
     'UPDATE auth_sessions SET access_expires_at=DATE_SUB(UTC_TIMESTAMP(3), INTERVAL 1 SECOND) WHERE access_hash=?',
-    [tokenHash(value(old, 'sr_access'))],
+    [tokenHash(value(old, 'access_token'))],
   );
   assert.equal((await call('/api/auth/me', 'GET', old)).status, 401);
-  const responses = await Promise.all([
-    call('/api/auth/refresh', 'POST', old, {}),
-    call('/api/auth/refresh', 'POST', old, {}),
-  ]);
-  assert.deepEqual(responses.map((r) => r.status).sort(), [200, 401]);
-  const fresh = jar(responses.find((r) => r.status === 200));
+  assert.equal((await call('/api/projects', 'GET', old)).status, 401);
+  assert.equal((await call('/api/auth/refresh', 'POST', old, {})).status, 404);
+  const fresh = jar(await login(reviewer));
   assert.equal((await call('/api/auth/me', 'GET', fresh)).status, 200);
-  assert.equal((await call('/api/auth/me', 'GET', old)).status, 401);
   const logout = await call('/api/auth/logout', 'POST', fresh, {});
   assert.equal(logout.status, 200);
   assert.ok(logout.headers.getSetCookie().every((c) => c.includes('Max-Age=0')));
   assert.equal((await call('/api/auth/me', 'GET', fresh)).status, 401);
-  assert.equal((await call('/api/auth/refresh', 'POST', fresh, {})).status, 401);
-  const expired = jar(await login(reviewer));
-  await pool.execute(
-    'UPDATE auth_sessions SET refresh_expires_at=DATE_SUB(UTC_TIMESTAMP(3), INTERVAL 1 SECOND) WHERE access_hash=?',
-    [tokenHash(value(expired, 'sr_access'))],
-  );
-  assert.equal((await call('/api/auth/refresh', 'POST', expired, {})).status, 401);
 });
 test('role changes and disabled accounts take effect for existing tokens', async () => {
   const cookies = jar(await login(reviewer));
@@ -139,7 +140,6 @@ test('role changes and disabled accounts take effect for existing tokens', async
     assert.equal((await call('/api/meta', 'GET', cookies)).status, 403);
     await pool.execute('UPDATE users SET enabled=0 WHERE id=?', [reviewer.id]);
     assert.equal((await call('/api/auth/me', 'GET', cookies)).status, 401);
-    assert.equal((await call('/api/auth/refresh', 'POST', cookies, {})).status, 401);
   } finally {
     await pool.execute("UPDATE users SET enabled=1,role='leader' WHERE id=?", [reviewer.id]);
   }
@@ -161,12 +161,7 @@ test('rejects role injection, wrong passwords, cross-origin writes and brute for
     401,
   );
   const cookies = jar(await login(reviewer));
-  for (const route of [
-    '/api/auth/login',
-    '/api/auth/refresh',
-    '/api/auth/logout',
-    '/api/projects/demo',
-  ])
+  for (const route of ['/api/auth/login', '/api/auth/logout', '/api/projects/demo'])
     assert.equal(
       (await call(route, 'POST', cookies, {}, { Origin: 'https://other.invalid' })).status,
       403,
@@ -245,6 +240,87 @@ test('registration validates input and account type, hashes password and support
       ipBucket,
       tokenHash('register:account:' + username),
       tokenHash('account:' + username),
+    ]);
+  }
+});
+test('a leader account needs the leader code; the hidden field makes registration a no-op', async () => {
+  const username = 'lead_' + randomUUID(),
+    bot = 'bot_' + randomUUID();
+  const ipBucket = tokenHash('register:ip:127.0.0.1');
+  const register = (data) => call('/api/auth/register', 'POST', '', data);
+  try {
+    assert.equal((await register({ username, password, role: 'leader' })).status, 403);
+    assert.equal(
+      (await register({ username, password, role: 'leader', leaderCode: 'wrong' })).status,
+      403,
+    );
+    assert.equal((await register({ username, password, leaderCode: 1 })).status, 400);
+    const res = await register({ username, password, role: 'leader', leaderCode: LEADER_CODE });
+    assert.equal(res.status, 201);
+    assert.equal((await res.json()).user.role, 'leader');
+    const caught = await register({ username: bot, password, website: 'https://spam.invalid' });
+    assert.equal(caught.status, 201);
+    const [rows] = await pool.execute('SELECT id FROM users WHERE username=?', [bot]);
+    assert.equal(rows.length, 0);
+    // Without a configured code nobody registers as a leader.
+    await assert.rejects(
+      new AuthService(pool).register(
+        { username: 'x' + username.slice(1), password, role: 'leader', leaderCode: '' },
+        randomUUID(),
+      ),
+      { status: 403 },
+    );
+  } finally {
+    await pool.execute('DELETE FROM users WHERE username IN (?,?)', [username, bot]);
+    await pool.execute('DELETE FROM auth_login_limits WHERE bucket IN (?,?,?)', [
+      ipBucket,
+      tokenHash('register:account:' + username),
+      tokenHash('register:account:' + bot),
+    ]);
+  }
+});
+test('the creator hides a project from other leaders and shows it again', async () => {
+  const other = await auth.createUser({
+    username: 'other_' + randomUUID(),
+    password,
+    role: 'leader',
+  });
+  const mine = jar(await login(reviewer)),
+    theirs = jar(await login(other));
+  const created = await call('/api/projects', 'POST', mine, {
+    name: 'hidden-' + randomUUID(),
+    format: 'smartreview-json',
+  });
+  assert.equal(created.status, 201);
+  const { id } = await created.json();
+  const listed = async (cookies) =>
+    (await (await call('/api/projects', 'GET', cookies)).json()).find((p) => p.id === id);
+  try {
+    assert.equal((await listed(theirs)).hidden, false);
+    for (const data of [{}, { hidden: 'yes' }, { hidden: true, name: 'x' }])
+      assert.equal((await call(`/api/projects/${id}`, 'PATCH', mine, data)).status, 400);
+    // Another leader can neither hide it nor, once hidden, see or open it.
+    assert.equal(
+      (await call(`/api/projects/${id}`, 'PATCH', theirs, { hidden: true })).status,
+      403,
+    );
+    const hide = await call(`/api/projects/${id}`, 'PATCH', mine, { hidden: true });
+    assert.deepEqual(await hide.json(), { id, hidden: true });
+    assert.equal(await listed(theirs), undefined);
+    assert.equal((await call(`/api/projects/${id}/members`, 'GET', theirs)).status, 404);
+    assert.equal(
+      (await call(`/api/projects/${id}`, 'PATCH', theirs, { hidden: false })).status,
+      404,
+    );
+    assert.equal((await listed(mine)).hidden, true);
+    assert.equal((await call(`/api/projects/${id}/members`, 'GET', mine)).status, 200);
+    await call(`/api/projects/${id}`, 'PATCH', mine, { hidden: false });
+    assert.equal((await listed(theirs)).hidden, false);
+  } finally {
+    await call(`/api/projects/${id}`, 'DELETE', mine);
+    await pool.execute('DELETE FROM users WHERE id=?', [other.id]);
+    await pool.execute('DELETE FROM auth_login_limits WHERE bucket=?', [
+      tokenHash('account:' + other.username),
     ]);
   }
 });

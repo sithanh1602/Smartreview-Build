@@ -1,143 +1,193 @@
-# Policy 3D (cuboid LiDAR)
+# Cách viết Policy 3D
 
-Trạng thái: **đề xuất, chưa chạy.** `policy3d/` viết Policy cho project 3D theo đúng khuôn dạng của Policy 2D ([Khuôn dạng Policy](policy-format.md)), nhưng chưa có engine nào đọc nó: project 3D hiện ghi `engine_version` `none` và người review tự đi qua từng frame ([Project 3D](projects-3d.md)). Mọi quy tắc có `status: "proposed"` (hoặc `manual`), đủ tham số để một engine 3D chạy được ngay khi có khuôn.
+Tài liệu này hướng dẫn **người viết policy** cho Risk Engine 3D: file nằm ở đâu, gồm những phần nào, một quy tắc cần ghi gì và quy trình đặt ngưỡng. Nó không chứa policy. Policy đang chạy là `policy3d/_scene.json`; cách engine dùng các quy tắc đó được mô tả trong `docs/risk-3d.md`.
 
-Ngưỡng là **giá trị khởi điểm** theo kích thước và tốc độ vật lý, chưa đo trên segment Waymo nào. Phải đo lại (mục 6) trước khi đổi quy tắc nào sang `active`.
+**Policy 2D và policy 3D là hai hệ riêng.** Policy 2D (box trên ảnh) viết theo `docs/policy-format.md`, nằm trong `policy/` và do `core/risk` đọc. Policy 3D (cuboid trong point cloud) viết theo tài liệu này, nằm trong `policy3d/` và do `core/risk3d` đọc. Hai bên không đọc file của nhau. Đừng chép một trường từ file 2D sang file 3D, kể cả khi trùng tên.
 
-`tests/policy3d.test.ts` giữ các file đúng cấu trúc: mỗi nhãn một file, id không trùng, khuôn có trong mục 4, quy tắc chạy được thì có tham số và điểm, quy tắc theo track thì cần `track_id`.
+## 1. 2D và 3D khác nhau thế nào
 
-## 1. Bố cục
+| Điểm                 | Policy 2D (`policy/`)                                                   | Policy 3D (`policy3d/`)                                                   |
+| -------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| Đơn vị được chấm     | Box trên một ảnh                                                        | Cuboid trong một frame, và đối tượng (track) qua nhiều frame              |
+| Số file              | Một file cho mỗi nhãn, file cặp nhãn, `_dataset.json`, `_frame.json`    | Một file cho cả scene: `_scene.json`                                      |
+| Khoá bọc ngoài       | `<tên file>_policy` (`car_policy`, `dataset_policy`…)                   | `scene_policy`                                                            |
+| Nhãn                 | Chữ thường: `car`, `person`, `two_wheeler`…                             | Loại của Waymo, chữ hoa: `VEHICLE`, `PEDESTRIAN`, `CYCLIST`, `SIGN`       |
+| Quy tắc chạy thế nào | Khuôn (`check`) kèm `params`; khuôn nằm trong `checks/templates.ts`     | Mỗi `id` ứng với một đoạn code riêng trong `core/risk3d/engine.ts`        |
+| Trạng thái quy tắc   | `status`: `active` / `proposed` / `manual`                              | Không có `status`. Quy tắc có trong file là chạy, xoá khỏi file là tắt    |
+| Đơn vị đo            | Pixel, tỉ lệ so với ảnh                                                 | Mét, radian, số điểm LiDAR                                                |
+| Dữ liệu engine đọc   | Annotation, ảnh, confidence                                             | Chỉ `scene.json`: cuboid, pose của xe, số điểm đã đếm (`counted`)         |
+| Guideline của dự án  | Là bản vá trên Policy                                                   | Chưa có                                                                   |
+| Phiên bản cũ         | Bản sao policy đóng băng theo `engine_version` (`core/risk_v5/policy`…) | Chưa có bản đóng băng; project giữ `risk.json` đã chấm lúc import (mục 7) |
+
+## 2. Bố cục file
 
 ```
 policy3d/
-  _dataset.json            nhãn, ánh xạ type của Waymo, quy ước toạ độ, quy tắc chung any.*
-  _frame.json              quy tắc mức frame: dữ liệu frame dùng được không, frame tự chấp nhận được không
-  vehicle.json             core
-  pedestrian.json          core
-  cyclist.json             core: một cuboid cho cả người lái và xe
-  sign.json                bonus
-  pedestrian_cyclist.json  cặp nhãn: người lái bị gán thêm cuboid pedestrian
+  _scene.json      toàn bộ policy 3D, bọc trong khoá "scene_policy"
 ```
 
-Thư mục tách khỏi `policy/` vì bộ nhãn khác hẳn và engine 2D nạp `policy/` theo tên file. Các trường của file nhãn, file cặp và quy tắc giữ nguyên nghĩa như mục 2, 2.1 và 3 của khuôn dạng 2D.
+Các phần của `scene_policy`, theo thứ tự nên viết:
 
-## 2. Dữ liệu và quy ước
+| Trường           | Bắt buộc | Viết gì                                                                                                       |
+| ---------------- | -------- | ------------------------------------------------------------------------------------------------------------- |
+| `schema_version` | có       | Phiên bản của khuôn dạng file. Chỉ đổi khi thêm, bỏ hoặc đổi nghĩa một trường                                 |
+| `policy_version` | có       | Phiên bản nội dung. Tăng mỗi lần đổi ngưỡng, điểm, loại hay quy tắc (mục 7)                                   |
+| `purpose`        | có       | Một đoạn: policy chấm gì, engine được đọc gì và không được đọc gì                                             |
+| `sources`        | có       | Dữ liệu dùng để đo ngưỡng: `id` và `ref` (segment nào, bao nhiêu frame/cuboid/đối tượng, nhãn có coi là đúng) |
+| `scoring`        | có       | Cách cộng điểm và chia mức (mục 3)                                                                            |
+| `tracks`         | không    | `note` bằng lời: so sánh qua các frame được làm thế nào. Engine không đọc                                     |
+| `types`          | có       | Giới hạn của từng loại đối tượng (mục 4)                                                                      |
+| `rules`          | có       | Danh sách quy tắc (mục 5)                                                                                     |
+| `gaps`           | không    | `max_frames` và `note`: đối tượng vắng mặt bao nhiêu frame thì được liệt kê là chỗ có thể thiếu cuboid        |
+| `open_questions` | không    | Những gì chưa đo, chưa chắc hoặc chưa có quy tắc. Mỗi mục một câu                                             |
 
-Mỗi cuboid trong `scene.json` có: `id` (`laser_object_id`, giữ nguyên qua các frame nên dùng làm `track_id`), `type`, `center` [x, y, z], `size` [length, width, height], `heading`, `points` (số điểm lidar trong box). Mỗi frame có `pose` (hệ xe → hệ toàn cục) và `laserCounts`. Không có confidence: nhãn Waymo do người gán.
+Trường nào engine đọc thì phải có số, không được ghi bằng lời. Trường `note`, `text`, `measured`, `purpose` dành cho người đọc.
 
-- Mét, radian, m/s. Ngưỡng `min` và `max` tính cả biên; khoảng ghi `[min, max]`.
-- Hệ xe: x hướng đầu xe, y sang trái, z hướng lên. Quy tắc một box và hai box dùng hệ xe; quy tắc theo track đổi sang hệ toàn cục bằng `pose`, để chuyển động của chính xe ghi hình không bị tính vào vật.
-- `distance`: khoảng cách trên mặt phẳng xy từ gốc hệ xe tới tâm cuboid.
-- **BEV IoU**: IoU của hai hình chữ nhật xoay khi chiếu cuboid xuống mặt phẳng xy.
-- **Mặt đường tại chỗ**: trung vị đáy (`center.z − height / 2`) của các cuboid vehicle, pedestrian, cyclist khác trong bán kính `radius_m`. Ít hơn `min_neighbours` cuboid thì quy tắc bỏ qua, không đoán mặt đường từ gốc hệ toạ độ.
-- 10 frame mỗi giây, nên "một frame" là 0,1 s.
+## 3. `scoring`
 
-| `type` Waymo | Nhãn         | Nhãn 2D tương ứng (khi chiếu lên ảnh) |
-| ------------ | ------------ | ------------------------------------- |
-| `VEHICLE`    | `vehicle`    | `car`, `truck`, `bus`                 |
-| `PEDESTRIAN` | `pedestrian` | `person`                              |
-| `CYCLIST`    | `cyclist`    | `two_wheeler` và `person` (người lái) |
-| `SIGN`       | `sign`       | `traffic_sign`                        |
-| `UNKNOWN`    | không có     | bị gắn cờ bởi `any.unknown_type`      |
+```json
+"scoring": {
+  "queue_from": 30,
+  "max_score": 100,
+  "high_from": 70,
+  "medium_from": 40,
+  "sum": "…",
+  "error_type": "…"
+}
+```
 
-## 3. Điểm và mức
+- `queue_from`: cuboid có tổng điểm từ mức này trở lên là một **case** và vào hàng đợi review. Dưới mức này, cuboid chỉ nằm trong `warnings` của báo cáo.
+- `max_score`: trần của tổng điểm.
+- `high_from`, `medium_from`: ngưỡng chia mức `high` / `medium` / `low`. Viewer 3D tô ghim theo mức: cam là `high`, vàng là `medium` hoặc `low`.
+- `sum`, `error_type`: viết bằng lời cách cộng điểm và cách chọn lỗi nghi ngờ khi nhiều quy tắc cùng bắt một cuboid. Engine không đọc hai trường này; nếu đổi cách cộng thì phải sửa code.
 
-Giữ như 2D: điểm của một cuboid là tổng điểm các quy tắc bắt lỗi, tối đa 100; vào hàng đợi từ 30, mức cao từ 70. Nhóm `family: "weak"` (`few_points`, `low_confidence`) chỉ tính một lần. Quy tắc theo track chấm cuboid **ở frame xảy ra sự việc**; áp quyết định cho cả track là việc của người review (nút "Áp dụng cho cả N frame").
+Đặt ngưỡng sao cho **một quy tắc mạnh đứng một mình cũng đủ thành case**, còn quy tắc yếu thì phải cộng với quy tắc khác mới vượt `queue_from`.
 
-Thang điểm dùng trong các file:
+## 4. `types`
 
-| Điểm  | Khi nào                                                                   | Ví dụ                                                          |
-| ----- | ------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| 100   | Cuboid hỏng về dữ liệu                                                    | `valid_cuboid`                                                 |
-| 70    | Gần như chắc chắn sai                                                     | `any.ego_vehicle`                                              |
-| 50    | Sai về vật lý, ít ngoại lệ                                                | `axis_order`, `max_speed`, `no_points`, hai xe lồng nhau       |
-| 30    | Đáng xem, có ngoại lệ hợp lý                                              | `size_range`, `ground_contact`, `rigid_size`, `low_confidence` |
-| 10–20 | Dấu hiệu yếu hoặc cảnh báo (`level: "warning"`, không vào hàng đợi chính) | `few_points`, `beyond_range`, `track_gap`, `sign.mounted`      |
+Mỗi loại đối tượng là một khoá, kèm các giới hạn mà quy tắc dùng:
 
-`low_confidence` lấy 30 điểm theo policy 2D 5.0.0: confidence thấp một mình đủ vào hàng đợi. Nó chỉ chạy khi dự án nhập cuboid của một mô hình 3D.
+```json
+"VEHICLE": {
+  "size": { "length": [1.2, 26], "width": [0.6, 4], "height": [0.8, 5.5] },
+  "position_jump_m": 0.6,
+  "heading_jump_rad": 0.35,
+  "empty_within_m": 30,
+  "outside_ratio": 0.45,
+  "slack_ratio": 0.32,
+  "moved_ratio": 0.5,
+  "empty_side_m": 0.6,
+  "level_shift_m": 0.3
+}
+```
 
-## 4. Các khuôn 3D
+| Trường             | Đơn vị | Ý nghĩa                                                                       |
+| ------------------ | ------ | ----------------------------------------------------------------------------- |
+| `size`             | m      | `[nhỏ nhất, lớn nhất]` của dài (theo hướng cuboid), rộng, cao                 |
+| `position_jump_m`  | m      | Tâm lệch khỏi trung điểm của hai frame kề từ mức này thì bị gắn cờ            |
+| `heading_jump_rad` | rad    | Hướng lệch khỏi hai frame kề từ mức này thì bị gắn cờ                         |
+| `empty_within_m`   | m      | Trong khoảng cách này tới xe, cuboid không có điểm LiDAR nào là bất thường    |
+| `outside_ratio`    | 0–1    | Mức của `fit.points_outside`: trung vị phần điểm của vật tràn ra ngoài cuboid |
+| `slack_ratio`      | 0–1    | Mức của `fit.loose`: trung vị khoảng trống ở hai mặt nhìn thấy, chia nửa cạnh |
+| `moved_ratio`      | 0–1    | Mức của `fit.moved`: trung vị phần điểm cuboid còn thiếu so với chỗ tốt nhất  |
+| `empty_side_m`     | m      | Mức của `fit.empty_side`: trung vị khoảng trống ở mặt quay về phía xe         |
+| `level_shift_m`    | m      | Mức của `fit.lowered`/`fit.raised`: trung vị `lift` lệch khỏi mức của track   |
 
-### 4.1. Mức một cuboid
+Cách viết:
 
-| Khuôn            | Bắt lỗi khi                                                                        | Tham số                                                                                                                                              |
-| ---------------- | ---------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `valid_cuboid`   | Tâm, kích thước, hướng không hữu hạn, hoặc một cạnh không dương                    | `require`: `finite`, `positive_size`                                                                                                                 |
-| `size_range`     | Một cạnh ngoài khoảng                                                              | `length_m`, `width_m`, `height_m` (mỗi cái `[min, max]`); hoặc `max_side_m`, `min_side_m`, `thinnest_side_max_m` khi không biết trục nào là trục nào |
-| `axis_order`     | Cạnh theo heading không dài hơn cạnh ngang đủ lần (heading lệch 90°)               | `longer`, `shorter`, `min_ratio`                                                                                                                     |
-| `lidar_points`   | Số điểm lidar trong cuboid dưới ngưỡng                                             | `below`; `within_distance_m` (tuỳ chọn: chỉ chấm cuboid gần hơn)                                                                                     |
-| `ground_contact` | Đáy lơ lửng hoặc chìm so với mặt đường tại chỗ; hoặc quá thấp với vật gắn trên cột | `max_float_m`, `max_sink_m` hoặc `min_clearance_m`; `ground_from`, `radius_m`, `min_neighbours`                                                      |
-| `range_limit`    | Cuboid xa hơn vùng gán nhãn                                                        | `max_distance_m`                                                                                                                                     |
-| `ego_overlap`    | Tâm cuboid nằm trong thân xe ghi hình                                              | `footprint_m` (`x`, `y` theo hệ xe), `point`                                                                                                         |
-| `allowed_labels` | Loại không nằm trong danh sách                                                     | `labels`                                                                                                                                             |
-| `low_confidence` | Như 2D                                                                             | `below`                                                                                                                                              |
+- Tên loại phải trùng đúng với `type` trong `scene.json` (chữ hoa). Loại không có trong `types` thì **không bị chấm**, và engine cũng không báo lỗi.
+- Mọi loại phải có đủ tám trường đầu. Thiếu một trường thì quy tắc dùng trường đó sẽ chạy sai. Riêng `level_shift_m` được bỏ trống: loại không có nó (như `SIGN`, không đứng trên mặt đường) thì `fit.lowered` và `fit.raised` không xét.
+- Các trường của `fit.*` so với **trung vị trên nhiều frame** (mục `Độ khít` của `docs/risk-3d.md`), nên đo chúng bằng trung vị trên cùng cửa sổ, không bằng giá trị của từng cuboid.
+- Đo trên dữ liệu đúng rồi **nới rộng** ra: lấy giá trị lớn nhất đo được, cộng thêm một khoảng an toàn. Ghi số đo gốc vào `measured` của quy tắc liên quan để người sau biết khoảng nới là bao nhiêu.
+- Loại chưa có số đo (như `CYCLIST` hiện nay) vẫn có thể đặt giới hạn ước lượng, nhưng phải ghi vào `note` hoặc `open_questions`.
 
-### 4.2. Mức hai cuboid cùng frame
+## 5. Viết một quy tắc
 
-| Khuôn        | Bắt lỗi khi                                         | Tham số                                                                                                                                                                                 |
-| ------------ | --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `overlap_3d` | Hai cuboid lồng vào nhau (vật rắn không xuyên nhau) | `with` (`same` hoặc danh sách nhãn) hoặc `between` (file cặp); `bev_iou`; `min_z_overlap_m`; `duplicate_iou` (từ mức này là gán trùng, `EXTRA_OBJECT`); `flag`: `smaller` hoặc tên nhãn |
-| `inside_3d`  | Một điểm của cuboid nằm trong cuboid nhãn khác      | `container`, `point` (`center`), `shrink_m` (thu nhỏ cuboid chứa mỗi phía)                                                                                                              |
+```json
+{
+  "id": "track.position_jump",
+  "score": 50,
+  "error_type": "BBOX",
+  "text": "Tâm cuboid lệch khỏi trung điểm của hai frame kề nhiều hơn mức của loại đó…",
+  "params": { "vertical_jump_m": 0.4 },
+  "measured": "Segment mẫu, lệch ngang lớn nhất: VEHICLE 0,27 m, PEDESTRIAN 0,17 m…"
+}
+```
 
-`min_z_overlap_m` loại trường hợp hai cuboid chồng nhau khi nhìn từ trên nhưng ở hai độ cao khác nhau (xe chở trên xe, cầu vượt).
+| Trường       | Bắt buộc                       | Viết gì                                                                                                                                                                                                                                                                |
+| ------------ | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`         | có                             | `<phạm vi>.<tên>`, chữ thường, `_` giữa các từ. Phạm vi xem bảng dưới                                                                                                                                                                                                  |
+| `score`      | có, trừ khi `level: "warning"` | Điểm cộng vào cuboid khi quy tắc bắt được, lớn hơn 0                                                                                                                                                                                                                   |
+| `level`      | không                          | `"warning"`: chỉ cảnh báo, không cộng điểm. Dùng khi chính dữ liệu đúng cũng hay rơi vào quy tắc này                                                                                                                                                                   |
+| `error_type` | có                             | Lỗi nghi ngờ, một trong `CLASS`, `BBOX`, `TRACKING`, `EXTRA_OBJECT`, `OTHER`. Phải trùng với lựa chọn lỗi của form review 3D (`ERROR_TYPES_3D` trong `ObjectPanel.tsx`). Không dùng `MISSING_OBJECT` của 2D: cuboid còn thiếu không có gì để gắn điểm, nó thuộc `gaps` |
+| `text`       | có                             | Một câu nói quy tắc bắt gì, viết cho reviewer. Nhắc tên tham số (`ratio`, `min_frames`…) nếu có                                                                                                                                                                        |
+| `params`     | có                             | Các con số riêng của quy tắc. `{}` nếu quy tắc chỉ dùng giới hạn trong `types`                                                                                                                                                                                         |
+| `measured`   | có                             | Số đo trên dữ liệu ở `sources` dẫn tới ngưỡng này: lớn nhất bao nhiêu, bao nhiêu phần trăm rơi vào. Chưa đo thì ghi rõ "chưa đo"                                                                                                                                       |
 
-### 4.3. Mức track
+Phạm vi của `id`:
 
-Cần `track_id`; quy tắc có `frame: "global"` cần thêm `pose`.
+| Tiền tố   | Chấm gì                                                   | Ví dụ                                                                                                                     |
+| --------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `box.`    | Một cuboid, tự nó                                         | `box.size_out_of_range`                                                                                                   |
+| `points.` | Số điểm LiDAR trong cuboid                                | `points.empty_near`, `points.dropped`                                                                                     |
+| `pair.`   | Hai cuboid trong cùng một frame                           | `pair.duplicate`                                                                                                          |
+| `track.`  | Một đối tượng qua các frame (cùng `id`)                   | `track.type_change`, `track.size_change`                                                                                  |
+| `fit.`    | Độ khít của cuboid với điểm của vật, trên một chuỗi frame | `fit.moved`, `fit.empty_side`, `fit.floating`, `fit.sunk`, `fit.lowered`, `fit.raised`, `fit.points_outside`, `fit.loose` |
 
-| Khuôn               | Bắt lỗi khi                                                                  | Tham số                                                                         |
-| ------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| `rigid_size`        | Một cạnh lệch khỏi trung vị của track quá tỉ lệ cho phép                     | `axes`, `max_relative_change`, `compare_to: "track_median"`, `min_track_frames` |
-| `max_speed`         | Vị trí giữa hai frame kề ứng với tốc độ quá ngưỡng (ID bị gán sang vật khác) | `m_per_s`, `frame`, `max_frame_gap`                                             |
-| `heading_jump`      | Hướng quay quá ngưỡng trong một frame; lệch gần π ghi riêng là đảo đầu đuôi  | `max_rad_per_frame`, `flip_within_rad`, `frame`, `max_frame_gap`                |
-| `heading_vs_motion` | Vật đang chạy mà hướng cuboid lệch hướng chuyển động                         | `min_speed_m_per_s`, `max_angle_rad`, `frame`, `window_frames`                  |
-| `static_object`     | Vật đứng yên (biển báo) trôi trong hệ toàn cục                               | `max_speed_m_per_s`, `frame`, `min_track_frames`                                |
-| `min_track_length`  | Track quá ngắn khi vật ở gần và không ở đầu hay cuối segment                 | `frames`, `within_distance_m`, `not_at_segment_edge_frames`                     |
-| `constant_in_track` | Như 2D; `field: "type"`, `mode: "any_change"`                                |                                                                                 |
-| `max_gap`           | Như 2D; thêm `within_distance_m`                                             |                                                                                 |
+Quy ước khi viết:
 
-### 4.4. Mức frame (`_frame.json`)
+- **Một quy tắc bắt một kiểu lỗi.** Nếu một hiện tượng có thể do hai loại lỗi khác nhau gây ra, tách thành hai quy tắc với hai `error_type`.
+- **Quy tắc theo track** phải nói rõ trong `text` là so với frame nào (hai frame kề, đa số các frame…). Engine chỉ so với hai frame kề khi đối tượng có ở cả frame liền trước và liền sau.
+- **Quy tắc ở mức đối tượng** (một case cho cả track, như `track.never_observed`) phải ghi trong `text` là case được gắn vào cuboid nào.
+- **Không dùng `score` để tắt quy tắc.** Muốn tắt thì xoá quy tắc khỏi file. Muốn giữ nhưng không cộng điểm thì dùng `level: "warning"`.
 
-Không cộng điểm cho cuboid. `blocking: true` là frame không được tự chấp nhận.
+## 6. Quy trình đặt một ngưỡng
 
-| Khuôn         | Kích hoạt khi                                                             | Tham số                                           |
-| ------------- | ------------------------------------------------------------------------- | ------------------------------------------------- |
-| `lidar_count` | Một lidar không có điểm ở frame này                                       | `lasers` (`all` hoặc danh sách tên), `min_points` |
-| `pose_jump`   | Vị trí xe ghi hình giữa hai frame kề nhảy quá ngưỡng                      | `max_m_per_frame`                                 |
-| `frame_count` | Như 2D; thêm `points_below`, `within_distance_m` để đếm cuboid rỗng ở gần | `labels`, `op`, `value`                           |
+1. **Đo trên dữ liệu đúng.** Chạy `npm run risk3d -- scene.json --calibrate` trên một segment có nhãn coi là đúng: lệnh in, cho mỗi loại và mỗi mức, giá trị lớn nhất nhãn đúng đạt tới (đo đúng như quy tắc đo), mức hiện tại, mức đề xuất, và cờ khi mức hiện tại sẽ báo nhầm. Quy tắc chưa có trong lệnh thì viết script đo riêng (để ngoài repo). Ghi lại giá trị lớn nhất và phân bố.
+2. **Đặt ngưỡng trên giá trị lớn nhất đó**, cộng khoảng an toàn. Nếu dữ liệu đúng cũng vượt ngưỡng ở nhiều chỗ, quy tắc đó chỉ nên là `warning`.
+3. **Cài lỗi giả để thử.** Sửa một bản sao `scene.json`: dịch, xoay hoặc đổi kích thước một cuboid, đổi `type` ở một frame, xoá điểm… Kiểm rằng quy tắc bắt được đúng cuboid đó và không bắt hai cuboid kề nó.
+4. **Ghi `measured`** bằng số cụ thể, và thêm segment đã dùng vào `sources` nếu là segment mới.
+5. **Tăng `policy_version`** (mục 7) và chạy `node --test tests/risk3d.test.ts`.
+6. Điều gì chưa đo được thì ghi vào `open_questions`, đừng để ngầm định.
 
-`lidar_count` và `pose_jump` kiểm **dữ liệu** chứ không kiểm nhãn: frame thiếu lidar hay pose hỏng thì các quy tắc khác của frame đó không đáng tin.
+## 7. Phiên bản, và điều gì cần code
 
-## 5. Những gì Policy 3D bắt và không bắt
+- **Đổi số** (ngưỡng, điểm, `error_type`, giới hạn trong `types`): chỉ sửa `_scene.json` và tăng `policy_version`, ví dụ `1.0.0` → `1.1.0`.
+- **Thêm quy tắc mới**: cần cả file lẫn code. Viết quy tắc vào `_scene.json`, đồng thời phải có đoạn code trong `core/risk3d/engine.ts` chạy `id` đó. Test `every rule of the policy is one the engine runs` hiện **không bắt được** một `id` chưa có code: quy tắc đó sẽ không làm gì mà không báo lỗi. Vì vậy mỗi quy tắc mới phải đi kèm một test riêng trong `tests/risk3d.test.ts`, có cài lỗi giả để chứng minh quy tắc thật sự bắt được.
+- **Đổi tên `id`**: phải sửa cả code, vì engine tìm quy tắc theo `id`.
+- **Đổi cách cộng điểm** hoặc thêm một trường mà engine phải đọc: tăng `ENGINE_3D_VERSION` trong `core/risk3d/engine.ts`, và tăng `schema_version` nếu khuôn dạng file đổi.
+- **Ảnh hưởng tới project đã import**: báo cáo được chấm lúc import và lưu thành `risk.json`. Sửa policy chỉ đổi kết quả của các lần import sau, cho tới khi Leader bấm "Chấm lại bằng engine hiện tại" ở trang project (`POST /api/projects3d/:id/risk/rescore`): `scene.json` đã lưu được chấm lại và `risk.json` bị ghi đè. Quy tắc cần trường đo mới của exporter vẫn chỉ chạy khi import lại, vì scene đã lưu không có trường đó.
+- **Quy tắc đúng tới đâu trên dữ liệu thật**: trang project hiện bảng "Risk Engine đúng tới đâu" (`GET /api/projects3d/:id/risk/precision`): với mỗi quy tắc, bao nhiêu case reviewer xác nhận lỗi, bao nhiêu báo nhầm, và engine bỏ sót bao nhiêu lỗi. Dùng nó để biết nên nới hay siết mức nào.
 
-| Lỗi                                        | Quy tắc                                                                 |
-| ------------------------------------------ | ----------------------------------------------------------------------- |
-| Cuboid trên khoảng trống                   | `*.no_points`, `frame.many_empty_boxes`                                 |
-| Sai kích thước, sai trục, heading lệch 90° | `*.size_range`, `*.axis_order`                                          |
-| Lơ lửng hoặc chìm                          | `*.ground_contact`                                                      |
-| Đảo đầu đuôi, heading sai hướng chạy       | `*.heading_jump`, `*.heading_vs_motion`                                 |
-| Kích thước nhảy giữa các frame             | `*.rigid_size`                                                          |
-| ID gán nhầm sang vật khác                  | `*.max_speed`, `any.short_track`, `any.track_gap`                       |
-| Đổi loại giữa chừng                        | `*.class_change_in_track`                                               |
-| Gán trùng, lồng nhau                       | `*.overlap_*`, `pedestrian_cyclist.rider_twice`                         |
-| Gán chính xe ghi hình, người trong xe      | `any.ego_vehicle`, `pedestrian.inside_vehicle`                          |
-| **Vật bị sót cuboid**                      | Chưa: `any.missing_object` cần khuôn mới (gom cụm điểm không có cuboid) |
-| Sai loại giữa vehicle và cyclist           | Chưa: cần mô hình thứ hai, như AI Check của 2D                          |
+## 8. Danh sách kiểm trước khi gửi
 
-## 6. Đo lại ngưỡng trước khi bật
+- [ ] File vẫn là JSON hợp lệ, mọi nội dung nằm trong `scene_policy`.
+- [ ] `policy_version` đã tăng.
+- [ ] Mỗi loại trong `types` có đủ `size`, `position_jump_m`, `heading_jump_rad`, `empty_within_m`, `outside_ratio`, `slack_ratio`, `moved_ratio`, `empty_side_m` (và `level_shift_m` nếu loại đứng trên mặt đường).
+- [ ] Mỗi quy tắc có `id`, `error_type`, `text`, `params`, `measured`, và có `score > 0` hoặc `level: "warning"`.
+- [ ] `error_type` là một trong `CLASS`, `BBOX`, `TRACKING`, `EXTRA_OBJECT`, `OTHER`.
+- [ ] Quy tắc mới có code trong `core/risk3d/engine.ts` và một test cài lỗi giả.
+- [ ] `node --test tests/risk3d.test.ts` qua.
+- [ ] `docs/risk-3d.md` (bảng quy tắc) đã cập nhật nếu điểm, ngưỡng hay quy tắc thay đổi.
+- [ ] Không có gì của policy 2D (`policy/`, `docs/policy-format.md`) bị sửa theo.
 
-Mỗi quy tắc chỉ nên đổi sang `active` sau khi đo trên ít nhất một segment đã review:
+### 1.10.0 — Box chìm dưới mặt đường, từng frame
 
-1. Lấy `scene.json` của một project 3D đã có quyết định review (`review_decisions_3d`).
-2. Với mỗi nhãn: phân bố `length`, `width`, `height`; `points` theo khoảng cách; tốc độ lớn nhất theo track; mức đổi kích thước trong track. Ghi vào `statistics` của file nhãn.
-3. Đặt ngưỡng ở chỗ phân bố của cuboid **đúng** kết thúc. Với cuboid bị review là sai, đo xem quy tắc bắt được bao nhiêu, ghi vào `measured` (`flagged_share`, `error_rate`) như các file 2D.
-4. Quy tắc nào bắt nhiều cuboid đúng hơn cuboid sai thì hạ điểm xuống `warning` hoặc giữ `proposed`.
+`box.below_ground`: mọi class có `lift` hữu hạn, chiều cao hợp lệ và khoảng cách ngang
+không quá 50 m được kiểm tra riêng từng frame. Nếu `lift < -0.25 m`, tạo risk BBOX
+70 điểm. Dung sai 25 cm hạn chế nhiễu/vỉa hè; đây là mặc định cần kiểm chứng trên dữ liệu
+thực, không phải cam kết độ chính xác. Không dùng `center.z < 0`, không cần track dài hay
+điểm trong box (box chìm hoàn toàn vẫn có thể rỗng). Thiếu phép đo mặt đường thì không kết luận.
 
-## 7. Còn mở
+Giữ các finding theo track để giải thích, nhưng chỉ lấy điểm lớn nhất trong nhóm
+`box.below_ground`, `fit.sunk`, `fit.lowered` để tránh cộng trùng cùng bằng chứng.
+Viewer tô đỏ toàn bộ viền box bị phát hiện, kể cả đang chọn, và phần chìm trong suốt.
+Màu này là cảnh báo hình học, không tự thay đổi quyết định review hoặc xác nhận nhãn sai.
+Các project cũ cần “Chấm lại bằng engine hiện tại”; nếu scene chưa có `lift`, phải import lại.
 
-- Mọi ngưỡng chưa đo (mục 6).
-- `export_waymo.py` chưa xuất `speed`, `acceleration`, `difficulty_level` của Waymo. Xuất thêm thì `max_speed` và `heading_vs_motion` không phải suy tốc độ từ vị trí hai frame kề.
-- Gốc hệ xe Waymo nằm ở đâu theo trục z, và khung thân xe chính xác: quyết định `any.ego_vehicle` và có dùng z = 0 làm mặt đường dự phòng được không.
-- Các điểm lấy từ đặc tả Waymo (tầm gán nhãn, cyclist gồm cả người lái, rơ-moóc tách hay gộp, LEVEL_2 là không quá 5 điểm) cần đối chiếu lại với bản đặc tả.
-- Review 3D lưu loại lỗi theo ENUM của 2D; lỗi cuboid được lưu là `BBOX`, và `error_type: "TRACK"` của Policy ứng với `TRACKING` trong DB.
-- Engine 3D: một module mới (ví dụ `core/risk3d`) đọc `policy3d/`, chạy các khuôn ở mục 4 trên `scene.json`, ghi điểm vào `risk_cases_3d` (hiện luôn là 0).
+### Orientation (1.11.0)
+
+- `orientation.lidar_axis`: PCA trên điểm gần xe, bỏ mặt đường và điểm thuộc box khác; vùng XY hình tròn tránh cắt theo box xoay sai. Chỉ VEHICLE dài/rộng ≥ 1.5, trong 40 m, ≥ 40 điểm, tỉ lệ trị riêng ≥ 4, độ trải ≥ 60% chiều dài. Lệch trục > 0.52 rad tạo risk 40 điểm. Không phân biệt đầu/đuôi 180°; che khuất và vật lân cận có thể gây báo nhầm.
+- `orientation.frame1_reference`: cùng object ID ở frame đầu segment (UI frame 1, index 0). So hướng world đã bù pose ego; chỉ xe đứng yên với mọi tâm quan sát cách mốc ≤ 0.5 m, mốc và hiện tại ≥ 20 điểm. Lệch > 0.6 rad tạo risk 30 điểm. Mốc chưa được xác nhận đúng; cần kiểm tra cả hai frame. Không áp dụng cho xe di chuyển/rẽ hoặc thiếu mốc.
+- Không ép xe cùng hướng LiDAR/ego: xe ngược chiều và giao lộ hợp lệ.
+- Cần import lại để có lidarAxis; rescore không đo lại cloud. Rule frame 1 vẫn chạy trên scene cũ. Ngưỡng mới chưa được hiệu chỉnh trên bộ nhãn thật đã kiểm duyệt, không kết luận chắc chắn sai.

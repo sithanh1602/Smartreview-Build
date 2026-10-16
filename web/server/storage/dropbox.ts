@@ -7,6 +7,8 @@ const API = 'https://api.dropboxapi.com',
 // finish_batch_v2 accepts at most 1000 entries per call.
 const BATCH = 1000;
 const PARALLEL = 4;
+// A call with no answer after this long is given up and made again.
+const TIMEOUT_MS = 5 * 60 * 1000;
 
 interface DropboxOptions {
   appKey: string;
@@ -71,7 +73,15 @@ export class DropboxStorage implements RemoteStorage {
           body = call.body;
         }
       }
-      const res = await fetch(url, { method: 'POST', headers, body });
+      let res: Response;
+      try {
+        res = await fetch(url, { method: 'POST', headers, body, signal: AbortSignal.timeout(TIMEOUT_MS) });
+      } catch (e) {
+        // The connection dropped or stalled: nothing was answered, so the call is made again.
+        if (attempt >= 4) throw e;
+        await sleep(2 ** attempt * 1000);
+        continue;
+      }
       const retry =
         res.status === 401 ? attempt === 0 : (res.status === 429 || res.status >= 500) && attempt < 4;
       if (!retry) return res;

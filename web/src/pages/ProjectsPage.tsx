@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom';
 import { request } from '../lib/api';
 import { ProjectStatus } from '../features/projects/ProjectLayout';
 import { DeleteProjectButton } from '../features/projects/DeleteProjectButton';
+import { HideProjectButton } from '../features/projects/HideProjectButton';
 import { JoinProjectForm } from '../features/projects/JoinProjectForm';
 import { Projects3DList } from '../features/projects3d/Projects3DList';
 import { roleLabel } from '../features/auth/AuthGate';
@@ -151,9 +152,24 @@ export function ProjectsPage() {
                         </span>
                       </p>
                     </Link>
-                    {/* Only the creator deletes; a project without one is every leader's. */}
+                    {/* Only the creator deletes and hides; a project without one is every
+                        leader's to delete and cannot be hidden. */}
                     {leader && (p.created_by === null || p.created_by === user.id) && (
-                      <div className="mt-5">
+                      <div className="mt-5 flex flex-wrap items-start gap-3">
+                        {p.created_by === user.id && (
+                          <HideProjectButton
+                            project={p}
+                            onChanged={(hidden) =>
+                              setRows(
+                                (current) =>
+                                  current &&
+                                  current.map((row) =>
+                                    row.id === p.id ? { ...row, hidden } : row,
+                                  ),
+                              )
+                            }
+                          />
+                        )}
                         <DeleteProjectButton
                           project={p}
                           onDeleted={() =>
@@ -171,7 +187,8 @@ export function ProjectsPage() {
           </section>
         ))
       )}
-      <Projects3DList />
+      {/* Listed again after joining by code: the code may be a 3D project's. */}
+      <Projects3DList key={attempt} />
     </>
   );
 }

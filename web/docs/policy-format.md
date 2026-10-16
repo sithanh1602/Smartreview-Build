@@ -22,6 +22,7 @@ policy/
   barrier.json        nhãn bonus, do người vẽ
   pole.json           nhãn bonus, do người vẽ
   car_truck.json      một file cho mỗi cặp nhãn hay bị nhầm với nhau (mục 2.1)
+  _verifier.json      label verifier: engine, câu mô tả nhãn, bảng điểm (docs/label-verifier.md); Risk Engine không đọc
 ```
 
 Mỗi file bọc toàn bộ nội dung trong một khoá duy nhất tên `<tên file>_policy` (`car.json` có khoá `car_policy`, `car_truck.json` có khoá `car_truck_policy`); hai file chung bỏ dấu `_` ở đầu (`dataset_policy`, `frame_policy`). Các trường mô tả ở mục 2, 2.1, 4.4 và 5 nằm bên trong khoá đó.
@@ -552,5 +553,5 @@ Lưu ý: `score` và khoảng tỉ lệ trong ví dụ này là minh hoạ cho k
 - **`scoring.severe_from_side_px` chưa được engine dùng.**
 - **Bản vá chưa đi hết đường.** Engine đã nhận `set`, `disable`, `narrow`, `add`; server chưa lưu bản vá theo dự án và bước phân tích Guideline chưa sinh ra chúng, nên dự án thật hiện chỉ dùng dạng tắt check theo nhãn.
 - **Bộ nhãn khác hẳn** (ví dụ Guideline 3D dùng `Vehicle`, `Pedestrian`) cần thêm một bảng ánh xạ nhãn theo dự án; khuôn dạng này chưa có chỗ cho nó.
-- **Hình học 3D** (cuboid, yaw, mặt đường) chưa có khuôn nào trong engine. Policy 3D đề xuất, kèm các khuôn 3D, nằm ở `policy3d/`: xem [Policy 3D](policy-3d.md).
+- **Hình học 3D** (cuboid, yaw, mặt đường) chưa có khuôn nào trong engine. Policy 3D đề xuất, kèm các khuôn 3D, nằm ở `policy3d/`: xem [Policy 3D (bản nháp)](policy-3d-draft.md).
 - **Bước dịch Guideline thành bản vá vẫn do mô hình làm**, nên vẫn cần bộ đáp án để đo độ chính xác.

@@ -2,6 +2,194 @@
 
 Ghi lại mỗi lần sửa xong một chức năng hoặc thay đổi lớn ở frontend. Mục mới nhất ở trên cùng.
 
+## 2026-10-15 · Viewer 3D: phần cuboid chìm dưới mặt đường tô đỏ
+
+### Đã làm
+
+- **Tô đỏ phần ăn xuống dưới mặt đường** (`PointCloudEngine.setSunk`, `sunkBoxes` trong `viewer/flags.ts`): với cuboid mà Risk Engine bắt là chìm (`fit.sunk` hoặc `fit.lowered`), viewer vẽ một khối đỏ trong suốt, viền đỏ, từ đáy cuboid lên tới mặt đường (độ sâu = `-lift`, không quá chiều cao cuboid). Tô ở mọi cuboid của đoạn frame case đó phủ (`evidence.frame_indexes`), không chỉ cuboid mang case. Ẩn cuboid thì khối đỏ cũng ẩn.
+- Chỉ tô khi engine đã bắt: trên nhãn đúng của segment mẫu, 720/4.902 cuboid đo được thấp hơn mặt đường quá 0,15 m (sai số đo, vỉa hè), tô hết thì nhiễu.
+- **Chi tiết cuboid** có thêm dòng "So với mặt đường: Đáy cao/thấp hơn x m"; cuboid bị bắt là chìm thì dòng này đỏ và ghi "chìm, phần dưới mặt đường tô đỏ". `Box3D` có thêm `lift`.
+
+### Còn mở
+
+- Chưa xem bằng mắt trong trình duyệt; đã kiểm tra bằng `tsc`, `npm run build` và node test.
+
+## 2026-10-15 · Viewer 3D: cuboid lơ lửng hay lún quá xa mặt đường có ghim đỏ
+
+### Đã làm
+
+- **Ghim đỏ cho lỗi engine chắc chắn**: case có `certain` (engine `3d-1.9.0`: `fit.floating`/`fit.sunk` lệch khỏi mặt đường quá 1 m) có ghim đỏ trong point cloud, trong danh sách "Lỗi cần kiểm tra" và trong danh sách cuboid của frame, thay cho ghim vàng. Ô lý do của engine có nền đỏ và ghi "Engine chắc chắn đây là lỗi". Chú giải ghim đỏ đổi thành "Lỗi chắc chắn / đã xác nhận". Chấm "Đúng" thì ghim chuyển xanh như mọi lỗi khác.
+
+## 2026-10-15 · Viewer 3D: lỗi đã review không còn biến mất
+
+### Đã làm
+
+- **Cờ của engine ở lại sau khi review** (`flagsOf` trong `viewer/flags.ts`). Trước đây chấm "Đúng" là cờ bị bỏ: ghim mất khỏi point cloud, cuboid mất khỏi danh sách cuboid của frame (danh sách mặc định chỉ hiện cuboid có cờ), nên khó tìm lại để xem hay sửa quyết định. Giờ cờ vẫn còn, giữ nguyên mã lỗi; chấm "Đúng" thì ghim thành màu xanh lá (mức mới `done`, "Đã review: đúng"), "Chưa chắc" giữ màu rủi ro, "Lỗi" là ghim đỏ như trước. `Flag` có thêm `reviewed` (quyết định của review).
+- **Danh sách "Lỗi cần kiểm tra"**: nhãn trạng thái ghi rõ "Đã review: lỗi / đúng / chưa chắc"; ghim của lỗi đã review là đúng là ghim xanh, không còn ghim xám mờ. Dòng hướng dẫn nói lỗi đã review vẫn ở lại để xem lại.
+- **Danh sách cuboid của frame**: dấu quyết định review (✓, ?, ✗) hiện cạnh ghim, không chỉ ở cuboid không có cờ.
+
+### Còn mở
+
+- Cuboid mà reviewer tự tìm ra là lỗi (engine không bắt), nếu sau đó đổi quyết định thành "Đúng", vẫn ra khỏi danh sách, và các mã lỗi reviewer tìm thấy sau nó dịch đi một số: danh sách chỉ biết quyết định hiện tại của review.
+- Chưa xem bằng mắt trong trình duyệt; đã kiểm tra bằng `tsc`, `npm run build` và node test.
+
+## 2026-10-15 · Viewer 3D: mở một lỗi thì camera tự xoay tới cuboid
+
+### Đã làm
+
+- **Camera bay tới lỗi**: bấm một lỗi trong "Lỗi cần kiểm tra", bấm vạch lỗi trên thanh frame, gọi bằng cử chỉ hay "Lưu & tiếp" thì ngoài việc mở đúng frame, camera còn trượt mượt (0,7 giây) tới cuboid đó: nhìn từ phía xe (phía có điểm LiDAR), hơi từ trên xuống, xa vừa đủ thấy cả cuboid (`PointCloudEngine.focus`, `fly`). Frame chưa tải xong thì camera bay khi frame lên màn hình; người dùng chuyển frame khác trước đó thì huỷ. Kéo chuột trong lúc bay là dừng bay.
+- **Chỗ thiếu cuboid**: camera nhìn vào cuboid nội suy (`ghosts` trong scene), hoặc với scene cũ không có `ghosts` thì vào cuboid của đối tượng ở frame gần nhất, đổi sang toạ độ của frame đang xem.
+- Bấm trực tiếp vào cuboid trong point cloud vẫn chỉ chọn, không xoay camera.
+
+### Còn mở
+
+- Chưa xem bằng mắt trong trình duyệt; đã kiểm tra bằng `tsc`, `npm run build` và node test.
+
+## 2026-10-15 · Project 3D: "Risk Engine đúng tới đâu", chấm lại; viewer: chỗ thiếu cuboid chắc chắn; nhãn ghi cử chỉ mới
+
+### Đã làm
+
+- **Trang project 3D** có thêm khung "Risk Engine đúng tới đâu" (`features/projects3d/RiskPrecision.tsx`, đọc `GET /projects3d/:id/risk/precision`): bảng theo quy tắc (case, đã review, lỗi thật, báo nhầm, độ chính xác) và dòng "Engine bỏ sót: n lỗi reviewer tự tìm thấy" theo loại lỗi. Chưa có review thì nói chưa đo được.
+- **Nút "Chấm lại bằng engine hiện tại"** cho Leader trong khung đó (`POST /projects3d/:id/risk/rescore`), kèm dòng "Báo cáo chấm bằng 3d-x · engine hiện tại 3d-y"; nút có viền nhấn khi hai phiên bản khác nhau. Chấm xong trang tải lại project. Project import trước khi có engine cũng chấm được bằng nút này.
+- **Danh sách "Lỗi cần kiểm tra"**: chỗ thiếu cuboid có `likely_missing` ghi "chỗ đó vẫn có N điểm của vật: gần như chắc thiếu cuboid" và được xếp ngang case rủi ro trung bình; không còn điểm thì ghi "có thể vật bị che". Bỏ tên cảnh báo `pair.centre_inside` (engine `3d-1.7.0` thay bằng case `pair.duplicate`).
+- **Hộp webcam**: ô chọn nhãn ghi có thêm Ngón cái sang phải / trái, Ngón cái chỉ lên, Nắm tay, Đếm 1 tới 5 ngón, Nhập số 23, Nhập số 20. Bản ghi đặt trong `tests/fixtures/gestures/` được test kiểm theo nhãn (`replay(frames, 23)`): mỗi nhãn phải gọi đúng lỗi hay bước chuyển của nó và không gì khác.
+
+### Còn mở
+
+- Chưa xem bằng mắt trong trình duyệt: cửa sổ Chromium mở để đăng nhập bị đóng trước khi chụp được. Đã kiểm tra bằng `tsc`, `npm run build` và node test.
+- Chưa có bản ghi cử chỉ thật.
+
+## 2026-10-15 · Viewer 3D: cử chỉ tay gọi lỗi có xem trước, mã từ 10, ngón cái chuyển lỗi
+
+### Đã làm
+
+- **Xem trước lỗi sẽ mở**: số ngón tay đứng yên 0,3 giây (`GESTURE.previewMs`) thì hộp webcam hiện "#3 · Frame 0004 · Cuboid lệch / sai cỡ · VEHICLE", dòng #3 trong danh sách "Lỗi cần kiểm tra" có viền vàng và được cuộn tới, vạch của frame đó trên thanh frame cao lên và nhấp nháy. Giữ tới khi thanh đầy (0,9 giây) mới mở; hạ tay hay đổi số là huỷ. Số không có lỗi: "Không có lỗi #7", không mở gì.
+- **Mã từ 10 trở lên**: nhập từng chữ số. Giơ 2 rồi giữ: hộp hiện "#2\_"; giơ 3 rồi giữ: mở #23. Nắm tay là chữ số 0 (#20 = 2 rồi nắm tay). Chữ số 6–9 dùng hai tay như trước. Engine biết mã lớn nhất (`setLargest`, = số lỗi), nên khi không thể có chữ số sau (chỉ có 23 lỗi mà giơ 3) thì mở ngay. Sau một chữ số còn chờ chữ số sau 1,5 giây (`digitWaitMs`, thanh xám chạy lùi): giữ nguyên tay thì hết giờ mở số đang có, hạ tay thì huỷ. Nhiều nhất ba chữ số.
+- **Ngón cái chỉ sang phải / trái** (các ngón khác nắm), giữ 0,6 giây (`stepHoldMs`): sang phải mở lỗi chưa review kế tiếp (như "Lưu & tiếp"; hết lỗi chưa review thì lỗi kế theo mã), sang trái mở lỗi có mã liền trước. Ngón cái chỉ lên vẫn là số 1. Hướng tính theo hình đã lật gương mà người dùng thấy.
+- `gestures.ts`: thêm `thumbSide()`, `Reading.typed / number / wait / step`, action `{ type: 'step' }`; `HandControl` nhận `largest`, `describe`, `onReading`; danh sách cử chỉ trong hộp webcam cập nhật.
+- Test với bàn tay giả trong `tests/gestures.test.ts`: nhập hai chữ số, nắm tay là 0, mở ngay khi không thể có chữ số sau, giữ để mở số một chữ số, hạ tay để huỷ, xem trước sau 0,3 giây, số không tồn tại, ngón cái hai hướng.
+
+### Còn mở
+
+- Chưa thử với webcam thật: ngưỡng ngón cái nằm ngang (gấp 1,5 lần độ lệch đứng) và nhận nắm tay mới thử trên bàn tay giả. Nên ghi vài bản ghi thật (nút "● Ghi" trong hộp webcam) cho ngón cái và nắm tay để chỉnh.
+
+## 2026-10-15 · Viewer 3D: mã lỗi chung cho cả segment, danh sách theo frame
+
+Trước đó số trên ghim đếm lại từ 1 ở mỗi frame, còn danh sách "Cần kiểm tra" không có số, nên "ghim 1" ở hai frame là hai lỗi khác nhau và không biết lỗi trong danh sách là ghim nào.
+
+### Đã làm
+
+- **Một mã cho mỗi lỗi, dùng chung cả segment** (`issuesOf` trong `viewer/flags.ts`): case của Risk Engine và chỗ thiếu cuboid đánh số #1, #2… theo thứ tự frame (trong một frame: rủi ro cao trước), nên mã càng nhỏ thì frame càng sớm. Cuboid reviewer đánh dấu lỗi mà engine không bắt thì nhận mã nối tiếp sau các lỗi của engine, để mã cũ không đổi khi review. Cảnh báo không có mã (ghim xám trơn).
+- Ghim trong point cloud, danh sách, ô lý do và thẻ thông tin trên point cloud dùng cùng mã: "Lỗi #3 · Frame 0004 · Cuboid lệch / sai cỡ".
+- **Danh sách "Lỗi cần kiểm tra" chia theo frame**: tiêu đề "Frame 0004" dính trên đầu khi cuộn, frame đang xem có nhãn "đang xem". Mỗi dòng: ghim có mã, tên lỗi dễ hiểu (Sai loại, Cuboid lệch / sai cỡ, Gán thừa, Thiếu cuboid), loại + mã đối tượng, lý do, nhãn trạng thái review (Lỗi / Đúng / Chưa chắc). Lỗi đã review là đúng thì ghim mờ.
+- **Vạch trên thanh frame**: mỗi frame có lỗi có một vạch màu theo lỗi nặng nhất; di chuột thấy "Frame 0004: lỗi #3, #4", bấm để mở.
+- Cử chỉ giơ n ngón tay mở lỗi #n ở bất kỳ frame nào (trước chỉ chọn cờ số n của frame đang xem).
+- Số frame thống nhất đếm từ 0 như trong lý do của engine: đầu trang "Frame 0004 / 0009", thanh dưới "Frame 0004 · 0.4 s" (trước là "5/10").
+- Test `issuesOf` / `flagsOf` với mã chung trong `tests/gestures.test.ts`.
+
+### Còn mở
+
+- Chưa xem bằng mắt trong trình duyệt. Đã kiểm tra bằng `tsc`, `npm run build` và node test.
+
+## 2026-10-15 · Viewer 3D: bảng Review chỉ đưa reviewer tới chỗ nghi lỗi
+
+Trước đây bảng Review liệt kê mọi cuboid của frame (25–30 cuboid), reviewer không biết chỗ nào cần xem và thực tế phải review hết.
+
+### Đã làm
+
+- **Danh sách "Cần kiểm tra"** (`viewer/RiskQueue.tsx`) đầu bảng Review: mọi case của Risk Engine trong cả segment, rủi ro cao trước. Mỗi dòng: ghim màu theo mức (đỏ khi đã review là lỗi), frame `F0004`, loại, mã đối tượng, loại lỗi bị nghi, lý do đầu tiên, dấu ✗ / ✓ / ? khi đã review. Bấm một dòng thì nhảy tới frame đó và chọn cuboid. Đếm "x/N đã review" theo case.
+- Chỗ thiếu cuboid (`gaps`) nằm cuối danh sách, viền đỏ đứt, "Thiếu cuboid". Bấm vào thì mở frame bị thiếu; bảng nói rõ engine nghi thiếu cuboid ở đó.
+- Cảnh báo (cuboid ít điểm…) gập trong "Cảnh báo: n cuboid, m nhóm", gộp theo đối tượng và quy tắc (một dòng cho cả dải frame), kèm lời dặn đây không phải lỗi mà là chỗ engine không tự kiểm được.
+- Project không có lỗi: "Risk Engine không thấy chỗ nào nghi lỗi". Project import trước khi có engine: báo chưa có danh sách, và danh sách cuboid trong frame hiện tất cả như cũ.
+- **Danh sách cuboid trong frame mặc định chỉ hiện cuboid có ghim** (nghi lỗi, cảnh báo, đã review là lỗi) và cuboid đang chọn. Nút "Hiện tất cả n cuboid của frame" để xem phần còn lại. Bấm cuboid trong point cloud vẫn chọn được mọi cuboid.
+- **Ô lý do của engine** ngay trên chi tiết cuboid đang chọn: "Engine nghi lỗi Cuboid · rủi ro Trung bình (40 điểm)" và các lý do; cảnh báo thì ô xám.
+- **"Lưu & tiếp"** chuyển tới case chưa review kế tiếp trong danh sách (sang frame khác nếu cần), không còn là cuboid kế tiếp trong frame. Project không có engine thì giữ cách cũ.
+- **Trang project 3D**: thêm dòng "Risk Engine: 7 chỗ nghi lỗi (1 cao, 6 trung bình, 0 thấp) · 1 chỗ thiếu cuboid · 36 cảnh báo" phía trên dòng đếm review, để không nhầm "0 lỗi" (số reviewer đã đánh dấu) với kết quả của engine. Server lưu thêm `metadata.risk.warnings` cho lần import sau.
+
+### Còn mở
+
+- Chưa xem bằng mắt trong trình duyệt. Đã kiểm tra bằng `tsc`, `npm run build` và node test.
+- Danh sách case chưa có bộ lọc theo mức hay theo loại lỗi; segment dài có nhiều case thì phải cuộn.
+
+## 2026-10-15 · Viewer 3D: ghim xám cho cảnh báo của 3D Risk Engine
+
+### Đã làm
+
+- `Viewer3DPage` lấy cả `warnings` của báo cáo rủi ro, không chỉ `cases`. Mỗi warning mang `warning: true`; một cuboid vừa có case vừa có warning thì case thắng.
+- `viewer/flags.ts`: thêm mức ghim `warn` màu xám (`0x9ca3af`, số màu tối), tên "Cảnh báo". `flagsOf` cho ghim `warn` khi rủi ro là warning; review `CORRECT` vẫn bỏ ghim như với case.
+- Thẻ thông tin của ghim xám ghi "Cảnh báo" kèm lý do của engine, thay cho "Nghi lỗi … · rủi ro …". Tooltip trong danh sách cuboid ghi "Cờ n: Cảnh báo". Chú thích dưới danh sách tự có thêm dòng đếm ghim xám (theo `PIN_LEVELS`).
+- Warning hiện có: `points.sparse` (cuboid dưới 10 điểm, mới ở engine `3d-1.2.0`), `pair.centre_inside`, và `track.single_frame` khi đứng một mình.
+- Test `flagsOf` cho ghim xám trong `tests/gestures.test.ts`.
+
+### Còn mở
+
+- Segment đầy đủ có khoảng 10 cuboid ít điểm mỗi frame, nên ghim xám nhiều; chưa có công tắc ẩn ghim xám.
+- Chưa xem bằng mắt trong viewer. Đã kiểm tra bằng `tsc` và node test.
+
+## 2026-10-15 · Viewer 3D: cờ thành ghim định vị ba màu
+
+### Đã làm
+
+- Cờ `⚑ n` đổi thành ghim định vị kiểu bản đồ (SVG giọt nước, số ở giữa). Mũi ghim cắm đúng nóc cuboid (`CSS2DObject` neo `center (0.5, 1)`). `pinSvg()` trong `viewer/flags.ts` dựng ghim cho point cloud; `viewer/Pin.tsx` là cùng hình cho danh sách cuboid, chú thích và thẻ thông tin.
+- Ba màu theo mức chắc chắn, thay cho năm màu theo loại lỗi: đỏ `error` (review `ERROR`), cam `high` (rủi ro cao), vàng `low` (rủi ro trung bình / thấp). `Flag.color` thay bằng `Flag.level`; bỏ `FLAG_COLORS` và `flagFill()`. Số trên ghim vàng màu tối để đọc được.
+- Ghim đang chọn phóng 1,3 lần từ mũi, viền trắng. Nhãn tên của cuboid có ghim dời sang phải ghim (`viewer3d-box--pinned`).
+- Chú thích dưới danh sách: tổng số cờ và số cờ mỗi màu.
+- Test `flagsOf` kiểm tra `level` cho cả ba màu.
+
+### Còn mở
+
+- Đã xem hình ghim (SVG tĩnh trên nền tối, Chromium headless), chưa xem trong viewer với dữ liệu thật.
+
+## 2026-10-15 · Viewer 3D: cắm cờ cho mỗi rủi ro của 3D Risk Engine
+
+### Đã làm
+
+- `Viewer3DPage` tải thêm `GET /projects3d/:id/risk` cùng scene và reviews. Lỗi hoặc 404 (project cũ) thì bỏ qua, viewer vẫn chạy và chỉ không có cờ rủi ro.
+- `viewer/flags.ts`: `flagsOf(frame, reviews, risks)` gộp hai nguồn. Review `ERROR` cho cờ lỗi (`source: 'review'`). Case rủi ro chưa review hoặc `UNSURE` cho cờ rủi ro (`source: 'risk'`, màu theo `suspected_error`). `CORRECT` thì bỏ cờ. Vẫn đánh số theo ID đối tượng. Thêm `flagFill()`: nền đặc cho cờ lỗi, nền pha màu theo severity cho cờ rủi ro.
+- `viewer/engine.ts`: thêm `setRisks()`. Cờ rủi ro trong point cloud có class `viewer3d-flag--risk` (viền đứt, `src/styles.css`).
+- Thẻ thông tin cờ hiện loại lỗi bị nghi, mức/điểm rủi ro và các lý do của engine. Danh sách cuboid trong `ObjectPanel` dùng cùng kiểu cờ; chú thích đếm riêng "cờ lỗi" và "cờ rủi ro".
+- Test `flagsOf` cho cờ rủi ro trong `tests/gestures.test.ts`.
+
+### Còn mở
+
+- Chưa có cờ cho gaps (`Risk3DGap`: đối tượng mất ở giữa track). Frame đó không có cuboid để cắm cờ.
+- Chưa có công tắc ẩn cờ rủi ro hay lọc theo severity.
+- Chưa xem bằng mắt trên dữ liệu thật. Đã kiểm tra bằng `tsc`, `prettier --check`, `npm run build` và node test.
+
+## 2026-10-13 · Quét nhãn bằng ảnh: popup sau khi upload, kết quả vào trang Review
+
+- **Popup "Chọn cách quét nhãn"** (`src/features/verify/ScanChoice.tsx`) mở trong luồng tạo project mới, ngay khi upload xong, thay cho việc chuyển thẳng sang project và thay popup "Đã nhận dữ liệu" cũ. Bấm nút trong popup mới sang trang project. Project đã có sẵn không có popup này.
+- **Ba ô**: Risk Engine (luôn bật, khoá: nó chạy lúc import như trước giờ), SigLIP 2 (tích sẵn), Qwen2.5-VL (không tích; khoá khi SigLIP 2 bỏ tích). Nút là "Quét và vào project", hoặc "Vào project" khi không chọn mô hình ảnh nào.
+- **Quét một lần**: không có nút hay trang kết quả riêng. Nút "Kết quả quét nhãn →" và trang `/projects/:id/label-verify` làm trước đó trong ngày đã gỡ.
+- **Kết quả nằm ở trang Review**: box bị phát hiện sai vào hàng đợi mà nút "Bắt đầu kiểm tra" mở; trong khung "Why flagged" có thêm tín hiệu `verifier.wrong_label` với số điểm của nó. Các số Risk Cases, Remaining ở trang project tính cả các case này.
+- **Dòng trạng thái ở trang project** (`ScanStatus.tsx`): đang chờ, đang quét kèm tiến độ, đã quét (số khung vào hàng đợi), hoặc lỗi kèm nút "Thử lại" cho Leader. Quét xong thì các số trên trang tự tải lại.
+- Kiểm tra: dựng luồng tạo project với API giả, upload `fixtures/upload`, thấy popup hiện trước khi rời trang và yêu cầu quét gửi đúng lựa chọn. `tests/browser/projects.spec.ts` đã sửa để bấm qua popup; chưa chạy được vì database test không vào được.
+- File: `src/features/verify/{ScanChoice,ScanStatus}.tsx`, `src/features/verify/useLabelVerify.ts`, `src/features/projects/ImportForm.tsx`, `src/pages/ProjectDashboardPage.tsx`, `src/types.ts`, `src/lib/i18n.en.ts`; backend `server/verify/{service,queue}.ts`, `server/reviews/store.ts`, `server/projects/{http,service}.ts`. Chi tiết: `docs/label-verifier.md`.
+
+## 2026-10-13 · Import 2D: giới hạn 100 ảnh mỗi project
+
+- **Giới hạn mới**: tối đa 100 ảnh mỗi lần import (trước là 1000); tổng upload vẫn 200 MB, mỗi ảnh 20 MB, annotation 10 MB. Định dạng nhiều tệp nhãn (VOC, YOLO…) nhận tối đa 110 tệp nhãn (trước là 1010).
+- **Kiểm tra ở hai nơi**: form báo "Vượt giới hạn…" trước khi gửi; server từ chối ảnh thứ 101 với 413 "Tối đa 100 ảnh mỗi project."
+- Project đã import trước đó không bị ảnh hưởng. Project 3D và AI Check giữ giới hạn riêng.
+- File: `server/projects/upload.ts`, `src/features/projects/{dataset.ts,ImportForm.tsx}`, `src/lib/i18n.{vi,en}.ts`, `README.md`, `docs/projects-import.md`.
+
+## 2026-10-13 · Import 2D: tải lên chạy nền, thử lại từ chỗ dở
+
+- **Vấn đề**: import dataset nặng chạy gần 5 phút rồi báo "Không thể xử lý import". Log backend: `Request failed: TypeError`, tức một lệnh gọi Dropbox bị đứt mạng; code không gọi lại nên cả import bị hủy và phải chọn lại file.
+- **Dropbox**: lệnh gọi bị đứt hoặc treo được gọi lại tối đa 4 lần.
+- **MySQL**: risk case ghi theo lô 500 dòng một câu lệnh, thay cho hai câu lệnh mỗi case.
+- **Chạy nền**: request import trả lời ngay khi file đã nhận và kiểm tra xong. Trang tạo project hiện hộp thoại "Đã nhận dữ liệu" (Về trang Projects / Xem project). Trang project hiện tiến độ "Đang đưa lên kho lưu trữ: n/N file", rồi "Đang lưu risk case", và tự sang dashboard khi Ready.
+- **Thử lại**: lỗi ở nửa chạy nền thì trang project có nút Thử lại, làm tiếp mà không chọn lại file và không gửi lại file đã lên kho. Form chọn file vẫn ở bên dưới nếu muốn import lại từ đầu.
+- File: `server/projects/{service,http}.ts`, `server/reviews/store.ts`, `server/storage/dropbox.ts`, `server/index.ts`, `src/features/projects/ImportForm.tsx`, `src/pages/ProjectDashboardPage.tsx`. Chi tiết: `docs/projects-import.md`.
+- Kiểm tra: typecheck và build qua; script thử `../verifier-test/scripts/import-background.test.ts` với DB và kho giả 5/5 qua; test không cần MySQL 24/24 qua. Chưa chạy với MySQL và Dropbox thật, chưa thử trên trình duyệt. Project 3D chưa có phần chạy nền này (chỉ hưởng phần gọi lại Dropbox).
+
+## 2026-10-13 · Project 3D: chia sẻ cho Reviewer / Annotator, vòng xoay khi mở review
+
+- **Chia sẻ như 2D**: trang project 3D có khối thành viên của project 2D. Leader thêm Reviewer / Annotator bằng tên đăng nhập hoặc mã mời, đổi vai trò, xoá; Reviewer thêm được Annotator. Ô nhập mã mời ở trang Projects nhận cả mã của project 3D (thử 2D trước, không có thì thử 3D).
+- **Backend**: `ProjectMembers` nhận tên bảng, project 3D dùng `project_members_3d` / `project_invites_3d` (đã có từ migration 008, không cần migration mới). Route mới dưới `/api/projects3d/:id/members`, `/invites` và `/api/projects3d/join`.
+- **Nút Mở review 3D**: hiện vòng xoay và "Đang mở review 3D…" từ lúc bấm đến khi viewer hiện ra. Trong viewer, scene, point cloud và ảnh camera vẫn được backend đọc từ Dropbox như trước, có vòng xoay riêng khi đang tải.
+- Kiểm tra: typecheck qua; test không cần MySQL (`projects3d`, `handoff`) 13/13 qua; chạy thử `ProjectMembers` với DB giả, bản 3D chỉ đụng các bảng `_3d`. Chưa chạy trên MySQL thật và chưa thử trên trình duyệt bằng tài khoản Reviewer / Annotator.
+
 ## 2026-10-13 · Leader thấy project của nhau, chia hai nhóm
 
 - **Thay đổi**: tài khoản leader thấy mọi project 2D và 3D, không chỉ project mình tạo. Trang Projects chia hai nhóm: **Project của tôi** ở trên, **Project của Leader khác** ở dưới (kèm số lượng); phần Project 3D chia tương tự. Nhóm dưới chỉ hiện khi có project. Member không đổi.

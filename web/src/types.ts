@@ -16,6 +16,7 @@ import type { FrameReview } from '../server/frames/store.ts';
 import type { MissingRegion } from '../shared/frame-review.ts';
 import type { Annotation, BBox, Geometry } from '../core/schema/types.ts';
 import type { AiComparison, AiFinding } from '../core/risk/ai-compare.ts';
+import type { CombinedFinding, CombinedReport, VerifierEngine } from '../core/risk/label-verify.ts';
 import type { ContextPosition } from '../core/risk/types.ts';
 
 export type {
@@ -124,6 +125,35 @@ export type AiReport =
         model: { name: string; [detail: string]: unknown };
         findings: AiFindingView[];
       });
+// What GET /label-verify returns about the label scan chosen at upload: an idle marker, a
+// running job, or the finished scan whose findings are in the review queue.
+interface VerifyJob {
+  available: boolean;
+  engine: VerifierEngine;
+  second_engine: VerifierEngine;
+  dataset_revision: string;
+  // The engine at work, and whether the second engine was asked for.
+  stage: VerifierEngine;
+  second: boolean;
+  completed: number;
+  total: number;
+}
+export type VerifyReport =
+  | {
+      status: 'IDLE';
+      available: boolean;
+      // A scan was asked for; it starts when the import is done and the engine is free.
+      queued?: boolean;
+      engine: VerifierEngine;
+      second_engine: VerifierEngine;
+    }
+  | (VerifyJob & { status: 'RUNNING' })
+  | (VerifyJob & { status: 'FAILED'; error: string })
+  | (VerifyJob &
+      Omit<CombinedReport, 'findings' | 'engine'> & {
+        status: 'READY';
+        findings: CombinedFinding[];
+      });
 export interface Dashboard {
   project: Project;
   dataset: DatasetMeta;
@@ -148,11 +178,18 @@ export interface Project {
   metadata: DatasetMeta | null;
   created_at: string;
   created_by: string | null;
+  // Hidden by its creator from other leaders.
+  hidden: boolean;
   creator_name: string | null;
   reviewer_count: number;
   annotator_count: number;
   // The signed-in user's role in this project.
   my_role: ProjectRole;
+  // Present while the backend finishes an import: files sent to the shared storage, then risk
+  // cases saved.
+  progress?: { step: 'score' | 'publish' | 'save'; done: number; total: number } | null;
+  // A failed import the backend can finish without the files being chosen again.
+  can_resume?: boolean;
   // Set once the review was completed and sent to annotators; decisions are locked while it is.
   handoff?: Handoff | null;
 }
@@ -180,9 +217,20 @@ export interface Project3D {
     total_images?: number;
     motion_compensated: boolean;
     stored_bytes: number;
+    // What the 3D Risk Engine found at import; absent for a project imported before it.
+    // `warnings` only for imports from engine 3d-1.2.0 on.
+    risk?: {
+      engine_version: string;
+      total_cases: number;
+      levels: Record<'high' | 'medium' | 'low', number>;
+      gaps: number;
+      warnings?: number;
+    } | null;
   } | null;
   created_at: string;
   created_by: string | null;
+  // Hidden by its creator from other leaders.
+  hidden: boolean;
   creator_name: string | null;
   reviewer_count: number;
   annotator_count: number;

@@ -29,41 +29,64 @@ export interface ProjectPeople {
 }
 export type InviteCodes = Record<MemberRole, string>;
 
+// The tables a project kind keeps its people in: 2D and 3D projects have their own.
+export interface MemberTables {
+  projects: string;
+  members: string;
+  invites: string;
+}
+const TABLES_2D: MemberTables = {
+  projects: 'projects',
+  members: 'project_members',
+  invites: 'project_invites',
+};
+export const TABLES_3D: MemberTables = {
+  projects: 'projects_3d',
+  members: 'project_members_3d',
+  invites: 'project_invites_3d',
+};
+
 export class ProjectMembers {
   pool: Db;
-  constructor(pool: Db) {
+  t: MemberTables;
+  constructor(pool: Db, tables: MemberTables = TABLES_2D) {
     this.pool = pool;
+    this.t = tables;
   }
-  // What `user` is in the project. Every leader is a leader in every project; only deleting is
-  // kept for the creator (see `owns`). A project a member has no part in reads as missing, so
-  // its existence is not revealed.
+  // What `user` is in the project. Every leader is a leader in every project unless its creator
+  // hid it; only deleting and hiding are kept for the creator (see `owns`). A project the user
+  // may not see reads as missing, so its existence is not revealed.
   async role(projectId: string, user: User): Promise<ProjectRole> {
     if (!/^[a-f0-9-]{36}$/.test(projectId)) throw missing();
     const [[row]] = await this.pool.execute<Rows>(
-      'SELECT p.created_by,m.role FROM projects p LEFT JOIN project_members m ON m.project_id=p.id AND m.user_id=? WHERE p.id=?',
+      `SELECT p.created_by,p.hidden,m.role FROM ${this.t.projects} p LEFT JOIN ${this.t.members} m ON m.project_id=p.id AND m.user_id=? WHERE p.id=?`,
       [user.id, projectId],
     );
     if (!row) throw missing();
-    if (user.role === 'leader') return 'leader';
+    if (user.role === 'leader') {
+      if (row.hidden && row.created_by !== user.id) throw missing();
+      return 'leader';
+    }
     if (!row.role) throw missing();
     return row.role;
   }
   // Whether `user` may delete the project: its creator, or any leader when it has none (the
   // demo and projects made before roles existed).
   async owns(projectId: string, user: User) {
-    const [[row]] = await this.pool.execute<Rows>('SELECT created_by FROM projects WHERE id=?', [
-      projectId,
-    ]);
+    const [[row]] = await this.pool.execute<Rows>(
+      `SELECT created_by FROM ${this.t.projects} WHERE id=?`,
+      [projectId],
+    );
     if (!row) throw missing();
     return user.role === 'leader' && (row.created_by === null || row.created_by === user.id);
   }
   async people(projectId: string): Promise<ProjectPeople> {
     const [[creator]] = await this.pool.execute<Rows>(
-      'SELECT u.id,u.username FROM projects p JOIN users u ON u.id=p.created_by WHERE p.id=?',
+      `SELECT u.id,u.username FROM ${this.t.projects} p JOIN users u ON u.id=p.created_by WHERE p.id=?`,
       [projectId],
     );
     const [members] = await this.pool.execute<Rows>(
-      'SELECT u.id,u.username,m.role,m.joined_at FROM project_members m JOIN users u ON u.id=m.user_id WHERE m.project_id=? ORDER BY m.joined_at,u.username',
+      `SELECT u.id,u.username,m.role,m.joined_at FROM ${this.t.members} m JOIN users u ON u.id=m.user_id WHERE m.project_id=? ORDER BY m.joined_at,u.username`,
       [projectId],
     );
     const of = (role: MemberRole) =>
@@ -80,7 +103,7 @@ export class ProjectMembers {
   async invites(projectId: string): Promise<InviteCodes> {
     for (let attempt = 0; ; attempt++) {
       const [rows] = await this.pool.execute<Rows>(
-        'SELECT role,code FROM project_invites WHERE project_id=?',
+        `SELECT role,code FROM ${this.t.invites} WHERE project_id=?`,
         [projectId],
       );
       const codes = Object.fromEntries(rows.map((r) => [r.role, r.code])) as InviteCodes;
@@ -90,7 +113,7 @@ export class ProjectMembers {
       // IGNORE: another request made the code first, or the random code is already taken.
       for (const role of absent)
         await this.pool.execute<Rows>(
-          'INSERT IGNORE INTO project_invites(project_id,role,code) VALUES (?,?,?)',
+          `INSERT IGNORE INTO ${this.t.invites}(project_id,role,code) VALUES (?,?,?)`,
           [projectId, role, newCode()],
         );
     }
@@ -99,7 +122,7 @@ export class ProjectMembers {
   async regenerate(projectId: string, input: Untrusted): Promise<InviteCodes> {
     const role = memberRole(input?.role);
     await this.pool.execute<Rows>(
-      'INSERT INTO project_invites(project_id,role,code) VALUES (?,?,?) ON DUPLICATE KEY UPDATE code=VALUES(code),created_at=UTC_TIMESTAMP(3)',
+      `INSERT INTO ${this.t.invites}(project_id,role,code) VALUES (?,?,?) ON DUPLICATE KEY UPDATE code=VALUES(code),created_at=UTC_TIMESTAMP(3)`,
       [projectId, role, newCode()],
     );
     return this.invites(projectId);
@@ -112,16 +135,16 @@ export class ProjectMembers {
     if (code.length !== CODE_LENGTH || [...code].some((c) => !ALPHABET.includes(c)))
       throw new ReviewError(400, `Mã mời gồm ${CODE_LENGTH} ký tự chữ và số.`);
     const [[invite]] = await this.pool.execute<Rows>(
-      'SELECT i.project_id,i.role,p.name FROM project_invites i JOIN projects p ON p.id=i.project_id WHERE i.code=?',
+      `SELECT i.project_id,i.role,p.name FROM ${this.t.invites} i JOIN ${this.t.projects} p ON p.id=i.project_id WHERE i.code=?`,
       [code],
     );
     if (!invite) throw new ReviewError(404, 'Mã mời không đúng hoặc đã bị thay.');
     await this.pool.execute<Rows>(
-      'INSERT IGNORE INTO project_members(project_id,user_id,role) VALUES (?,?,?)',
+      `INSERT IGNORE INTO ${this.t.members}(project_id,user_id,role) VALUES (?,?,?)`,
       [invite.project_id, user.id, invite.role],
     );
     const [[member]] = await this.pool.execute<Rows>(
-      'SELECT role FROM project_members WHERE project_id=? AND user_id=?',
+      `SELECT role FROM ${this.t.members} WHERE project_id=? AND user_id=?`,
       [invite.project_id, user.id],
     );
     if (member.role !== invite.role)
@@ -134,7 +157,7 @@ export class ProjectMembers {
   // Member accounts the leader can still add, for the picker next to the username field.
   async candidates(projectId: string): Promise<string[]> {
     const [rows] = await this.pool.execute<Rows>(
-      "SELECT u.username FROM users u WHERE u.role='member' AND u.enabled=1 AND NOT EXISTS (SELECT 1 FROM project_members m WHERE m.project_id=? AND m.user_id=u.id) ORDER BY u.username LIMIT 200",
+      `SELECT u.username FROM users u WHERE u.role='member' AND u.enabled=1 AND NOT EXISTS (SELECT 1 FROM ${this.t.members} m WHERE m.project_id=? AND m.user_id=u.id) ORDER BY u.username LIMIT 200`,
       [projectId],
     );
     return rows.map((r) => r.username);
@@ -156,11 +179,11 @@ export class ProjectMembers {
     if (user.role !== 'member')
       throw new ReviewError(409, 'Tài khoản Leader không thể làm thành viên project.');
     await this.pool.execute<Rows>(
-      'INSERT IGNORE INTO project_members(project_id,user_id,role) VALUES (?,?,?)',
+      `INSERT IGNORE INTO ${this.t.members}(project_id,user_id,role) VALUES (?,?,?)`,
       [projectId, user.id, role],
     );
     const [[member]] = await this.pool.execute<Rows>(
-      'SELECT role FROM project_members WHERE project_id=? AND user_id=?',
+      `SELECT role FROM ${this.t.members} WHERE project_id=? AND user_id=?`,
       [projectId, user.id],
     );
     if (member.role !== role)
@@ -172,7 +195,7 @@ export class ProjectMembers {
   }
   async member(projectId: string, userId: string) {
     const [[member]] = await this.pool.execute<Rows>(
-      'SELECT 1 FROM project_members WHERE project_id=? AND user_id=?',
+      `SELECT 1 FROM ${this.t.members} WHERE project_id=? AND user_id=?`,
       [projectId, userId],
     );
     if (!member) throw new ReviewError(404, 'Thành viên không thuộc project này.');
@@ -181,17 +204,17 @@ export class ProjectMembers {
     const role = memberRole(input?.role);
     await this.member(projectId, userId);
     await this.pool.execute<Rows>(
-      'UPDATE project_members SET role=? WHERE project_id=? AND user_id=?',
+      `UPDATE ${this.t.members} SET role=? WHERE project_id=? AND user_id=?`,
       [role, projectId, userId],
     );
     return this.people(projectId);
   }
   async remove(projectId: string, userId: string) {
     await this.member(projectId, userId);
-    await this.pool.execute<Rows>('DELETE FROM project_members WHERE project_id=? AND user_id=?', [
-      projectId,
-      userId,
-    ]);
+    await this.pool.execute<Rows>(
+      `DELETE FROM ${this.t.members} WHERE project_id=? AND user_id=?`,
+      [projectId, userId],
+    );
     return this.people(projectId);
   }
 }

@@ -10,6 +10,7 @@ import {
   signalOf,
 } from '../core/importers/signals.ts';
 import { analyzeDataset } from '../core/risk/engine.ts';
+import type { RiskReport } from '../core/risk/types.ts';
 
 const coco = JSON.parse(
   await fs.readFile(new URL('../fixtures/upload/coco.json', import.meta.url), 'utf8'),
@@ -223,7 +224,8 @@ test('objects the model found that nobody drew keep a frame out of auto_accept',
   );
   assert.equal(frame.image_rules[0].evidence.missing, 1);
   assert.equal(frame.image_rules[0].evidence.objects[0].label, 'car');
-  assert.equal(analyzeDataset(data, { engineVersion: '7.0.0' }).frames[0].tier, 'auto_accept');
+  const v7 = analyzeDataset(data, { engineVersion: '7.0.0' }) as RiskReport;
+  assert.equal(v7.frames[0].tier, 'auto_accept');
 
   // A flagged box of the same label beside the object is that object drawn in the wrong place:
   // its own case reports it, so the object is not reported again as missing.

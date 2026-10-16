@@ -46,8 +46,8 @@ export const en: Record<string, string> = {
   'Đang xóa…': 'Deleting…',
   'Xóa project': 'Delete project',
   'Chọn annotation file và các ảnh tương ứng.': 'Choose the annotation file and its images.',
-  'Vượt giới hạn: annotation 10 MB; mỗi ảnh 20 MB; tổng 200 MB; tối đa 1000 ảnh.':
-    'Over the limit: annotation 10 MB; 20 MB per image; 200 MB in total; at most 1000 images.',
+  'Vượt giới hạn: annotation 10 MB; mỗi ảnh 20 MB; tổng 200 MB; tối đa 100 ảnh.':
+    'Over the limit: annotation 10 MB; 20 MB per image; 200 MB in total; at most 100 images.',
   'Đang tạo project…': 'Creating project…',
   'Đang tải dữ liệu lên…': 'Uploading data…',
   'Đã tải lên. Đang kiểm tra và phân tích dataset…':
@@ -65,8 +65,8 @@ export const en: Record<string, string> = {
   'Chọn thư mục chứa ảnh thay cho lựa chọn trên. Đường dẫn cần khớp annotation; tên file đơn chỉ được ghép khi duy nhất.':
     'Choose the image folder instead of the selection above. Paths must match the annotation; bare file names are matched only when unique.',
   'Đã chọn': 'Selected',
-  'ảnh · tối đa 1000 ảnh / 200 MB tổng; 20 MB mỗi ảnh; annotation 10 MB.':
-    'images · at most 1000 images / 200 MB in total; 20 MB per image; annotation 10 MB.',
+  'ảnh · tối đa 100 ảnh / 200 MB tổng; 20 MB mỗi ảnh; annotation 10 MB.':
+    'images · at most 100 images / 200 MB in total; 20 MB per image; annotation 10 MB.',
   'Đang xử lý…': 'Processing…',
   'Dữ liệu đã tải lên': 'Data uploaded',
   'Tiến độ tải dữ liệu lên': 'Upload progress',
@@ -274,6 +274,53 @@ export const en: Record<string, string> = {
   'Bất đồng khung bao': 'Box disagreement',
   'Có thể thiếu nhãn': 'Possibly missing label',
   'Có thể thừa nhãn': 'Possibly extra label',
+
+  // Label scan
+  'Chọn cách quét nhãn': 'Choose how labels are scanned',
+  'Dataset đã được tải lên và kiểm tra xong. Chọn những gì dùng để quét nhãn rồi vào project.':
+    'The dataset was uploaded and checked. Choose what scans the labels, then open the project.',
+  'Luôn chạy khi import, như trước giờ. Kết quả của nó không đổi dù bạn chọn gì bên dưới.':
+    'Always runs at import, as before. Its results do not change whatever you choose below.',
+  'Cắt phần ảnh trong từng khung để so với nhãn. Chỉ cắt ảnh và chạy khi được chọn; khung bị phát hiện sai vào hàng đợi kiểm tra.':
+    'Crops the pixels inside each box and compares them with the label. Crops and runs only when chosen; boxes found wrong join the review queue.',
+  'Xem lại các khung SigLIP 2 đã nghi và xác nhận. Chậm hơn nhiều.':
+    'Looks again at the boxes SigLIP 2 doubted and confirms them. Much slower.',
+  'Lượt quét chỉ chạy một lần, ngay lúc này. Hệ thống còn đang đưa ảnh lên kho lưu trữ và lưu kết quả ở chế độ nền; lượt quét tự bắt đầu khi project sang Ready.':
+    'The scan runs once, now. The system is still moving images to storage and saving results in the background; the scan starts by itself when the project turns Ready.',
+  'Lượt quét chỉ chạy một lần, ngay lúc này.': 'The scan runs once, now.',
+  'Đang gửi lựa chọn…': 'Sending your choice…',
+  'Quét và vào project': 'Scan and open project',
+  'Vào project': 'Open project',
+  'Lượt quét nhãn bằng ảnh đã chọn đang chờ tới lượt.':
+    'The image label scan you chose is waiting for its turn.',
+  'Đang quét nhãn bằng ảnh ·': 'Scanning labels from the images ·',
+  'khung. Khung bị phát hiện sai sẽ vào hàng đợi kiểm tra khi quét xong.':
+    'boxes. Boxes found wrong join the review queue when the scan ends.',
+  'Đã quét nhãn bằng ảnh (': 'Labels scanned from the images (',
+  '):': '):',
+  'khung nghi sai nhãn nằm trong hàng đợi kiểm tra, trong đó':
+    'boxes with a doubted label are in the review queue, of which',
+  'khung Risk Engine chưa bắt được': 'the Risk Engine had not caught',
+  'xác nhận': 'confirms',
+  khung: 'boxes',
+  'Quét nhãn bằng ảnh chưa xong:': 'The image label scan did not finish:',
+  'Một lượt kiểm nhãn đang chạy. Hãy chờ hoàn tất rồi thử lại.':
+    'A label scan is in progress. Wait for it to finish, then try again.',
+  'Chưa có Python của label verifier. Xem docs/label-verifier.md để cài.':
+    'The label verifier’s Python is missing. See docs/label-verifier.md to install it.',
+  'Dataset chưa có ảnh phù hợp để kiểm nhãn.':
+    'The dataset has no images suitable for the label scan.',
+  'Kiểm nhãn hỗ trợ tối đa 1000 ảnh mỗi lượt.':
+    'The label scan handles at most 1000 images per run.',
+  'Không chạy được label verifier. Kiểm tra cài đặt trong docs/label-verifier.md.':
+    'The label verifier could not run. Check the setup in docs/label-verifier.md.',
+  'GPU của máy chủ không đủ bộ nhớ trống cho mô hình. Đóng chương trình khác đang dùng GPU rồi chạy lại.':
+    'The server’s GPU has too little free memory for the model. Close other programs using the GPU, then run again.',
+  'Lượt kiểm nhãn bị ngắt khi server dừng. Bấm chạy lại.':
+    'The label scan was interrupted when the server stopped. Run it again.',
+  'Project chưa có dữ liệu để kiểm nhãn.': 'The project has no data to scan yet.',
+  'Dữ liệu này đã được quét nhãn; lượt quét chỉ chạy một lần khi đưa dữ liệu lên.':
+    'This data was already scanned; the scan runs once, when the data is put up.',
   'Đã sửa': 'Fixed',
   'Đã xoá nhãn': 'Label removed',
   'Đã thêm nhãn': 'Label added',
@@ -794,8 +841,8 @@ export const en: Record<string, string> = {
   'Import bị ngắt khi server dừng. Chọn lại files để thử lại.':
     'The import was interrupted when the server stopped. Choose the files again to retry.',
   'Không thể xóa dataset demo mặc định.': 'The default demo dataset cannot be deleted.',
-  'Chờ import hoặc AI Check hoàn tất trước khi xóa.':
-    'Wait for the import or AI Check to finish before deleting.',
+  'Chờ import, AI Check hoặc kiểm nhãn hoàn tất trước khi xóa.':
+    'Wait for the import, AI Check or label verify to finish before deleting.',
   'Tên project 1–160 ký tự; mô tả tối đa 2000 ký tự.':
     'Project names have 1–160 characters; descriptions up to 2000.',
   'Format chưa được hỗ trợ.': 'That format is not supported.',
@@ -821,6 +868,7 @@ export const en: Record<string, string> = {
   'Tên file/path không hợp lệ. Không dùng đường dẫn tuyệt đối hoặc ../.':
     'Invalid file name or path. Do not use absolute paths or ../.',
   'Project metadata quá lớn.': 'The project metadata is too large.',
+  'Tối đa 100 ảnh mỗi project.': 'At most 100 images per project.',
   'Upload tối đa 200 MB.': 'Uploads can be at most 200 MB.',
   'Chỉ chọn một annotation file.': 'Choose only one annotation file.',
   'Annotation extension không khớp format.':
@@ -837,8 +885,8 @@ export const en: Record<string, string> = {
   'Mỗi ảnh tối đa 20 MB.': 'Each image can be at most 20 MB.',
   'Annotation, metadata và guideline tối đa 10 MB mỗi file.':
     'Annotation, metadata and guideline files can be at most 10 MB each.',
-  'Tối đa 1000 ảnh, một annotation file, một metadata file và một guideline.':
-    'At most 1000 images, one annotation file, one metadata file and one guideline.',
+  'Tối đa 100 ảnh, một annotation file, một metadata file và một guideline.':
+    'At most 100 images, one annotation file, one metadata file and one guideline.',
   'Quá nhiều upload parts.': 'Too many upload parts.',
   'Upload bị ngắt.': 'The upload was interrupted.',
   'Upload không hoàn chỉnh.': 'The upload is incomplete.',
@@ -949,8 +997,8 @@ export const en: Record<string, string> = {
   'Đang lấy ảnh…': 'Fetching images…',
   'Xem giải thích': 'Show explanation',
   ảnh: 'image(s)',
-  'Tối đa 1000 ảnh / 200 MB tổng; 20 MB mỗi ảnh; annotation 10 MB.':
-    'At most 1000 images / 200 MB in total; 20 MB per image; annotations 10 MB.',
+  'Tối đa 100 ảnh / 200 MB tổng; 20 MB mỗi ảnh; annotation 10 MB.':
+    'At most 100 images / 200 MB in total; 20 MB per image; annotations 10 MB.',
   // Import formats
   'Dataset đã có annotation, không cần chạy model. Nhận các định dạng CVAT xuất ra có box, polygon hoặc polyline; ảnh PNG, JPEG, WebP, GIF. Chưa nhận mask, keypoint, cuboid và tệp video.':
     'The dataset is already annotated; no model run is needed. Accepts the formats CVAT exports with boxes, polygons or polylines; PNG, JPEG, WebP and GIF images. Masks, keypoints, cuboids and video files are not accepted yet.',
@@ -980,7 +1028,7 @@ export const en: Record<string, string> = {
     'The format of the chosen annotation files was not recognised.',
   'Tệp nén không có tệp nhãn thuộc định dạng được hỗ trợ.':
     'The archive has no annotation files in a supported format.',
-  'Quá nhiều tệp nhãn (tối đa 1010).': 'Too many annotation files (1010 at most).',
+  'Quá nhiều tệp nhãn (tối đa 110).': 'Too many annotation files (110 at most).',
   'Định dạng này cần đúng một tệp nhãn.': 'This format needs exactly one annotation file.',
   'PASCAL VOC 1.1 · XML mỗi ảnh': 'PASCAL VOC 1.1 · one XML per image',
   'YOLO 1.1 / Ultralytics YOLO · TXT mỗi ảnh': 'YOLO 1.1 / Ultralytics YOLO · one TXT per image',
@@ -1238,6 +1286,14 @@ export const en: Record<string, string> = {
 
 // Strings built with values in them. Tried only when there is no exact entry above.
 export const enRules: [RegExp, string][] = [
+  [
+    /^Phần ảnh trong box giống (.+) hoặc (.+) \((\d+%)\) hơn (.+) \((\d+%)\)\.$/,
+    'The pixels in the box look more like $1 or $2 ($3) than $4 ($5).',
+  ],
+  [
+    /^Phần ảnh trong box giống (.+) \((\d+%)\) hơn (.+) \((\d+%)\)\.$/,
+    'The pixels in the box look more like $1 ($2) than $3 ($4).',
+  ],
   [/^Chọn cho (.+)$/, 'Choice for $1'],
   [/^Cần thêm dữ liệu: (.+)$/, 'Needs data: $1'],
   [/^Để trống thì dùng (.+) trong tệp nén\.$/, 'Leave empty to use $1 from the archive.'],

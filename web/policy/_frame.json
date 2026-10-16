@@ -9,7 +9,7 @@
       },
       {
         "id": "engine",
-        "ref": "SmartReview web/core/risk, engine 4.0.0, policy 2.0.0"
+        "ref": "SmartReview web/core/risk_v4, engine 4.0.0, policy 2.0.0"
       }
     ],
     "applies_when": "Các quy tắc về box của mô hình chỉ chạy khi dự án có box của mô hình: ảnh chỉ có box người vẽ thì không có đầu ra của mô hình để xét. Riêng coverage.model_missing chạy trên mọi ảnh, vì danh sách vật bị sót đi kèm file import.",

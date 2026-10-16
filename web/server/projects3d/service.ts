@@ -5,11 +5,14 @@ import { createHash, randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { ReviewError } from '../../shared/review.ts';
 import { WAYMO_FORMAT, summarizeScene } from '../../shared/waymo.ts';
+import { analyzeScene } from '../../core/risk3d/engine.ts';
+import type { Risk3DReport } from '../../core/risk3d/engine.ts';
 import { projectRoot } from '../config.ts';
 import { receiveSegment } from './upload.ts';
 import { buildSheets, placeShots } from './cameras.ts';
 import { Review3DStore, boxKey } from './reviews.ts';
 import type { BoxRef } from './reviews.ts';
+import { ProjectMembers, TABLES_3D } from '../projects/members.ts';
 import type { RemoteStorage } from '../storage/remote.ts';
 import type { Untrusted } from '../../shared/review.ts';
 import type { Scene3DSummary } from '../../shared/waymo.ts';
@@ -19,6 +22,8 @@ type ProjectRow = Rows[number];
 // Everything a 3D project stores, on disk and on the remote, sits under this folder.
 export const STORAGE_3D = 'Project3D';
 export const SCENE_SCHEMA = '3d-1.0.0';
+// The 3D Risk Engine's report, stored beside scene.json.
+export const RISK_FILE = 'risk.json';
 const EXPORT_TIMEOUT_MS = 20 * 60 * 1000;
 // Files sent to the remote between two progress updates.
 const PUBLISH_STEP = 16;
@@ -38,7 +43,7 @@ const publicProject = ({
   storage_key,
   storage_synced_at,
   ...row
-}: ProjectRow) => row;
+}: ProjectRow): ProjectRow => ({ ...row, hidden: Boolean(row.hidden) });
 const missing = () => new ReviewError(404, 'Project không tồn tại.');
 export const noTable = (e: unknown) => (e as { code?: string }).code === 'ER_NO_SUCH_TABLE';
 
@@ -65,6 +70,8 @@ export class Project3DService {
   pool: Db;
   storageRoot: string;
   remote: RemoteStorage | null;
+  // Reviewers, annotators and invite codes, as the 2D projects keep them.
+  members: ProjectMembers;
   python: string;
   script: string;
   deleting: Set<string>;
@@ -81,6 +88,7 @@ export class Project3DService {
     this.pool = pool;
     this.storageRoot = path.resolve(storageRoot);
     this.remote = remote;
+    this.members = new ProjectMembers(pool, TABLES_3D);
     this.python =
       options.python ||
       process.env.SMARTREVIEW_3D_PYTHON ||
@@ -102,16 +110,20 @@ export class Project3DService {
       if (!noTable(e)) throw e;
     }
   }
-  // What `user` is in the project. Every leader is a leader in every project; only deleting is
-  // kept for the creator (see `owns`). A project a member has no part in reads as missing.
+  // What `user` is in the project. Every leader is a leader in every project unless its creator
+  // hid it; only deleting and hiding are kept for the creator (see `owns`). A project the user
+  // may not see reads as missing.
   async role(id: string, user: User): Promise<ProjectRole> {
     if (!/^[a-f0-9-]{36}$/.test(id)) throw missing();
     const [[row]] = await this.pool.execute<Rows>(
-      'SELECT p.created_by,m.role FROM projects_3d p LEFT JOIN project_members_3d m ON m.project_id=p.id AND m.user_id=? WHERE p.id=?',
+      'SELECT p.created_by,p.hidden,m.role FROM projects_3d p LEFT JOIN project_members_3d m ON m.project_id=p.id AND m.user_id=? WHERE p.id=?',
       [user.id, id],
     );
     if (!row) throw missing();
-    if (user.role === 'leader') return 'leader';
+    if (user.role === 'leader') {
+      if (row.hidden && row.created_by !== user.id) throw missing();
+      return 'leader';
+    }
     if (!row.role) throw missing();
     return row.role;
   }
@@ -139,13 +151,35 @@ export class Project3DService {
         }),
     };
   }
-  // A leader sees every 3D project, its own and those of other leaders; a member sees the ones
-  // it was added to.
+  // The creator hides the project from other leaders, or shows it again. Members who joined
+  // keep their access either way.
+  async setHidden(id: string, input: Untrusted, user: User) {
+    if (
+      !input ||
+      typeof input !== 'object' ||
+      Array.isArray(input) ||
+      Object.keys(input).some((k) => k !== 'hidden') ||
+      typeof input.hidden !== 'boolean'
+    )
+      throw new ReviewError(400, 'Gửi { hidden: true } hoặc { hidden: false }.');
+    const [result] = await this.pool.execute<Result>(
+      'UPDATE projects_3d SET hidden=? WHERE id=? AND created_by=?',
+      [input.hidden, id, user.id],
+    );
+    if (!result.affectedRows)
+      throw new ReviewError(403, 'Chỉ Leader tạo project được ẩn hoặc hiện project này.');
+    return { id, hidden: input.hidden };
+  }
+  // A leader sees its own 3D projects and those other leaders did not hide; a member sees the
+  // ones it was added to.
   async list(user: User) {
     const order = ' ORDER BY p.created_at DESC, p.id';
     const [rows] =
       user.role === 'leader'
-        ? await this.pool.query<Rows>(PROJECT_VIEW + order)
+        ? await this.pool.execute<Rows>(
+            PROJECT_VIEW + ' WHERE p.hidden=0 OR p.created_by=?' + order,
+            [user.id],
+          )
         : await this.pool.execute<Rows>(
             PROJECT_VIEW.replace('SELECT p.*', 'SELECT p.*,pm.role AS my_role') +
               ' JOIN project_members_3d pm ON pm.project_id=p.id AND pm.user_id=?' +
@@ -275,6 +309,7 @@ export class Project3DService {
       const scenePath = path.join(directory, 'scene.json');
       let text = await fs.readFile(scenePath, 'utf8');
       let summary: Scene3DSummary, unmatchedImages: number;
+      let risk: Risk3DReport | null = null;
       try {
         const scene = JSON.parse(text);
         summarizeScene(scene);
@@ -290,6 +325,15 @@ export class Project3DService {
           await fs.writeFile(scenePath, text);
         }
         summary = summarizeScene(scene);
+        // The 3D Risk Engine reads only the scene, so the whole segment is scored here once
+        // and nobody has to fetch a point cloud to learn which cuboids are doubtful. A scene
+        // it cannot read is still a project: it just has no cases.
+        try {
+          risk = analyzeScene(scene);
+          await fs.writeFile(path.join(directory, RISK_FILE), JSON.stringify(risk));
+        } catch (e) {
+          console.error('3D risk engine did not run:', id, (e as Error).message);
+        }
       } catch (e) {
         if (e instanceof ReviewError) throw e;
         throw new ReviewError(422, (e as Error).message);
@@ -310,16 +354,24 @@ export class Project3DService {
         // Loose camera images whose name matched no frame; they were left out.
         unmatched_images: unmatchedImages,
         stored_bytes: bytes,
+        // What the 3D Risk Engine found; the cases themselves are in the stored report.
+        risk: risk && {
+          engine_version: risk.engine_version,
+          policy_version: risk.policy_version,
+          total_cases: risk.cases.length,
+          levels: risk.levels,
+          gaps: risk.gaps.length,
+          warnings: risk.warnings.length,
+        },
       };
       if (this.remote) {
         await this.status(id, 'ANALYZING');
         published = true;
         await this.publish(id, key);
       }
-      // No 3D risk engine runs yet, so the revision records none.
       const [revision] = await this.pool.execute<Result>(
-        "INSERT INTO dataset_revisions_3d(fingerprint,dataset_reference,name,schema_version,engine_version) VALUES (?,?,?,?,'none')",
-        [fingerprint, summary.segment, row.name, SCENE_SCHEMA],
+        'INSERT INTO dataset_revisions_3d(fingerprint,dataset_reference,name,schema_version,engine_version) VALUES (?,?,?,?,?)',
+        [fingerprint, summary.segment, row.name, SCENE_SCHEMA, risk?.engine_version ?? 'none'],
       );
       await this.pool.execute<Rows>(
         "UPDATE projects_3d SET status='READY',dataset_path=?,dataset_revision_id=?,metadata=?,error_message=NULL,storage_provider=?,storage_key=?,storage_synced_at=? WHERE id=?",
@@ -435,6 +487,45 @@ export class Project3DService {
       pending.catch(() => this.scenes.delete(id));
     }
     return pending;
+  }
+  // Scores the stored scene again with the engine as it is now, and stores the new report in
+  // place of the one made at import: after a change of policy or engine. The scene is the one
+  // exported at import; measures added to the exporter since are not in it, so rules that need
+  // them say nothing until the segment is imported again.
+  async rescore(id: string) {
+    const data = await this.read(id, 'scene.json');
+    if (!data) throw new ReviewError(409, 'Không tìm thấy dữ liệu project trên kho lưu trữ.');
+    const report = analyzeScene(JSON.parse(data.toString('utf8')));
+    const bytes = Buffer.from(JSON.stringify(report));
+    const row = await this.row(id);
+    if (row.storage_key) {
+      const key = `${row.storage_key}/${RISK_FILE}`;
+      await this.remote!.write(key, bytes);
+      // The old report may be held in memory.
+      const cached = this.files.get(key);
+      if (cached) {
+        this.fileBytes -= cached.length;
+        this.files.delete(key);
+      }
+    } else await fs.writeFile(path.join(path.dirname(row.dataset_path), RISK_FILE), bytes);
+    const meta = typeof row.metadata === 'string' ? JSON.parse(row.metadata) : row.metadata;
+    meta.risk = {
+      engine_version: report.engine_version,
+      policy_version: report.policy_version,
+      total_cases: report.cases.length,
+      levels: report.levels,
+      gaps: report.gaps.length,
+      warnings: report.warnings.length,
+    };
+    await this.pool.execute<Rows>('UPDATE projects_3d SET metadata=? WHERE id=?', [
+      JSON.stringify(meta),
+      id,
+    ]);
+    await this.pool.execute<Rows>('UPDATE dataset_revisions_3d SET engine_version=? WHERE id=?', [
+      report.engine_version,
+      row.dataset_revision_id,
+    ]);
+    return meta.risk;
   }
   async reviews(id: string) {
     const index = await this.index(id);

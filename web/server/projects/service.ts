@@ -1,5 +1,6 @@
 import { AiService } from '../ai/service.ts';
 import { rescoreDataset } from '../ai/rescore.ts';
+import { VerifyService } from '../verify/service.ts';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -35,6 +36,17 @@ import type {
 } from '../types.ts';
 
 type ProjectRow = Rows[number];
+// How far the second half of an import is: files sent to the remote, then risk cases saved.
+export interface ImportProgress {
+  step: 'score' | 'publish' | 'save';
+  done: number;
+  total: number;
+}
+// Files sent to the remote between two progress updates; what was sent is not sent again when
+// an interrupted import is resumed.
+const PUBLISH_STEP = 20;
+const INTERRUPTED =
+  'Tải lên kho lưu trữ hoặc lưu vào MySQL bị gián đoạn. Bấm "Thử lại" để làm tiếp từ chỗ dở.';
 const STORAGE_KEY = /^projects\/[a-f0-9-]{36}\/[a-f0-9-]{36}$/;
 // Frames fetched from the remote stay in memory only; nothing is written to disk.
 const ASSET_CACHE_BYTES = 64 * 1024 * 1024;
@@ -51,19 +63,25 @@ const publicProject = ({
   storage_key,
   storage_synced_at,
   ...row
-}: ProjectRow) => row;
+}: ProjectRow): ProjectRow => ({ ...row, hidden: Boolean(row.hidden) });
 export class ProjectService {
   pool: Db;
   storageRoot: string;
   cache: Map<string, Promise<ProjectContext>>;
   deleting: Set<string>;
   ai: AiService;
+  verify: VerifyService;
   members: ProjectMembers;
   handoffs: ProjectHandoffs;
   remote: RemoteStorage | null;
   demos: Map<string, string>;
   assets: Map<string, Buffer>;
   assetBytes: number;
+  // Whether an import answers as soon as the dataset is staged and checked, leaving the upload
+  // to the remote and the writes to MySQL to run after the response. The server turns it on.
+  background: boolean;
+  progress: Map<string, ImportProgress>;
+  finishing: Set<string>;
   constructor(pool: Db, storageRoot: string, remote: RemoteStorage | null = null) {
     this.pool = pool;
     this.storageRoot = path.resolve(storageRoot);
@@ -73,13 +91,17 @@ export class ProjectService {
     this.demos = new Map();
     this.assets = new Map();
     this.assetBytes = 0;
+    this.background = false;
+    this.progress = new Map();
+    this.finishing = new Set();
     this.ai = new AiService(this);
+    this.verify = new VerifyService(this);
     this.members = new ProjectMembers(pool);
     this.handoffs = new ProjectHandoffs(pool);
   }
   async recover() {
     await this.pool.query<Rows>(
-      "UPDATE projects SET status='FAILED',error_message='Import bị ngắt khi server dừng. Chọn lại files để thử lại.' WHERE status IN ('UPLOADING','VALIDATING','NORMALIZING','ANALYZING')",
+      "UPDATE projects SET status='FAILED',error_message='Import bị ngắt khi server dừng. Thử lại, hoặc chọn lại files.' WHERE status IN ('UPLOADING','VALIDATING','NORMALIZING','ANALYZING')",
     );
   }
   async row(id: string): Promise<ProjectRow> {
@@ -92,7 +114,29 @@ export class ProjectService {
     await this.row(id);
     const [[row]] = await this.pool.execute<Rows>(PROJECT_VIEW + ' WHERE p.id=?', [id]);
     if (!row) throw new ReviewError(404, 'Project không tồn tại.');
-    return publicProject(row);
+    return {
+      ...(publicProject(row) as ProjectRow),
+      // Present while this backend is finishing the import.
+      progress: this.progress.get(id) ?? null,
+      // A failed import whose checked files are still on this machine can be finished.
+      can_resume: row.status === 'FAILED' && !!(await this.staged(id)),
+    } as ProjectRow;
+  }
+  // The key of the import waiting on this machine to be finished: its files were received and
+  // checked, and the dataset and risk report written.
+  async staged(id: string) {
+    const root = path.join(this.storageRoot, 'projects', id);
+    for (const name of await fs.readdir(root).catch(() => [] as string[])) {
+      const key = `projects/${id}/${name}`;
+      if (!STORAGE_KEY.test(key)) continue;
+      try {
+        await fs.access(path.join(root, name, 'risk', 'report.json'));
+        return key;
+      } catch {
+        /* Not a finished staging directory. */
+      }
+    }
+    return null;
   }
   async remove(id: string) {
     await this.row(id);
@@ -105,9 +149,12 @@ export class ProjectService {
       await c.beginTransaction();
       const [[row]] = await c.execute<Rows>('SELECT * FROM projects WHERE id=? FOR UPDATE', [id]);
       if (!row) throw new ReviewError(404, 'Project không tồn tại.');
-      if (row.demo_key) throw new ReviewError(409, 'Không thể xóa dataset demo mặc định.');
-      if (!['CREATED', 'FAILED', 'READY'].includes(row.status) || this.ai.active)
-        throw new ReviewError(409, 'Chờ import hoặc AI Check hoàn tất trước khi xóa.');
+      if (
+        !['CREATED', 'FAILED', 'READY'].includes(row.status) ||
+        this.ai.active ||
+        this.verify.active
+      )
+        throw new ReviewError(409, 'Chờ import, AI Check hoặc kiểm nhãn hoàn tất trước khi xóa.');
       const trash = path.join(this.storageRoot, '.trash');
       await fs.mkdir(trash, { recursive: true });
       const target = path.join(trash, randomUUID());
@@ -157,13 +204,36 @@ export class ProjectService {
     }
     return { deleted: true, cleanupPending };
   }
-  // Without a user: every project (scripts). A leader sees every project, its own and those of
-  // other leaders; a member sees the projects it joined. `my_role` is the user's role there.
+  // The creator hides the project from other leaders, or shows it again. Members who joined
+  // keep their access either way.
+  async setHidden(id: string, input: Untrusted, user: User) {
+    if (
+      !input ||
+      typeof input !== 'object' ||
+      Array.isArray(input) ||
+      Object.keys(input).some((k) => k !== 'hidden') ||
+      typeof input.hidden !== 'boolean'
+    )
+      throw new ReviewError(400, 'Gửi { hidden: true } hoặc { hidden: false }.');
+    const [result] = await this.pool.execute<Result>(
+      'UPDATE projects SET hidden=? WHERE id=? AND created_by=?',
+      [input.hidden, id, user.id],
+    );
+    if (!result.affectedRows)
+      throw new ReviewError(403, 'Chỉ Leader tạo project được ẩn hoặc hiện project này.');
+    return { id, hidden: input.hidden };
+  }
+  // Without a user: every project (scripts). A leader sees its own projects and those other
+  // leaders did not hide; a member sees the projects it joined. `my_role` is the user's role there.
   async list(user?: User) {
     const order = ' ORDER BY p.created_at DESC, p.id';
-    const [rows] =
-      !user || user.role === 'leader'
-        ? await this.pool.query<Rows>(PROJECT_VIEW + order)
+    const [rows] = !user
+      ? await this.pool.query<Rows>(PROJECT_VIEW + order)
+      : user.role === 'leader'
+        ? await this.pool.execute<Rows>(
+            PROJECT_VIEW + ' WHERE p.hidden=0 OR p.created_by=?' + order,
+            [user.id],
+          )
         : await this.pool.execute<Rows>(
             PROJECT_VIEW.replace('SELECT p.*', 'SELECT p.*,pm.role AS my_role') +
               ' JOIN project_members pm ON pm.project_id=p.id AND pm.user_id=?' +
@@ -222,7 +292,9 @@ export class ProjectService {
     return row.id as string;
   }
   // Every file of an import directory goes to the remote under the same relative path.
-  async publish(key: string) {
+  // Files go in steps; a note beside the directory counts those already there, so a resumed
+  // import sends only the rest.
+  async publish(key: string, id?: string) {
     const directory = path.join(this.storageRoot, key);
     const entries = await fs.readdir(directory, { recursive: true, withFileTypes: true });
     const files = entries
@@ -231,7 +303,8 @@ export class ProjectService {
         const file = path.join(e.parentPath, e.name);
         const relative = path.relative(directory, file).split(path.sep).join('/');
         return { file, key: `${key}/${relative}` };
-      });
+      })
+      .sort((a, b) => (a.key < b.key ? -1 : 1));
     // Dropbox paths ignore letter case, so two such names would silently become one file.
     const seen = new Set<string>();
     for (const f of files) {
@@ -243,7 +316,14 @@ export class ProjectService {
         );
       seen.add(folded);
     }
-    await this.remote!.uploadFiles(files);
+    const note = directory + '.published';
+    let done = Math.min(Number(await fs.readFile(note, 'utf8').catch(() => 0)) || 0, files.length);
+    while (done < files.length) {
+      if (id) this.progress.set(id, { step: 'publish', done, total: files.length });
+      await this.remote!.uploadFiles(files.slice(done, done + PUBLISH_STEP));
+      done = Math.min(done + PUBLISH_STEP, files.length);
+      await fs.writeFile(note, String(done));
+    }
   }
   async readRemote(key: string) {
     try {
@@ -332,12 +412,13 @@ export class ProjectService {
     }
     await this.publish(key);
     const local = path.join(this.storageRoot, 'projects', id);
-    try {
-      const ai = await fs.readFile(path.join(local, 'ai', 'latest.json'));
-      await this.remote.write(`projects/${id}/ai/latest.json`, ai);
-    } catch (e) {
-      if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e;
-    }
+    for (const report of ['ai', 'verify'])
+      try {
+        const latest = await fs.readFile(path.join(local, report, 'latest.json'));
+        await this.remote.write(`projects/${id}/${report}/latest.json`, latest);
+      } catch (e) {
+        if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e;
+      }
     await this.pool.execute<Rows>(
       'UPDATE projects SET storage_provider=?,storage_key=?,storage_synced_at=UTC_TIMESTAMP(3),dataset_path=NULL WHERE id=?',
       [this.remote.name, key, id],
@@ -472,6 +553,11 @@ export class ProjectService {
             'Dataset trên disk đã thay đổi. Tạo project mới để import lại.',
           );
         reviews.datasetId = row.dataset_revision_id;
+        // What the label scan of this dataset found belongs in the review queue; a scan that
+        // cannot be read must not keep the project from opening.
+        await this.verify
+          .apply(id, { dataset, reviews })
+          .catch((e) => console.error('Label scan not applied:', id, (e as Error).message));
         return { dataset, reviews };
       })();
       this.cache.set(id, pending);
@@ -486,8 +572,6 @@ export class ProjectService {
       id,
     ]);
   }
-  // How far an import that scores its boxes has come, for the import status the page polls.
-  progress = new Map<string, string>();
   async import(id: string, req: Req, { rescore = false }: { rescore?: boolean } = {}) {
     const row = await this.row(id);
     const [claimed] = await this.pool.execute<Result>(
@@ -499,9 +583,17 @@ export class ProjectService {
         409,
         'Project đang import hoặc đã READY. Tạo project mới cho dataset khác.',
       );
+    // New files replace what an interrupted import left here and on the remote.
+    const left = await this.staged(id);
+    await fs.rm(path.join(this.storageRoot, 'projects', id), { recursive: true, force: true });
+    if (left && this.remote)
+      void this.remote
+        .remove(left)
+        .catch((error) =>
+          console.error('Remote import cleanup pending:', left, (error as Error).message),
+        );
     const key = `projects/${id}/${randomUUID()}`;
     const directory = path.join(this.storageRoot, key);
-    let published = false;
     try {
       const uploaded = await receiveUpload(req, directory, row.format);
       await this.status(id, 'VALIDATING');
@@ -575,7 +667,7 @@ export class ProjectService {
       if (rescore) {
         try {
           await rescoreDataset(data, images, directory, (done, total) =>
-            this.progress.set(id, `Đang chấm điểm box bằng model: ${done}/${total} ảnh…`),
+            this.progress.set(id, { step: 'score', done, total }),
           );
         } finally {
           this.progress.delete(id);
@@ -587,37 +679,67 @@ export class ProjectService {
       const json = JSON.stringify(data, null, 2);
       await fs.writeFile(datasetPath, json, { flag: 'wx' });
       await this.status(id, 'ANALYZING');
-      const options = {
-        namespace: id,
-        apiPrefix: `/api/projects/${id}`,
-        engineVersion: LATEST_ENGINE_VERSION,
-        waivers: uploaded.rules
-          ? waiversFrom(
-              await fs
-                .readFile(uploaded.rules, 'utf8')
-                .then(JSON.parse)
-                .catch(() => {
-                  throw new ReviewError(422, 'File lựa chọn quy tắc không phải JSON hợp lệ.');
-                }),
-              checksFor(LATEST_ENGINE_VERSION).map((c) => c.id),
-            )
-          : {},
-      };
-      let dataset = await loadDataset(datasetPath, options);
+      const options = await this.importOptions(id, uploaded.rules);
+      const dataset = await loadDataset(datasetPath, options);
       await fs.mkdir(path.join(directory, 'risk'));
       await fs.writeFile(
         path.join(directory, 'risk', 'report.json'),
         JSON.stringify(dataset.report, null, 2),
       );
+    } catch (e) {
+      await this.status(
+        id,
+        'FAILED',
+        e instanceof ReviewError
+          ? e.message
+          : 'Không thể xử lý import. Kiểm tra storage/MySQL rồi thử lại.',
+      );
+      await fs.rm(directory, { recursive: true, force: true });
+      throw e;
+    }
+    // The dataset is received and checked. What is left talks to the remote and to MySQL, which
+    // can take minutes: in the background it runs after the response.
+    if (this.background) void this.finish(id, key).catch(() => {});
+    else await this.finish(id, key);
+    return this.get(id);
+  }
+  // Finishes the import of a FAILED project whose checked files are still on this machine.
+  async resume(id: string) {
+    const key = await this.staged(id);
+    if (!key)
+      throw new ReviewError(409, 'Không còn dữ liệu chờ trên máy này. Chọn lại file để import.');
+    const [claimed] = await this.pool.execute<Result>(
+      "UPDATE projects SET status='ANALYZING',error_message=NULL WHERE id=? AND status='FAILED'",
+      [id],
+    );
+    if (!claimed.affectedRows || this.finishing.has(id))
+      throw new ReviewError(409, 'Project đang import hoặc đã READY.');
+    if (this.background) void this.finish(id, key).catch(() => {});
+    else await this.finish(id, key);
+    return this.get(id);
+  }
+  // The second half of an import: the staged directory goes to the remote, the risk cases to
+  // MySQL, and the project becomes READY. A failure keeps the directory, so `resume` continues.
+  async finish(id: string, key: string) {
+    const directory = path.join(this.storageRoot, key);
+    this.finishing.add(id);
+    try {
+      const row = await this.row(id);
+      const datasetPath = path.join(directory, 'dataset.json');
+      const json = await fs.readFile(datasetPath, 'utf8');
+      const rules: string | undefined = JSON.parse(json).dataset?.metadata?.guideline?.rules;
+      const options = await this.importOptions(id, rules && path.join(directory, rules));
+      let dataset: LoadedDataset;
       // With a remote, the upload directory is only a staging area: publish it, then serve from the remote.
       if (this.remote) {
-        published = true;
-        await this.publish(key);
+        await this.publish(key, id);
         dataset = await buildDataset(json, options, this.remoteSource(key));
-      }
+      } else dataset = await loadDataset(datasetPath, options);
       dataset.meta.project_name = row.name;
       const reviews = new ReviewStore(this.pool, dataset);
-      await reviews.initialize();
+      await reviews.initialize((done, total) =>
+        this.progress.set(id, { step: 'save', done, total }),
+      );
       await this.pool.execute<Rows>(
         "UPDATE projects SET status='READY',dataset_path=?,dataset_revision_id=?,metadata=?,error_message=NULL,storage_provider=?,storage_key=?,storage_synced_at=? WHERE id=?",
         [
@@ -631,25 +753,42 @@ export class ProjectService {
         ],
       );
       this.cache.set(id, Promise.resolve({ dataset, reviews }));
+      // A label scan chosen in the upload popup was waiting for this.
+      void this.verify.drain();
       if (this.remote) {
         await fs.rm(directory, { recursive: true, force: true });
+        await fs.rm(directory + '.published', { force: true });
         await fs.rmdir(path.dirname(directory)).catch(() => {});
       }
-      return this.get(id);
     } catch (e) {
-      await this.status(
-        id,
-        'FAILED',
-        e instanceof ReviewError
-          ? e.message
-          : 'Không thể xử lý import. Kiểm tra storage/MySQL rồi thử lại.',
+      console.error('Import not finished:', id, (e as Error).message);
+      await this.status(id, 'FAILED', e instanceof ReviewError ? e.message : INTERRUPTED).catch(
+        () => {},
       );
-      await fs.rm(directory, { recursive: true, force: true });
-      if (published)
-        await this.remote!.remove(key).catch((error) =>
-          console.error('Remote import cleanup pending:', key, (error as Error).message),
-        );
       throw e;
+    } finally {
+      this.finishing.delete(id);
+      this.progress.delete(id);
     }
+  }
+  // What the risk engine is run with for an imported project; `rules` is the file holding the
+  // choices a person made on the guideline's rules.
+  async importOptions(id: string, rules?: string | null) {
+    return {
+      namespace: id,
+      apiPrefix: `/api/projects/${id}`,
+      engineVersion: LATEST_ENGINE_VERSION,
+      waivers: rules
+        ? waiversFrom(
+            await fs
+              .readFile(rules, 'utf8')
+              .then(JSON.parse)
+              .catch(() => {
+                throw new ReviewError(422, 'File lựa chọn quy tắc không phải JSON hợp lệ.');
+              }),
+            checksFor(LATEST_ENGINE_VERSION).map((c) => c.id),
+          )
+        : {},
+    };
   }
 }

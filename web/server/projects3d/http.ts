@@ -1,6 +1,7 @@
 import { ReviewError, validateReview } from '../../shared/review.ts';
 import { readJson, sameOrigin } from '../projects/upload.ts';
-import { noTable } from './service.ts';
+import { noTable, RISK_FILE } from './service.ts';
+import { precisionOf } from '../../core/risk3d/precision.ts';
 import type { Project3DService } from './service.ts';
 import type { Json, Req, Res } from '../types.ts';
 
@@ -25,6 +26,12 @@ export async function handleProjects3D(
       } else throw new ReviewError(405, 'Use GET or POST.');
       return true;
     }
+    if (url.pathname === '/api/projects3d/join') {
+      if (req.method !== 'POST') throw new ReviewError(405, 'Use POST.');
+      sameOrigin(req);
+      json(res, 200, await projects.members.join(await readJson(req), user));
+      return true;
+    }
     const match = url.pathname.match(/^\/api\/projects3d\/([^/]+)(\/.*)?$/);
     if (!match) throw new ReviewError(404, 'Unknown project route.');
     const [, id, route = ''] = match;
@@ -43,17 +50,43 @@ export async function handleProjects3D(
       if (role !== 'leader')
         throw new ReviewError(403, 'Chỉ Leader của project được thực hiện thao tác này.');
     };
+    const member = route.match(/^\/members\/([a-f0-9-]{36})$/);
     if (!route && req.method === 'DELETE') {
       sameOrigin(req);
       leaderOnly();
       if (!(await projects.owns(id, user)))
         throw new ReviewError(403, 'Chỉ Leader tạo project được xóa project này.');
       json(res, 200, await projects.remove(id));
+    } else if (!route && req.method === 'PATCH') {
+      sameOrigin(req);
+      leaderOnly();
+      json(res, 200, await projects.setHidden(id, await readJson(req), user));
     } else if (route === '/import') {
       if (req.method !== 'POST') throw new ReviewError(405, 'Use POST.');
       sameOrigin(req);
       leaderOnly();
       json(res, 201, await projects.import(id, req));
+    } else if (route === '/risk') {
+      // The 3D Risk Engine's report of the import: the doubtful cuboids, highest score first.
+      if (req.method !== 'GET') throw new ReviewError(405, 'Use GET.');
+      const data = await projects.read(id, RISK_FILE);
+      if (!data)
+        throw new ReviewError(404, 'Project này được import trước khi có engine chấm rủi ro 3D.');
+      json(res, 200, JSON.parse(data.toString('utf8')));
+    } else if (route === '/risk/precision') {
+      // How the engine's cases fared with the reviewers, rule by rule.
+      if (req.method !== 'GET') throw new ReviewError(405, 'Use GET.');
+      const data = await projects.read(id, RISK_FILE);
+      if (!data)
+        throw new ReviewError(404, 'Project này được import trước khi có engine chấm rủi ro 3D.');
+      const { store } = await projects.reviews(id);
+      json(res, 200, precisionOf(JSON.parse(data.toString('utf8')), await store.list()));
+    } else if (route === '/risk/rescore') {
+      // The stored scene scored again by the engine as it is now.
+      if (req.method !== 'POST') throw new ReviewError(405, 'Use POST.');
+      sameOrigin(req);
+      leaderOnly();
+      json(res, 200, await projects.rescore(id));
     } else if (stored) {
       // What the viewer reads. The files of a READY project never change, and the address
       // carries the project's revision, so the browser may keep them.
@@ -108,6 +141,38 @@ export async function handleProjects3D(
       json(res, whole || mode === 'update' ? 200 : 201, {
         reviews: await store.save(refs, input, user.id, whole ? undefined : mode),
       });
+    } else if (route === '/members') {
+      if (req.method === 'GET') json(res, 200, await projects.members.people(id));
+      else if (req.method === 'POST') {
+        sameOrigin(req);
+        const input = await readJson(req);
+        // A reviewer may bring in annotators; any other addition is the leader's.
+        if (!(role === 'reviewer' && input?.role === 'annotator')) leaderOnly();
+        json(res, 201, await projects.members.add(id, input));
+      } else throw new ReviewError(405, 'Use GET or POST.');
+    } else if (route === '/members/candidates') {
+      if (req.method !== 'GET') throw new ReviewError(405, 'Use GET.');
+      if (role !== 'reviewer') leaderOnly();
+      json(res, 200, await projects.members.candidates(id));
+    } else if (member) {
+      if (!['PATCH', 'DELETE'].includes(req.method))
+        throw new ReviewError(405, 'Use PATCH or DELETE.');
+      sameOrigin(req);
+      leaderOnly();
+      json(
+        res,
+        200,
+        req.method === 'DELETE'
+          ? await projects.members.remove(id, member[1])
+          : await projects.members.setRole(id, member[1], await readJson(req)),
+      );
+    } else if (route === '/invites') {
+      leaderOnly();
+      if (req.method === 'GET') json(res, 200, await projects.members.invites(id));
+      else if (req.method === 'POST') {
+        sameOrigin(req);
+        json(res, 200, await projects.members.regenerate(id, await readJson(req)));
+      } else throw new ReviewError(405, 'Use GET or POST.');
     } else if (!route || route === '/import-status') {
       if (req.method !== 'GET') throw new ReviewError(405, 'Use GET.');
       json(res, 200, { ...(await projects.get(id)), my_role: role });

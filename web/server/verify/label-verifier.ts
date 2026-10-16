@@ -2,21 +2,34 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { webRoot } from '../config.ts';
-import type { VerifierRequest, VerifierResponse } from '../../core/risk/label-verify.ts';
+import type {
+  VerifierEngine,
+  VerifierRequest,
+  VerifierResponse,
+} from '../../core/risk/label-verify.ts';
 
-// The label-verifier repo next to SmartReview holds the model and its Python environment. It
-// is found at run time, from the directory LABEL_VERIFIER_DIR names (relative to web/), so
-// SmartReview still runs on a machine that does not have it.
-export function labelVerifier(dir = process.env.LABEL_VERIFIER_DIR) {
-  const root = dir ? path.resolve(webRoot, dir) : undefined;
-  const python = process.env.LABEL_VERIFIER_PYTHON || (root && path.join(root, '.venv/bin/python'));
-  const worker = root && path.join(root, 'verify.py');
+const repoRoot = path.resolve(webRoot, '..');
+const worker = path.join(import.meta.dirname, 'verify.py');
+// Each engine's model has its own folder outside the repo; web/.env names it, relative to web/.
+const MODEL_DIR: Record<VerifierEngine, string> = {
+  siglip: 'LABEL_VERIFIER_SIGLIP_DIR',
+  qwen: 'LABEL_VERIFIER_QWEN_DIR',
+};
+
+// The engines (verify.py) run in the repo's Python environment, which ./setup.sh --verifier
+// fills. SmartReview still runs on a machine that has neither the packages nor the models.
+export function labelVerifier() {
+  const python = process.env.LABEL_VERIFIER_PYTHON || path.join(repoRoot, '.venv/bin/python');
+  const modelDir = (engine: VerifierEngine) => {
+    const dir = process.env[MODEL_DIR[engine]];
+    return dir ? path.resolve(webRoot, dir) : undefined;
+  };
   return {
-    root,
+    python,
+    modelDir,
     async available() {
-      if (!python || !worker) return false;
       try {
-        await Promise.all([fs.access(python), fs.access(worker)]);
+        await fs.access(python);
         return true;
       } catch {
         return false;
@@ -26,13 +39,12 @@ export function labelVerifier(dir = process.env.LABEL_VERIFIER_DIR) {
     run(
       request: VerifierRequest,
       onProgress?: (done: number, total: number) => void,
+      timeoutMs?: number,
     ): Promise<VerifierResponse> {
-      if (!python || !worker)
-        return Promise.reject(
-          new Error('LABEL_VERIFIER_DIR is not set; see docs/label-verifier.md'),
-        );
+      // Without a folder for the engine the model comes from the Hugging Face cache.
+      const model_dir = modelDir(request.engine);
       return new Promise((resolve, reject) => {
-        const child = spawn(python, [worker], { cwd: root, stdio: ['pipe', 'pipe', 'pipe'] });
+        const child = spawn(python, [worker], { stdio: ['pipe', 'pipe', 'pipe'] });
         const out: Buffer[] = [];
         let log = '';
         child.stdout.on('data', (chunk) => out.push(chunk));
@@ -41,8 +53,15 @@ export function labelVerifier(dir = process.env.LABEL_VERIFIER_DIR) {
           for (const [, done, total] of String(chunk).matchAll(/^progress (\d+) (\d+)$/gm))
             onProgress?.(Number(done), Number(total));
         });
+        const timer =
+          timeoutMs &&
+          setTimeout(() => {
+            child.kill('SIGKILL');
+            reject(new Error(`label-verifier timed out after ${timeoutMs / 60000} minutes`));
+          }, timeoutMs);
         child.on('error', reject);
         child.on('close', (code) => {
+          clearTimeout(timer);
           if (code !== 0)
             return reject(new Error(`label-verifier exited with ${code}: ${log.trim()}`));
           try {
@@ -52,7 +71,7 @@ export function labelVerifier(dir = process.env.LABEL_VERIFIER_DIR) {
           }
         });
         child.stdin.on('error', reject);
-        child.stdin.end(JSON.stringify(request));
+        child.stdin.end(JSON.stringify({ ...request, ...(model_dir && { model_dir }) }));
       });
     },
   };

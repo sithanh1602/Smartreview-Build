@@ -8,6 +8,7 @@ import { ProjectStatus } from '../features/projects/ProjectLayout';
 import { ImportForm } from '../features/projects/ImportForm';
 import { ProjectPeople } from '../features/projects/ProjectPeople';
 import { StartReviewButton } from '../features/projects/StartReviewButton';
+import { ScanStatus } from '../features/verify/ScanStatus';
 import { request } from '../lib/api';
 import { CompleteReviewButton } from '../features/handoff/CompleteReviewButton';
 import { useAuth } from '../features/auth/AuthProvider';
@@ -18,6 +19,8 @@ export function ProjectDashboardPage() {
   const { projectId } = useParams();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [resuming, setResuming] = useState(false),
+    [resumeError, setResumeError] = useState('');
   const { data: p, error, loading, retry } = useProject(projectId);
   const [dashboard, setDashboard] = useState<Dashboard | null>(null),
     [failure, setFailure] = useState('');
@@ -141,6 +144,38 @@ export function ProjectDashboardPage() {
           {p.error_message}
         </p>
       )}
+      {leader && p.can_resume && (
+        <section className="panel mb-6 p-5" data-testid="import-resume">
+          <p className="text-sm">
+            Dữ liệu đã tải lên và kiểm tra vẫn còn trên backend. Thử lại sẽ làm tiếp từ chỗ dở,
+            không cần chọn lại file.
+          </p>
+          <button
+            className="sr-button mt-4 border-accent text-accent"
+            disabled={resuming}
+            onClick={async () => {
+              setResuming(true);
+              setResumeError('');
+              try {
+                await request(`/projects/${p.id}/import/resume`, { method: 'POST' });
+                retry();
+              } catch (e) {
+                setResumeError((e as Error).message);
+              } finally {
+                setResuming(false);
+              }
+            }}
+          >
+            {resuming && <Spinner />}
+            Thử lại
+          </button>
+          {resumeError && (
+            <p role="alert" className="mt-3 text-sm text-rose-700">
+              {resumeError}
+            </p>
+          )}
+        </section>
+      )}
       {['CREATED', 'FAILED'].includes(p.status) ? (
         leader ? (
           <ImportForm key={p.id} project={p} onImported={retry} />
@@ -150,10 +185,31 @@ export function ProjectDashboardPage() {
           </p>
         )
       ) : p.status !== 'READY' ? (
-        <p role="status" className="panel p-8">
-          <Spinner />
-          {hint('Đang xử lý dataset. Trạng thái tự cập nhật; bạn có thể quay lại Projects.')}
-        </p>
+        <div role="status" className="panel p-8" data-testid="import-progress">
+          <p>
+            <Spinner />
+            {p.progress
+              ? p.progress.step === 'score'
+                ? `Đang chấm điểm box bằng model: ${p.progress.done}/${p.progress.total} ảnh…`
+                : p.progress.step === 'publish'
+                  ? `Đang đưa lên kho lưu trữ: ${p.progress.done}/${p.progress.total} file`
+                  : `Đang lưu risk case: ${p.progress.done}/${p.progress.total}`
+              : hint('Đang xử lý dataset. Trạng thái tự cập nhật; bạn có thể quay lại Projects.')}
+          </p>
+          {p.progress && (
+            <>
+              <progress
+                aria-label="Tiến độ import"
+                className="mt-4 h-2 w-full accent-teal-600"
+                value={p.progress.done}
+                max={p.progress.total || 1}
+              />
+              <p className="mt-3 text-xs text-muted">
+                Chạy nền trên backend: bạn có thể quay lại Projects, trang này tự cập nhật.
+              </p>
+            </>
+          )}
+        </div>
       ) : failure ? (
         <p role="alert">
           {failure}
@@ -168,6 +224,7 @@ export function ProjectDashboardPage() {
         </p>
       ) : (
         <>
+          <ScanStatus projectId={p.id} leader={leader} onQueueChanged={retry} />
           <div className="grid gap-5 lg:grid-cols-3">
             {(
               [

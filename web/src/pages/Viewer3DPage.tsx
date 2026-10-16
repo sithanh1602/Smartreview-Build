@@ -14,9 +14,21 @@ import { Swatch } from '../features/projects3d/viewer/controls';
 import { CameraStrip, CameraView } from '../features/projects3d/viewer/Cameras';
 import { DisplayPanel } from '../features/projects3d/viewer/DisplayPanel';
 import { ObjectPanel } from '../features/projects3d/viewer/ObjectPanel';
+import { nextIssue } from '../features/projects3d/viewer/RiskQueue';
 import { HandControl } from '../features/projects3d/viewer/HandControl';
-import { FLAG_NAMES, boxKey, flagsOf } from '../features/projects3d/viewer/flags';
-import type { Action } from '../features/projects3d/viewer/gestures';
+import { Pin } from '../features/projects3d/viewer/Pin';
+import {
+  FLAG_NAMES,
+  ISSUE_NAMES,
+  PIN_COLORS,
+  SEVERITY_NAMES,
+  boxKey,
+  flagsOf,
+  issuesOf,
+  sunkBoxes,
+} from '../features/projects3d/viewer/flags';
+import type { Risk } from '../features/projects3d/viewer/flags';
+import type { Action, Reading } from '../features/projects3d/viewer/gestures';
 import type {
   FrameInfo,
   Scene3D,
@@ -24,6 +36,7 @@ import type {
   ViewSettings,
 } from '../features/projects3d/viewer/engine';
 import type { Review } from '../types.ts';
+import type { Risk3DReport } from '../../core/risk3d/engine.ts';
 
 // The lidar turns ten times a second, so that is the pace of playback at 1×.
 const FRAME_MS = 100;
@@ -46,6 +59,10 @@ export function Viewer3DPage() {
   const { data: project, error: projectError, loading } = useProject3D(projectId);
   const [scene, setScene] = useState<Scene3D | null>(null),
     [reviews, setReviews] = useState<Record<string, Review>>({}),
+    // The 3D Risk Engine's cases and warnings by box key; none for a project imported before
+    // the engine.
+    [risks, setRisks] = useState<Record<string, Risk>>({}),
+    [report, setReport] = useState<Risk3DReport | null>(null),
     [failure, setFailure] = useState(''),
     [settings, setSettings] = useState<ViewSettings | null>(null),
     [info, setInfo] = useState<FrameInfo | null>(null),
@@ -59,6 +76,8 @@ export function Viewer3DPage() {
     // Hand gestures seen by the webcam; off until asked for.
     [webcam, setWebcam] = useState(false),
     [notice, setNotice] = useState(''),
+    // The issue a held finger count is calling up, before it opens.
+    [calling, setCalling] = useState<number | null>(null),
     [playing, setPlaying] = useState(false),
     [speed, setSpeed] = useState(1);
   const host = useRef<HTMLDivElement>(null),
@@ -75,8 +94,12 @@ export function Viewer3DPage() {
       request<{ reviews: Record<string, Review> }>(`/projects3d/${projectId}/reviews`, {
         signal: c.signal,
       }),
+      // Without the report the viewer still works, only without the engine's flags.
+      request<Risk3DReport>(`/projects3d/${projectId}/risk`, { signal: c.signal }).catch(
+        () => null,
+      ),
     ])
-      .then(([loaded, saved]) => {
+      .then(([loaded, saved, report]) => {
         setSettings({
           frame: 'vehicle',
           follow: true,
@@ -87,11 +110,19 @@ export function Viewer3DPage() {
           boxes: true,
           boxColor: 'type',
           labels: true,
+          orientation: true,
           sensors: true,
           lasers: Object.fromEntries(loaded.lasers.map((l) => [l.name, true])),
           types: {},
         });
         setReviews(saved.reviews);
+        setReport(report);
+        setRisks(
+          Object.fromEntries([
+            ...(report?.warnings.map((r) => [r.id, { ...r, warning: true }]) ?? []),
+            ...(report?.cases.map((r) => [r.id, r]) ?? []),
+          ]),
+        );
         setSelected(null);
         setCamera(null);
         setScene(loaded);
@@ -145,6 +176,40 @@ export function Viewer3DPage() {
   useEffect(() => {
     engine.current?.setReviews(reviews);
   }, [reviews, scene]);
+  useEffect(() => {
+    engine.current?.setRisks(risks);
+  }, [risks, scene]);
+  // Every issue of the segment with its number; the pins in the point cloud carry the same.
+  const issues = useMemo(
+    () => (scene ? issuesOf(scene.frames, report, reviews) : []),
+    [scene, report, reviews],
+  );
+  const numbers = useMemo(() => new Map(issues.map((i) => [i.key, i.number])), [issues]);
+  const sunk = useMemo(
+    () => (scene ? sunkBoxes(scene.frames, report) : new Set<string>()),
+    [scene, report],
+  );
+  useEffect(() => {
+    engine.current?.setSunk(sunk);
+  }, [sunk, scene]);
+  useEffect(() => {
+    engine.current?.setNumbers(numbers);
+  }, [numbers, scene]);
+  // Where the issues are along the segment, for the marks over the frame slider.
+  const marks = useMemo(() => {
+    const byFrame = new Map<number, typeof issues>();
+    for (const issue of issues)
+      byFrame.set(issue.frame, [...(byFrame.get(issue.frame) ?? []), issue]);
+    return [...byFrame].map(([frame, list]) => ({
+      frame,
+      list,
+      level: list.some((i) => i.kind === 'review' || reviews[i.key]?.decision === 'ERROR')
+        ? ('error' as const)
+        : list.some((i) => i.case?.severity === 'high')
+          ? ('high' as const)
+          : ('low' as const),
+    }));
+  }, [issues, reviews]);
   const tracks = useMemo(() => {
     const byObject = new Map<string, number[]>();
     scene?.frames.forEach((frame, index) => {
@@ -165,10 +230,10 @@ export function Viewer3DPage() {
         : [],
     [scene],
   );
-  // The cuboids of the frame on screen that were reviewed as wrong, numbered.
+  // The cuboids of the frame on screen that were reviewed as wrong or the engine doubts, numbered.
   const flags = useMemo(
-    () => (scene && info ? flagsOf(scene.frames[info.index], reviews) : []),
-    [scene, info, reviews],
+    () => (scene && info ? flagsOf(scene.frames[info.index], reviews, risks, numbers) : []),
+    [scene, info, reviews, risks, numbers],
   );
   const total = scene?.frames.length ?? 0;
   const show = (index: number) =>
@@ -234,24 +299,55 @@ export function Viewer3DPage() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, []);
-  // What a gesture seen by the webcam does. Raising fingers calls up the flag with that number.
+  // Opens a frame with an object selected, from the list of issues or a gesture, and turns
+  // the camera to it.
+  const open = (frame: number, objectId: string) => {
+    setPlaying(false);
+    setSelected(objectId);
+    setTab('review');
+    setShowPanel(true);
+    engine.current?.focus(frame, objectId);
+    if (frame !== engine.current?.current) show(frame);
+  };
+  // What a gesture seen by the webcam does. Raising fingers calls up the issue with that number,
+  // in whichever frame it is.
   const onGesture = (action: Action) => {
     const view = engine.current;
     if (!view) return;
     if (action.type === 'zoom') view.zoom(action.factor);
     else if (action.type === 'pan') view.pan(action.right, action.up);
-    else {
-      const flag = flags.find((f) => f.number === action.number);
-      setNotice(flag ? '' : `Frame này không có cờ số ${action.number}.`);
-      if (flag) setSelected(flag.objectId);
+    else if (action.type === 'flag') {
+      const issue = issues.find((i) => i.number === action.number);
+      setNotice(issue ? '' : `Không có lỗi số ${action.number}.`);
+      if (issue) open(issue.frame, issue.objectId);
+    } else {
+      // The thumb: to the right the next issue not yet reviewed, to the left the one before.
+      if (!issues.length || !scene || !info) return setNotice('Không có lỗi nào để chuyển.');
+      const here = selected ? boxKey(scene.frames[info.index].timestamp, selected) : null;
+      const at = issues.findIndex((i) => i.key === here);
+      const target =
+        action.delta === 1
+          ? (nextIssue(issues, reviews, here) ?? issues[(at + 1) % issues.length])
+          : issues[at <= 0 ? issues.length - 1 : at - 1];
+      setNotice('');
+      open(target.frame, target.objectId);
     }
+  };
+  const onReading = (reading: Reading) =>
+    setCalling(reading.mode === 'count' && reading.number !== undefined ? reading.number : null);
+  const describeIssue = (number: number) => {
+    const issue = issues.find((i) => i.number === number);
+    return issue
+      ? `#${issue.number} · Frame ${pad(issue.frame)} · ${ISSUE_NAMES[issue.errorType] ?? issue.errorType} · ${issue.type}`
+      : null;
   };
   useEffect(() => {
     if (!notice) return;
     const timer = setTimeout(() => setNotice(''), 2500);
     return () => clearTimeout(timer);
   }, [notice]);
-  // The flag of the selected cuboid, with what its review says, shown over the point cloud.
+  // The flag of the selected cuboid, with what its review or the engine says, shown over the
+  // point cloud.
   const flagged = flags.find((f) => f.objectId === selected),
     verdict =
       flagged && scene && info
@@ -288,7 +384,7 @@ export function Viewer3DPage() {
               ›
             </span>
             <span className="tabular-nums">
-              Frame {info ? pad(info.index) : '––––'} / {pad(total)}
+              Frame {info ? pad(info.index) : '––––'} / {pad(Math.max(0, total - 1))}
             </span>
           </p>
         )}
@@ -408,23 +504,44 @@ export function Viewer3DPage() {
                 role="status"
                 data-testid="flag-card"
               >
-                {flagged && verdict ? (
+                {flagged ? (
                   <div className="max-w-md rounded-md bg-[#161b22]/95 px-3 py-2 shadow-lg">
                     <p className="flex flex-wrap items-center gap-2">
-                      <span
-                        className="rounded-md px-1.5 py-px text-xs font-bold text-white"
-                        style={{ background: cssColor(flagged.color) }}
-                      >
-                        {`⚑ ${flagged.number}`}
+                      <Pin level={flagged.level} number={flagged.number} size={20} />
+                      {flagged.number !== undefined && (
+                        <span className="font-semibold">Lỗi #{flagged.number}</span>
+                      )}
+                      <span className="text-[#8b949e] tabular-nums">
+                        Frame {info ? pad(info.index) : ''}
                       </span>
                       <span className="font-semibold">{flagged.type}</span>
                       <span className="text-[#8b949e]">{flagged.objectId.slice(0, 8)}</span>
                     </p>
-                    <p className="mt-1">
-                      {`Lỗi ${FLAG_NAMES[flagged.errorType] ?? flagged.errorType}`}
-                      {verdict.corrected_value && ` → ${verdict.corrected_value}`}
-                    </p>
-                    {verdict.note && <p className="mt-0.5 text-[#8b949e]">{verdict.note}</p>}
+                    {flagged.source === 'review' && verdict ? (
+                      <>
+                        <p className="mt-1">
+                          {`Lỗi ${FLAG_NAMES[flagged.errorType] ?? flagged.errorType}`}
+                          {verdict.corrected_value && ` → ${verdict.corrected_value}`}
+                        </p>
+                        {verdict.note && <p className="mt-0.5 text-[#8b949e]">{verdict.note}</p>}
+                      </>
+                    ) : (
+                      flagged.risk && (
+                        <>
+                          <p className="mt-1">
+                            {flagged.risk.warning
+                              ? 'Cảnh báo (không phải lỗi)'
+                              : `${ISSUE_NAMES[flagged.errorType] ?? flagged.errorType} · rủi ro ${SEVERITY_NAMES[flagged.risk.severity] ?? flagged.risk.severity} (${flagged.risk.score} điểm)`}
+                            {verdict?.decision === 'UNSURE' && ' · đã review: chưa chắc'}
+                          </p>
+                          <ul className="mt-0.5 list-disc pl-4 text-[#8b949e]">
+                            {flagged.risk.reasons.map((reason) => (
+                              <li key={reason}>{reason}</li>
+                            ))}
+                          </ul>
+                        </>
+                      )
+                    )}
                   </div>
                 ) : (
                   <p className="rounded-md bg-[#161b22]/95 px-3 py-2 text-amber-300">{notice}</p>
@@ -432,7 +549,16 @@ export function Viewer3DPage() {
               </div>
             )}
             {webcam && info && (
-              <HandControl onAction={onGesture} onClose={() => setWebcam(false)} />
+              <HandControl
+                onAction={onGesture}
+                onClose={() => {
+                  setWebcam(false);
+                  setCalling(null);
+                }}
+                largest={issues.length}
+                describe={describeIssue}
+                onReading={onReading}
+              />
             )}
             {(message || !info) && (
               <div
@@ -477,25 +603,45 @@ export function Viewer3DPage() {
                 >
                   ›
                 </button>
-                <input
-                  type="range"
-                  className="min-w-0 flex-1 accent-teal-500"
-                  aria-label="Frame"
-                  min={0}
-                  max={total - 1}
-                  value={info?.index ?? 0}
-                  onChange={(e) => {
-                    setPlaying(false);
-                    show(Number(e.target.value));
-                  }}
-                />
+                <div className="relative min-w-0 flex-1">
+                  {/* A mark over each frame that has issues, in the colour of the worst one. */}
+                  <div
+                    className="pointer-events-none absolute inset-x-[7px] -top-3 h-3"
+                    data-testid="issue-marks"
+                  >
+                    {marks.map((mark) => (
+                      <button
+                        key={mark.frame}
+                        type="button"
+                        className={`pointer-events-auto absolute w-1.5 -translate-x-1/2 rounded-sm ${mark.list.some((i) => i.number === calling) ? '-top-1.5 h-[18px] animate-pulse ring-2 ring-white' : 'h-3'}`}
+                        style={{
+                          left: `${total > 1 ? (mark.frame / (total - 1)) * 100 : 0}%`,
+                          background: cssColor(PIN_COLORS[mark.level]),
+                        }}
+                        title={`Frame ${pad(mark.frame)}: lỗi ${mark.list.map((i) => `#${i.number}`).join(', ')}`}
+                        aria-label={`Frame ${pad(mark.frame)}: lỗi ${mark.list.map((i) => `#${i.number}`).join(', ')}`}
+                        onClick={() => open(mark.frame, mark.list[0].objectId)}
+                      />
+                    ))}
+                  </div>
+                  <input
+                    type="range"
+                    className="w-full accent-teal-500"
+                    aria-label="Frame"
+                    min={0}
+                    max={total - 1}
+                    value={info?.index ?? 0}
+                    onChange={(e) => {
+                      setPlaying(false);
+                      show(Number(e.target.value));
+                    }}
+                  />
+                </div>
                 <span
                   className="min-w-28 text-right tabular-nums text-[#8b949e]"
                   data-testid="viewer-clock"
                 >
-                  {info
-                    ? `${info.index + 1}/${total} · ${info.seconds.toFixed(1)} s`
-                    : `–/${total}`}
+                  {info ? `Frame ${pad(info.index)} · ${info.seconds.toFixed(1)} s` : `–/${total}`}
                 </span>
                 <select
                   className={dark}
@@ -571,8 +717,13 @@ export function Viewer3DPage() {
                   onSelect={setSelected}
                   reviews={reviews}
                   flags={flags}
+                  report={report}
+                  issues={issues}
+                  calling={calling}
+                  risks={risks}
                   onSaved={(saved) => setReviews((current) => ({ ...current, ...saved }))}
                   onFocus={() => engine.current?.view('perspective')}
+                  onOpen={open}
                 />
               ) : (
                 <DisplayPanel

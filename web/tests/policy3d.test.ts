@@ -2,12 +2,13 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
 
-// policy3d/ is not read by any engine yet (docs/policy-3d.md): these tests keep it well formed,
-// so a 3D engine can load it as written.
+// The per-label draft in policy3d/ is not read by any engine yet (docs/policy-3d-draft.md): these
+// tests keep it well formed, so a 3D engine can load it as written. _scene.json is the policy the
+// running 3D engine reads, tested with that engine.
 const dir = new URL('../policy3d/', import.meta.url);
 const files = Object.fromEntries(
   readdirSync(dir)
-    .filter((f) => f.endsWith('.json'))
+    .filter((f) => f.endsWith('.json') && f !== '_scene.json')
     .map((f) => [f.slice(0, -5), JSON.parse(readFileSync(new URL(f, dir), 'utf8'))]),
 );
 const body = (name: string) => files[name][`${name.replace(/^_/, '')}_policy`];
@@ -17,7 +18,7 @@ const pairFiles = Object.keys(files).filter((n) => !n.startsWith('_') && body(n)
 const rules = Object.keys(files).flatMap((n) =>
   (body(n).rules ?? []).map((r: any) => ({ file: n, ...r })),
 );
-// The 3D templates of docs/policy-3d.md, and the 2D ones the 3D policy reuses.
+// The 3D templates of docs/policy-3d-draft.md, and the 2D ones the 3D policy reuses.
 const TEMPLATES = [
   'valid_cuboid',
   'size_range',
