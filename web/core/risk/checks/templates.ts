@@ -313,10 +313,13 @@ export const TEMPLATES: Record<string, Template> = {
   // hardly judge a box whose short side is under `warning_side_below_px`: there it only warns.
   rescore_low: {
     scope: 'box',
-    test(rule, { current, box }: StaticContext) {
+    test(rule, { current, box, rescore_floor }: StaticContext) {
       const value = current.attributes?.rescore;
       if (typeof value !== 'number') return skip('missing_rescore');
-      const { below, warning_side_below_px: tiny = 0 } = rule.params;
+      // A model measured on its own rescore scale brings its floor along; the rest reuse the
+      // policy number the YOLO11s measure set.
+      const below = rescore_floor ?? rule.params.below;
+      const { warning_side_below_px: tiny = 0 } = rule.params;
       return (
         value < below &&
         hit(

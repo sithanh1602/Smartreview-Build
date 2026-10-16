@@ -122,5 +122,6 @@ Khi tạo dự án, ô **Chấm điểm box bằng model (rescore) và tìm vậ
 | YOLO11n | nhanh nhất, ~0,2–0,3 giây/ảnh (ước tính) | kém nhất với vật nhỏ; hợp để chấm thử dataset lớn |
 | YOLO11s | cân bằng, 0,3–0,5 giây/ảnh (đã đo)       | mặc định; ngưỡng của policy được đo với model này |
 | YOLO11m | chậm nhất, ~0,6–1,0 giây/ảnh (ước tính)  | rescore không tốt hơn YOLO11s; ngưỡng chưa đo lại |
+| YOLO26s fine-tune | cân bằng, ảnh 960 px (điểm train) | weights riêng, copy tay vào `ai-service/`; vật bị sót cắt ở 0,31 (điểm vận hành precision 0,8 của nó, `result_yolo26s/results/threshold_lock.json`); thang rescore đã đo riêng: AUROC 0,95, giữ 0,02 (bắt 93% box hỏng, cờ oan 11%; box từ 16 px: 94%/6%); box `train` không chấm (holdout 0/15, model mù) |
 
 Model chưa có trên máy được server tải về `ai-service/` ở lần đầu chọn (YOLO11n 5,4 MB, YOLO11s 19 MB, YOLO11m 39 MB; trang import hiện "Đang tải model … lần đầu"), nên máy mới chỉ cần chạy `./setup.sh` (tạo `.venv` có Ultralytics và tải sẵn `yolo11s.pt`). Không tải được thì import báo lỗi kèm cách đặt file tay. Cấu hình tùy chọn: `SMARTREVIEW_AI_PYTHON` (chung với AI check; mặc định Python của `.venv`, cả trên Windows) và `SMARTREVIEW_SCORE_MODEL` (file YOLO11s, mặc định `ai-service/yolo11s.pt`; thư mục của nó cũng là nơi tìm các model khác). Trang import hiện tiến độ "Đang chấm điểm box bằng model: x/N ảnh…".

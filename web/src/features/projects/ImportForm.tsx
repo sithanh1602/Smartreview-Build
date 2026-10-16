@@ -696,7 +696,7 @@ export function ImportForm({
             data-testid="score-model"
           >
             <legend className="px-1 font-semibold">Model chấm điểm</legend>
-            <div className="grid gap-2 sm:grid-cols-3">
+            <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
               {scoreModels.map((m) => (
                 <label
                   key={m.id}
@@ -713,9 +713,12 @@ export function ImportForm({
                   <span>
                     <strong>{m.name}</strong>
                     {m.default && <span className="ml-1 text-xs text-accent">(mặc định)</span>}
-                    {!m.installed && (
-                      <span className="ml-1 text-xs text-muted">· tự tải {m.download} lần đầu</span>
-                    )}
+                    {!m.installed &&
+                      ('localOnly' in m && m.localOnly ? (
+                        <span className="ml-1 text-xs text-muted">· copy {m.file} tay vào ai-service/</span>
+                      ) : (
+                        <span className="ml-1 text-xs text-muted">· tự tải {m.download} lần đầu</span>
+                      ))}
                     <span className="mt-1 block text-xs">Tốc độ: {m.speed}</span>
                     <span className="block text-xs">Hiệu quả: {m.quality}</span>
                     <span className="mt-1 block text-xs text-muted">{m.note}</span>

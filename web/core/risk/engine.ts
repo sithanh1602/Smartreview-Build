@@ -177,6 +177,11 @@ export function analyzeDataset(
   const media = new Map(data.media.map((m) => [m.id, m]));
   const envRisk = data.dataset.metadata?.env_risk as Record<string, unknown> | undefined;
   const hints = (data.dataset.metadata?.missing_hints ?? {}) as Record<string, MissingHint[]>;
+  // Hints were cut at the scoring model's own floor, so the frame rule judges them on that
+  // floor instead of the policy default (a dataset scored before this field existed has none).
+  const scoredMissing = data.dataset.metadata?.rescore_missing;
+  const modelConfidence =
+    typeof scoredMissing === 'number' && Number.isFinite(scoredMissing) ? scoredMissing : undefined;
   const frameRisk = (frame: Frame) => {
     const risk = envRisk?.[frame.id];
     return typeof risk === 'number' && Number.isFinite(risk) ? risk : undefined;
@@ -208,6 +213,9 @@ export function analyzeDataset(
         .flatMap((a) => Object.keys(a.attributes ?? {})),
     );
   const attributeNames = { model: namesOf(true), human: namesOf(false) };
+  const scoredFloor = data.dataset.metadata?.rescore_floor;
+  const rescoreFloor =
+    typeof scoredFloor === 'number' && Number.isFinite(scoredFloor) ? scoredFloor : undefined;
   const contexts = data.annotations.map((current): CheckContext => {
     const frame = frames.get(current.frame_id)!;
     return {
@@ -219,6 +227,7 @@ export function analyzeDataset(
       box: boxes.get(current.id)!,
       frameBoxes: byFrame.get(current.frame_id)!,
       env_risk: frameRisk(frame),
+      rescore_floor: rescoreFloor,
       peers: [],
       attributeNames: attributeNames[scoredBox(current) ? 'model' : 'human'],
     };
@@ -348,6 +357,7 @@ export function analyzeDataset(
     triage(engine, frame, byFrame.get(frame.id)!, scored, {
       env_risk: frameRisk(frame),
       hints: hints[frame.id] ?? [],
+      model_confidence: modelConfidence,
       model:
         hasScores || (media.get(frame.media_id)!.source || data.dataset.source)?.kind === 'model',
     }),
@@ -427,7 +437,12 @@ function triage(
   frame: Frame,
   frameBoxes: Box[],
   scored: Map<string, RiskResult>,
-  { env_risk, hints, model }: { env_risk?: number; hints: MissingHint[]; model: boolean },
+  { env_risk, hints, model, model_confidence }: {
+    env_risk?: number;
+    hints: MissingHint[];
+    model: boolean;
+    model_confidence?: number;
+  },
 ): FrameReport {
   const { tier: T, autoAccept } = POLICY;
   const drafts = frameBoxes.filter((b): b is DraftBox => b.state === 'draft');
@@ -446,6 +461,7 @@ function triage(
         greys,
         missing,
         hints,
+        model_confidence,
         flagged: flagged.filter((b): b is MeasuredBox => 'x1' in b),
         env_risk,
       });
