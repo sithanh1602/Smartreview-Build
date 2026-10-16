@@ -7,6 +7,7 @@ import { ProjectStatus } from '../features/projects/ProjectLayout';
 import { DeleteProjectButton } from '../features/projects/DeleteProjectButton';
 import { HideProjectButton } from '../features/projects/HideProjectButton';
 import { JoinProjectForm } from '../features/projects/JoinProjectForm';
+import { CvatScanPanel } from '../features/handoff/CvatScanPanel';
 import { Projects3DList } from '../features/projects3d/Projects3DList';
 import { roleLabel } from '../features/auth/AuthGate';
 import { useAuth } from '../features/auth/AuthProvider';
@@ -65,6 +66,11 @@ export function ProjectsPage() {
           </div>
         )}
       </div>
+      {!leader && workRole === 'annotator' && (
+        <div className="mb-8">
+          <CvatScanPanel />
+        </div>
+      )}
       {!leader && (
         <JoinProjectForm
           onJoined={(result) => {

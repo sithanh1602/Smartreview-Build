@@ -1,3 +1,4 @@
+import { handleCvat } from './cvat/http.ts';
 import { handleProjects } from './projects/http.ts';
 import { handleProjects3D } from './projects3d/http.ts';
 import { handleGuideline } from './guideline/http.ts';
@@ -71,11 +72,17 @@ export function createHandler({
         if (
           !projectScoped &&
           !/^\/api\/projects(3d)?(\/|$)/.test(url.pathname) &&
+          !/^\/api\/cvat\/scans?(\/|$)/.test(url.pathname) &&
           req.user.role !== 'leader'
         )
           throw new ReviewError(403, 'Chức năng này chỉ dành cho Leader.');
       }
       if (!projectScoped && (await handleGuideline(req, res, url.pathname, { json }))) return;
+      if (
+        !projectScoped &&
+        (await handleCvat(req, res, url.pathname, { json, pool: projects?.pool }))
+      )
+        return;
       if (!projectScoped && (await handleProjects3D(req, res, url, { projects: projects3d, json })))
         return;
       if (

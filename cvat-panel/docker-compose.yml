@@ -1,0 +1,10 @@
+services:
+  smartreview-cvat-proxy:
+    image: nginx:1.27-alpine
+    container_name: smartreview_cvat_proxy
+    # Host network: reaches CVAT on :8080 and SmartReview on :3100 of this machine as localhost.
+    network_mode: host
+    restart: unless-stopped
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./:/usr/share/smartreview:ro
