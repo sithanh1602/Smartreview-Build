@@ -4,6 +4,7 @@ import { buildReport, HANDOFF_LOCKED } from './handoff.ts';
 import { exportCvatImages } from '../../core/exporters/cvat-images.ts';
 import { ZipWriter, ZIP_MAX_FILES } from './zip.ts';
 import { ReviewError } from '../../shared/review.ts';
+import { listScoreModels, SCORE_MODELS } from '../ai/rescore.ts';
 import { readJson, sameOrigin } from './upload.ts';
 import type { ProjectService } from './service.ts';
 import type { SourceFile } from '../../core/importers/index.ts';
@@ -70,6 +71,11 @@ export async function handleProjects(
     } else throw new ReviewError(405, 'Use GET or POST.');
     return true;
   }
+  if (url.pathname === '/api/projects/score-models') {
+    if (req.method !== 'GET') throw new ReviewError(405, 'Use GET.');
+    json(res, 200, await listScoreModels());
+    return true;
+  }
   if (url.pathname === '/api/projects/join') {
     if (req.method !== 'POST') throw new ReviewError(405, 'Use POST.');
     sameOrigin(req);
@@ -123,8 +129,13 @@ export async function handleProjects(
     if (req.method !== 'POST') throw new ReviewError(405, 'Use POST.');
     sameOrigin(req);
     leaderOnly();
+    const rescoreModel = url.searchParams.get('model') || undefined;
+    // Checked before the upload is read, not after it is stored.
+    if (rescoreModel && !SCORE_MODELS.some((m) => m.id === rescoreModel))
+      throw new ReviewError(400, `Không có model chấm điểm “${rescoreModel}”.`);
     const imported = await projects.import(id, req, {
       rescore: url.searchParams.get('rescore') === '1',
+      rescoreModel,
     });
     // 202: the dataset is accepted and the import is being finished in the background.
     json(res, imported.status === 'READY' ? 201 : 202, imported);

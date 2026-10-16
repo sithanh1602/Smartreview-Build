@@ -187,7 +187,11 @@ export interface Project {
   my_role: ProjectRole;
   // Present while the backend finishes an import: files sent to the shared storage, then risk
   // cases saved.
-  progress?: { step: 'score' | 'publish' | 'save'; done: number; total: number } | null;
+  progress?: {
+    step: 'download' | 'score' | 'publish' | 'save';
+    done: number;
+    total: number;
+  } | null;
   // A failed import the backend can finish without the files being chosen again.
   can_resume?: boolean;
   // Set once the review was completed and sent to annotators; decisions are locked while it is.

@@ -115,4 +115,12 @@ Trang **Kiểm tra theo ảnh** hiện kết luận của engine cho từng ản
 
 ### Chấm điểm ngay khi import
 
-Khi tạo dự án, ô **Chấm điểm box bằng model (rescore) và tìm vật bị sót** (tự đánh dấu khi tệp nhãn chưa có confidence hay rescore) cho máy chủ chạy bước trên sau khi đọc tệp nhãn và trước khi engine quét: `server/ai/rescore.ts` gọi `server/ai/rescore.py`, dùng chung bộ chấm của `ai-service/score_boxes.py`. Bước này chạy trên dữ liệu đã chuẩn hoá nên mọi định dạng nhập đều dùng được. Cấu hình: `SMARTREVIEW_AI_PYTHON` (chung với AI check) và `SMARTREVIEW_SCORE_MODEL` (mặc định `ai-service/yolo11s.pt`). Trang import hiện tiến độ "Đang chấm điểm box bằng model: x/N ảnh…"; khoảng 0,5 giây mỗi ảnh trên CPU.
+Khi tạo dự án, ô **Chấm điểm box bằng model (rescore) và tìm vật bị sót** (tự đánh dấu khi tệp nhãn chưa có confidence hay rescore) cho máy chủ chạy bước trên sau khi đọc tệp nhãn và trước khi engine quét: `server/ai/rescore.ts` gọi `server/ai/rescore.py`, dùng chung bộ chấm của `ai-service/score_boxes.py`. Bước này chạy trên dữ liệu đã chuẩn hoá nên mọi định dạng nhập đều dùng được. Người tạo dự án chọn model chấm điểm ngay dưới ô này:
+
+| Model   | Tốc độ (CPU, ảnh 1280 px)                | Ghi chú                                           |
+| ------- | ---------------------------------------- | ------------------------------------------------- |
+| YOLO11n | nhanh nhất, ~0,2–0,3 giây/ảnh (ước tính) | kém nhất với vật nhỏ; hợp để chấm thử dataset lớn |
+| YOLO11s | cân bằng, 0,3–0,5 giây/ảnh (đã đo)       | mặc định; ngưỡng của policy được đo với model này |
+| YOLO11m | chậm nhất, ~0,6–1,0 giây/ảnh (ước tính)  | rescore không tốt hơn YOLO11s; ngưỡng chưa đo lại |
+
+Model chưa có trên máy được server tải về `ai-service/` ở lần đầu chọn (YOLO11n 5,4 MB, YOLO11s 19 MB, YOLO11m 39 MB; trang import hiện "Đang tải model … lần đầu"), nên máy mới chỉ cần chạy `./setup.sh` (tạo `.venv` có Ultralytics và tải sẵn `yolo11s.pt`). Không tải được thì import báo lỗi kèm cách đặt file tay. Cấu hình tùy chọn: `SMARTREVIEW_AI_PYTHON` (chung với AI check; mặc định Python của `.venv`, cả trên Windows) và `SMARTREVIEW_SCORE_MODEL` (file YOLO11s, mặc định `ai-service/yolo11s.pt`; thư mục của nó cũng là nơi tìm các model khác). Trang import hiện tiến độ "Đang chấm điểm box bằng model: x/N ảnh…".

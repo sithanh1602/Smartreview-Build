@@ -25,6 +25,8 @@ playwright-report/
 /web/storage/
 *.pt
 *.pth
+# Ultralytics download in progress (or interrupted).
+*.pt.*.part
 *.onnx
 
 # Local tooling and editor files

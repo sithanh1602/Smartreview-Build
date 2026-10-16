@@ -3,7 +3,7 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { projectRoot } from '../config.ts';
+import { projectRoot, venvPython } from '../config.ts';
 import { ReviewError } from '../../shared/review.ts';
 import { comparePredictions } from '../../core/risk/ai-compare.ts';
 import type { AiFinding } from '../../core/risk/ai-compare.ts';
@@ -39,10 +39,7 @@ export class AiService {
     this.jobs = new Map();
     this.active = false;
     this.results = new Map();
-    this.python =
-      options.python ||
-      process.env.SMARTREVIEW_AI_PYTHON ||
-      path.join(projectRoot, '.venv/bin/python');
+    this.python = options.python || process.env.SMARTREVIEW_AI_PYTHON || venvPython;
     this.model =
       options.model ||
       process.env.SMARTREVIEW_AI_MODEL ||

@@ -38,7 +38,7 @@ import type {
 type ProjectRow = Rows[number];
 // How far the second half of an import is: files sent to the remote, then risk cases saved.
 export interface ImportProgress {
-  step: 'score' | 'publish' | 'save';
+  step: 'download' | 'score' | 'publish' | 'save';
   done: number;
   total: number;
 }
@@ -572,7 +572,11 @@ export class ProjectService {
       id,
     ]);
   }
-  async import(id: string, req: Req, { rescore = false }: { rescore?: boolean } = {}) {
+  async import(
+    id: string,
+    req: Req,
+    { rescore = false, rescoreModel }: { rescore?: boolean; rescoreModel?: string } = {},
+  ) {
     const row = await this.row(id);
     const [claimed] = await this.pool.execute<Result>(
       "UPDATE projects SET status='UPLOADING',error_message=NULL WHERE id=? AND status IN ('CREATED','FAILED')",
@@ -666,8 +670,13 @@ export class ProjectService {
       // Scored before labels are merged, so the model reads the names the annotators used.
       if (rescore) {
         try {
-          await rescoreDataset(data, images, directory, (done, total) =>
-            this.progress.set(id, { step: 'score', done, total }),
+          await rescoreDataset(
+            data,
+            images,
+            directory,
+            (done, total, downloading) =>
+              this.progress.set(id, { step: downloading ? 'download' : 'score', done, total }),
+            rescoreModel,
           );
         } finally {
           this.progress.delete(id);

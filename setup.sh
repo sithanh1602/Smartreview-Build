@@ -19,11 +19,15 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WEB="$ROOT/web"
 VENV="$ROOT/.venv"
 PY="$VENV/bin/python"
+# Git Bash trên Windows: venv đặt Python ở Scripts/.
+[ -x "$VENV/Scripts/python.exe" ] && PY="$VENV/Scripts/python.exe"
 NODE_MIN="22.18.0"
 REQ_3D="$WEB/server/projects3d/requirements.txt"
 REQ_AI="$ROOT/ai-service/requirements.txt"
 REQ_VERIFIER="$WEB/server/verify/requirements.txt"
 MODEL="$ROOT/ai-service/yolo11n.pt"
+# Model mặc định của bước chấm điểm khi import (web/server/ai/rescore.ts).
+SCORE_MODEL="$ROOT/ai-service/yolo11s.pt"
 
 with_ai=true
 with_browser=false
@@ -148,6 +152,14 @@ else
     (cd "$ROOT/ai-service" && "$PY" -c "from ultralytics import YOLO; YOLO('yolo11n.pt')" >/dev/null)
     [ -f "$MODEL" ] || fail "Không tải được yolo11n.pt. Đặt file vào ai-service/ rồi chạy lại."
     ok "Đã tải model ai-service/yolo11n.pt"
+  fi
+  # YOLO11n và YOLO11m server tự tải khi người dùng chọn; YOLO11s là mặc định nên tải sẵn.
+  if [ -f "$SCORE_MODEL" ]; then
+    ok "Model chấm điểm ai-service/yolo11s.pt đã có"
+  elif $check_only; then
+    warn "Chưa có ai-service/yolo11s.pt: lần import có chấm điểm đầu tiên sẽ tự tải (19 MB)"
+  else
+    (cd "$ROOT/ai-service" && "$PY" -c "from ultralytics import YOLO; YOLO('yolo11s.pt')" >/dev/null)       && ok "Đã tải model chấm điểm ai-service/yolo11s.pt"       || warn "Không tải được yolo11s.pt; lần import có chấm điểm đầu tiên sẽ thử tải lại"
   fi
   python_ai="$(env_value SMARTREVIEW_AI_PYTHON)"
   if [ -n "$python_ai" ] && [ "$python_ai" != "$PY" ]; then
