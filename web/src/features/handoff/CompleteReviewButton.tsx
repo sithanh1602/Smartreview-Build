@@ -11,8 +11,11 @@ export function CompleteReviewButton({
   metrics,
   onSent,
   className = 'sr-button border-accent text-accent',
+  base = '/projects',
 }: {
-  project: Project;
+  project: Pick<Project, 'id' | 'my_role' | 'handoff'>;
+  // The API collection of the project: "/projects3d" for a 3D project.
+  base?: string;
   metrics: Pick<Metrics, 'unreviewed' | 'unsure' | 'confirmed_errors'>;
   onSent: (handoff: Handoff) => void;
   className?: string;
@@ -27,6 +30,7 @@ export function CompleteReviewButton({
       {open && (
         <SendDialog
           project={project}
+          base={base}
           metrics={metrics}
           onClose={() => setOpen(false)}
           onSent={onSent}
@@ -38,11 +42,13 @@ export function CompleteReviewButton({
 
 function SendDialog({
   project,
+  base,
   metrics,
   onClose,
   onSent,
 }: {
-  project: Project;
+  project: Pick<Project, 'id'>;
+  base: string;
   metrics: Pick<Metrics, 'unreviewed' | 'unsure' | 'confirmed_errors'>;
   onClose: () => void;
   onSent: (handoff: Handoff) => void;
@@ -55,7 +61,7 @@ function SendDialog({
     [sending, setSending] = useState(false);
   useEffect(() => {
     const c = new AbortController();
-    request<ProjectPeople>(`/projects/${project.id}/members`, { signal: c.signal })
+    request<ProjectPeople>(`${base}/${project.id}/members`, { signal: c.signal })
       .then((people) => {
         if (c.signal.aborted) return;
         setAnnotators(people.annotators);
@@ -65,13 +71,13 @@ function SendDialog({
         if (!c.signal.aborted) setError(e.message);
       });
     return () => c.abort();
-  }, [project.id]);
+  }, [project.id, base]);
   async function send() {
     setSending(true);
     setError('');
     try {
       onSent(
-        await request<Handoff>(`/projects/${project.id}/handoff`, {
+        await request<Handoff>(`${base}/${project.id}/handoff`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ annotator_ids: [...chosen], note, include_review: withReview }),

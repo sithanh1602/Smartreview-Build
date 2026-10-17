@@ -7,9 +7,15 @@ import { createHash, randomUUID } from 'node:crypto';
 import { imageResolver, importDataset, isFormat, namesImages } from '../../core/importers/index.ts';
 import { applyEnvRisk, parseImageTable } from '../../core/importers/signals.ts';
 import { normalizeDataset } from '../../core/schema/normalize.ts';
-import { LEGACY_ENGINE_VERSION, LATEST_ENGINE_VERSION, checksFor } from '../../core/risk/engine.ts';
+import {
+  LEGACY_ENGINE_VERSION,
+  LATEST_ENGINE_VERSION,
+  checkPatches,
+  checksFor,
+} from '../../core/risk/engine.ts';
 import { mergeLabels } from '../../core/risk/policy.ts';
 import { waiversFrom } from '../../shared/guideline-waivers.ts';
+import { patchesFrom, summaryFrom } from '../../shared/guideline-rules.ts';
 import { buildDataset, loadDataset } from '../repository.ts';
 import { ReviewStore } from '../reviews/store.ts';
 import { ReviewError } from '../../shared/review.ts';
@@ -83,6 +89,9 @@ export class ProjectService {
   background: boolean;
   progress: Map<string, ImportProgress>;
   finishing: Set<string>;
+  // Staging directories of imports already on the remote, kept until the label scan chosen at
+  // upload has read their frames, so the scan does not fetch them back.
+  kept: Map<string, string>;
   constructor(pool: Db, storageRoot: string, remote: RemoteStorage | null = null) {
     this.pool = pool;
     this.storageRoot = path.resolve(storageRoot);
@@ -95,6 +104,7 @@ export class ProjectService {
     this.background = false;
     this.progress = new Map();
     this.finishing = new Set();
+    this.kept = new Map();
     this.ai = new AiService(this);
     this.verify = new VerifyService(this);
     this.members = new ProjectMembers(pool);
@@ -446,6 +456,8 @@ export class ProjectService {
       apiPrefix: `/api/projects/${id}`,
       engineVersion: meta?.engine_version || LEGACY_ENGINE_VERSION,
       waivers: meta?.guideline_waivers,
+      patches: meta?.guideline_patches,
+      guideline: meta?.guideline,
     };
     const remoteKey: string | null = row.storage_key;
     const source: AssetSource = remoteKey
@@ -645,6 +657,8 @@ export class ProjectService {
           apiPrefix: `/api/projects/${id}`,
           engineVersion: stored?.engine_version || LEGACY_ENGINE_VERSION,
           waivers: stored?.guideline_waivers,
+          patches: stored?.guideline_patches,
+          guideline: stored?.guideline,
         });
         dataset.meta.project_name = row.name;
         const reviews = new ReviewStore(this.pool, dataset);
@@ -793,7 +807,7 @@ export class ProjectService {
       const json = JSON.stringify(data, null, 2);
       await fs.writeFile(datasetPath, json, { flag: 'wx' });
       await this.status(id, 'ANALYZING');
-      const options = await this.importOptions(id, uploaded.rules);
+      const options = await this.importOptions(id, uploaded.rules, uploaded.guideline?.name);
       const dataset = await loadDataset(datasetPath, options);
       await fs.mkdir(path.join(directory, 'risk'));
       await fs.writeFile(
@@ -816,6 +830,15 @@ export class ProjectService {
     if (this.background) void this.finish(id, key).catch(() => {});
     else await this.finish(id, key);
     return this.get(id);
+  }
+  // Removes the staging directory kept for a label scan (see `kept`), once nothing needs it.
+  async release(id: string) {
+    const directory = this.kept.get(id);
+    if (!directory) return;
+    this.kept.delete(id);
+    await fs.rm(directory, { recursive: true, force: true });
+    await fs.rm(directory + '.published', { force: true });
+    await fs.rmdir(path.dirname(directory)).catch(() => {});
   }
   // Finishes the import of a FAILED project whose checked files are still on this machine.
   async resume(id: string) {
@@ -841,8 +864,13 @@ export class ProjectService {
       const row = await this.row(id);
       const datasetPath = path.join(directory, 'dataset.json');
       const json = await fs.readFile(datasetPath, 'utf8');
-      const rules: string | undefined = JSON.parse(json).dataset?.metadata?.guideline?.rules;
-      const options = await this.importOptions(id, rules && path.join(directory, rules));
+      const guideline = JSON.parse(json).dataset?.metadata?.guideline;
+      const rules: string | undefined = guideline?.rules;
+      const options = await this.importOptions(
+        id,
+        rules && path.join(directory, rules),
+        guideline?.name,
+      );
       let dataset: LoadedDataset;
       // With a remote, the upload directory is only a staging area: publish it, then serve from the remote.
       if (this.remote) {
@@ -867,13 +895,10 @@ export class ProjectService {
         ],
       );
       this.cache.set(id, Promise.resolve({ dataset, reviews }));
+      if (this.remote) this.kept.set(id, directory);
       // A label scan chosen in the upload popup was waiting for this.
       void this.verify.drain();
-      if (this.remote) {
-        await fs.rm(directory, { recursive: true, force: true });
-        await fs.rm(directory + '.published', { force: true });
-        await fs.rmdir(path.dirname(directory)).catch(() => {});
-      }
+      if (this.remote && !this.verify.waiting(id)) await this.release(id);
     } catch (e) {
       console.error('Import not finished:', id, (e as Error).message);
       await this.status(id, 'FAILED', e instanceof ReviewError ? e.message : INTERRUPTED).catch(
@@ -887,22 +912,36 @@ export class ProjectService {
   }
   // What the risk engine is run with for an imported project; `rules` is the file holding the
   // choices a person made on the guideline's rules.
-  async importOptions(id: string, rules?: string | null) {
-    return {
+  async importOptions(id: string, rules?: string | null, name?: string) {
+    const base = {
       namespace: id,
       apiPrefix: `/api/projects/${id}`,
       engineVersion: LATEST_ENGINE_VERSION,
-      waivers: rules
-        ? waiversFrom(
-            await fs
-              .readFile(rules, 'utf8')
-              .then(JSON.parse)
-              .catch(() => {
-                throw new ReviewError(422, 'File lựa chọn quy tắc không phải JSON hợp lệ.');
-              }),
-            checksFor(LATEST_ENGINE_VERSION).map((c) => c.id),
-          )
-        : {},
+    };
+    if (!rules) return { ...base, waivers: {} };
+    const file = await fs
+      .readFile(rules, 'utf8')
+      .then(JSON.parse)
+      .catch(() => {
+        throw new ReviewError(422, 'File lựa chọn quy tắc không phải JSON hợp lệ.');
+      });
+    const patches = patchesFrom(file);
+    try {
+      checkPatches(patches);
+    } catch (e) {
+      throw new ReviewError(
+        422,
+        `Quy tắc guideline không chạy được: ${(e as Error).message}`.slice(0, 500),
+      );
+    }
+    return {
+      ...base,
+      waivers: waiversFrom(
+        file,
+        checksFor(LATEST_ENGINE_VERSION).map((c) => c.id),
+      ),
+      patches,
+      guideline: summaryFrom(file, name),
     };
   }
 }

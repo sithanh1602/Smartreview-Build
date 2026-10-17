@@ -84,6 +84,16 @@ export interface VerifierReport {
   warnings: VerifiedBox[];
 }
 
+// The policy's captions of each label, followed by those a guideline adds. A guideline cannot
+// add a label: the verifier only tells apart the labels of the policy.
+const withCaptions = (extra: Record<string, string[]> = {}) =>
+  Object.fromEntries(
+    Object.entries(CAPTIONS).map(([label, own]) => [
+      label,
+      [...new Set([...own, ...(extra[label] ?? [])])],
+    ]),
+  ) as typeof CAPTIONS;
+
 // What to send the model: every box it can judge, with the image file it sits in. A box it
 // cannot judge is listed with the reason, never dropped silently.
 export function verifierRequest(
@@ -91,8 +101,13 @@ export function verifierRequest(
   imagePath: (frame: Frame) => string | undefined,
   engine: VerifierEngine = VERIFIER_ENGINE,
   // Inside a project: the state the Risk Engine gave each box, so that only boxes it scores
-  // are judged; and, for a second look, the boxes to look at again.
-  scope: { state?: (annotationId: string) => string | undefined; only?: Set<string> } = {},
+  // are judged; and, for a second look, the boxes to look at again. `captions`: what the
+  // project's guideline adds to the description of a label (shared/guideline-rules.ts).
+  scope: {
+    state?: (annotationId: string) => string | undefined;
+    only?: Set<string>;
+    captions?: Record<string, string[]>;
+  } = {},
 ): { request: VerifierRequest; skipped: VerifierReport['skipped'] } {
   const frames = new Map(data.frames.map((frame) => [frame.id, frame]));
   const boxes: VerifierRequest['boxes'] = [];
@@ -140,7 +155,7 @@ export function verifierRequest(
       margin: policy.crop.margin,
       shape: policy.crop.shape,
       ...(ENGINES[engine].pool && { pool: ENGINES[engine].pool }),
-      labels: CAPTIONS,
+      labels: withCaptions(scope.captions),
       boxes,
     },
     skipped,

@@ -283,16 +283,20 @@ const serialize = (row: Rows[number], revision: string | null, user: User): Hand
   };
 };
 
+// One round of review sent to annotators per project. 3D projects keep theirs in
+// project_handoffs_3d, the same table shape with reports of their own (projects3d/handoff.ts).
 export class ProjectHandoffs {
   pool: Db;
-  constructor(pool: Db) {
+  table: 'project_handoffs' | 'project_handoffs_3d';
+  constructor(pool: Db, table: ProjectHandoffs['table'] = 'project_handoffs') {
     this.pool = pool;
+    this.table = table;
   }
   // Null before migration 007 too, so projects keep working on a database that lacks the table.
   async row(projectId: string) {
     try {
       const [[row]] = await this.pool.execute<Rows>(
-        'SELECT * FROM project_handoffs WHERE project_id=?',
+        `SELECT * FROM ${this.table} WHERE project_id=?`,
         [projectId],
       );
       return row ?? null;
@@ -337,24 +341,24 @@ export class ProjectHandoffs {
       throw new ReviewError(409, 'Project không có bản sửa nào đang chờ kiểm tra.');
     return JSON.parse(row.result) as HandoffResult;
   }
-  async saveResult(projectId: string, result: HandoffResult) {
+  async saveResult(projectId: string, result: object) {
     await this.pool.execute<Rows>(
-      "UPDATE project_handoffs SET result=? WHERE project_id=? AND status='RETURNED'",
+      `UPDATE ${this.table} SET result=? WHERE project_id=? AND status='RETURNED'`,
       [JSON.stringify(result), projectId],
     );
   }
-  async returned(projectId: string, user: User, result: HandoffResult) {
+  async returned(projectId: string, user: User, result: object) {
     await this.pool.execute<Rows>(
-      "UPDATE project_handoffs SET status='RETURNED',returned_by_name=?,returned_at=UTC_TIMESTAMP(3),result=? WHERE project_id=?",
+      `UPDATE ${this.table} SET status='RETURNED',returned_by_name=?,returned_at=UTC_TIMESTAMP(3),result=? WHERE project_id=?`,
       [user.username, JSON.stringify(result), projectId],
     );
   }
-  async send(
+  async send<R extends { dataset_revision: string }>(
     projectId: string,
     input: Untrusted,
     user: User,
     people: ProjectPeople,
-    report: HandoffReport,
+    report: R,
   ) {
     const ids: unknown = input?.annotator_ids;
     if (!Array.isArray(ids) || !ids.length || ids.some((id) => typeof id !== 'string'))
@@ -374,7 +378,7 @@ export class ProjectHandoffs {
       await this.reopen(projectId);
       await this.pool.execute<Rows>(
         // UTC like returned_at; the column default is the database server's local time.
-        'INSERT INTO project_handoffs(project_id,dataset_fingerprint,sent_by,sent_by_name,recipients,note,report,sent_at) VALUES (?,?,?,?,?,?,?,UTC_TIMESTAMP(3))',
+        `INSERT INTO ${this.table}(project_id,dataset_fingerprint,sent_by,sent_by_name,recipients,note,report,sent_at) VALUES (?,?,?,?,?,?,?,UTC_TIMESTAMP(3))`,
         [
           projectId,
           report.dataset_revision,
@@ -387,10 +391,7 @@ export class ProjectHandoffs {
       );
     } catch (e) {
       if (noTable(e))
-        throw new ReviewError(
-          503,
-          'Database chưa có bảng project_handoffs. Chạy npm run db:migrate.',
-        );
+        throw new ReviewError(503, `Database chưa có bảng ${this.table}. Chạy npm run db:migrate.`);
       if ((e as { code?: string }).code === 'ER_DUP_ENTRY')
         throw new ReviewError(409, 'Project này đã được gửi cho Annotator.');
       throw e;
@@ -399,7 +400,7 @@ export class ProjectHandoffs {
   }
   async reopen(projectId: string) {
     try {
-      await this.pool.execute<Rows>('DELETE FROM project_handoffs WHERE project_id=?', [projectId]);
+      await this.pool.execute<Rows>(`DELETE FROM ${this.table} WHERE project_id=?`, [projectId]);
     } catch (e) {
       if (!noTable(e)) throw e;
     }

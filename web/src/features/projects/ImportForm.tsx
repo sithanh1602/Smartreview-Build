@@ -10,8 +10,7 @@ import { ToggleButton, ToggleButtonGroup } from '@heroui/react';
 import { GuidelineAnalysis } from './GuidelineAnalysis';
 import { ScanChoice } from '../verify/ScanChoice';
 import type { ImportPick } from '../verify/ScanChoice';
-import type { Choices } from './GuidelineAnalysis';
-import type { GuidelineExtraction } from '../../../server/guideline/model-call.ts';
+import type { Reviewed } from './GuidelineAnalysis';
 import { GUIDELINE_TYPES, guidelineText as readText } from './guidelineText';
 import { FORMAT_INFO } from '../../../core/importers/catalog.ts';
 import { IMAGE_TYPES, LIMITS, inspectSources, readPack } from './dataset';
@@ -123,7 +122,7 @@ export function ImportForm({
   const [ownGuideline, setOwnGuideline] = useState(false),
     [guidelineFile, setGuidelineFile] = useState<File | null>(null),
     [guidelineText, setGuidelineText] = useState('');
-  const reviewed = useRef<{ result: GuidelineExtraction; choices: Choices } | null>(null);
+  const reviewed = useRef<Reviewed | null>(null);
   const [annotations, setAnnotations] = useState<File[]>([]),
     [metadata, setMetadata] = useState<File | null>(null),
     [media, setMedia] = useState<File[]>([]),
@@ -316,10 +315,10 @@ export function ImportForm({
           form.append('guideline', await inPack.blob(), inPack.name.split('/').pop()!);
       }
       if (ownGuideline && reviewed.current) {
-        const { result, choices } = reviewed.current;
+        const { result, choices, runs, captions } = reviewed.current;
         form.append(
           'guideline_rules',
-          new File([JSON.stringify({ ...result, choices }, null, 2)], 'rules.json'),
+          new File([JSON.stringify({ ...result, choices, runs, captions }, null, 2)], 'rules.json'),
         );
       }
       if (zipped) {

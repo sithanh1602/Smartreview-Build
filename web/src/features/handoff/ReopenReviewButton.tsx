@@ -10,8 +10,10 @@ export function ReopenReviewButton({
   projectId,
   handoff,
   onReopened,
+  base = '/projects',
 }: {
   projectId: string;
+  base?: string;
   handoff: Handoff;
   onReopened: () => void;
 }) {
@@ -22,7 +24,7 @@ export function ReopenReviewButton({
     setBusy(true);
     setError('');
     try {
-      await request(`/projects/${projectId}/handoff`, { method: 'DELETE' });
+      await request(`${base}/${projectId}/handoff`, { method: 'DELETE' });
       setOpen(false);
       onReopened();
     } catch (e) {

@@ -88,6 +88,14 @@ export function checksFor(version = ENGINE_VERSION): { id: string; version: stri
   if (version === v3.ENGINE_VERSION) return v3.checks;
   return legacy.checksFor(version);
 }
+// Policy patches (rules.ts) run from engine 5.0.0, where the policy became data.
+export const supportsPatches = (version: string) =>
+  [ENGINE_VERSION, v7.ENGINE_VERSION, v6.ENGINE_VERSION, v5.ENGINE_VERSION].includes(version);
+// Builds the engine a project's patches make, so a patch that cannot run fails at import, not
+// at the first load. Throws with the policy's own message.
+export function checkPatches(patches: Patch[]) {
+  if (patches.length) compile(patches);
+}
 // Guideline waivers switch checks off by id; the engines before 4.0.0 know nothing of them.
 export const supportsWaivers = (version: string) =>
   [
@@ -437,7 +445,12 @@ function triage(
   frame: Frame,
   frameBoxes: Box[],
   scored: Map<string, RiskResult>,
-  { env_risk, hints, model, model_confidence }: {
+  {
+    env_risk,
+    hints,
+    model,
+    model_confidence,
+  }: {
     env_risk?: number;
     hints: MissingHint[];
     model: boolean;

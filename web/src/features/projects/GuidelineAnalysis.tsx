@@ -5,6 +5,16 @@ import { Spinner } from '../../components/Spinner';
 import { Icon } from '../../components/Icon';
 import { POLICY_RULES } from '../../../shared/policy-rules.ts';
 import { waiversFrom } from '../../../shared/guideline-waivers.ts';
+import {
+  MAX_CAPTIONS,
+  POLICY_LABELS,
+  guessRun,
+  patchesFrom,
+  ruleLabels,
+  runnable,
+  type RunSpec,
+} from '../../../shared/guideline-rules.ts';
+import { RunEditor } from './RunEditor';
 import { analysisMarkdown, downloadText } from './analysisMarkdown';
 import type { GuidelineExtraction, RuleDraft } from '../../../server/guideline/model-call.ts';
 
@@ -17,7 +27,16 @@ const RELATIONS: Record<RuleDraft['relation'], string> = {
 // Which rule a person keeps where a guideline rule meets the tool's own policy.
 export type Choice = 'guideline' | 'policy';
 export type Choices = Record<string, Choice>;
-type View = 'compare' | 'reviewer' | 'conflicts';
+// How each chosen new or stricter rule runs, and captions per label for the label verifier.
+export type Runs = Record<string, RunSpec | undefined>;
+export type Captions = Record<string, string[]>;
+export interface Reviewed {
+  result: GuidelineExtraction;
+  choices: Choices;
+  runs: Runs;
+  captions: Captions;
+}
+type View = 'compare' | 'reviewer' | 'captions' | 'conflicts';
 const TONE: Record<RuleDraft['relation'], string> = {
   new: 'bg-accent/10 text-accent',
   stricter: 'bg-rose-500/10 text-rose-700',
@@ -64,12 +83,78 @@ function Pick({
   );
 }
 
+// The guideline's definitions next to the captions the label verifier reads for each label of
+// the policy. A caption is a short English phrase, one per line ("a photo of a delivery tricycle").
+function CaptionsView({
+  definitions,
+  captions,
+  onCaptions,
+}: {
+  definitions: RuleDraft[];
+  captions: Captions;
+  onCaptions: (captions: Captions) => void;
+}) {
+  return (
+    <div className="space-y-3 p-3 text-sm">
+      <p className="text-xs text-muted">
+        Model xét box so phần ảnh trong box với các câu mô tả (caption) tiếng Anh của từng nhãn. Câu
+        bạn thêm ở đây được ghép vào câu có sẵn của policy, để model hiểu nhãn theo guideline (ví dụ
+        “a photo of a person riding a motorcycle” cho person). Mỗi dòng một câu, tối đa{' '}
+        {MAX_CAPTIONS} câu mỗi nhãn. Bảng điểm của model đã đo với câu có sẵn, nên thêm câu có thể
+        làm điểm lệch đi.
+      </p>
+      {POLICY_LABELS.map((label) => {
+        const own = definitions.filter((r) =>
+          ruleLabels(r.classes).some((l) => l === label || l === '*'),
+        );
+        return (
+          <div key={label} className="grid gap-3 rounded-lg border border-line p-3 md:grid-cols-2">
+            <div>
+              <p className="font-semibold">{label}</p>
+              {own.length ? (
+                own.map((r) => (
+                  <p key={r.id} className="mt-1 text-xs text-muted">
+                    {r.id} · {r.condition}
+                  </p>
+                ))
+              ) : (
+                <p className="mt-1 text-xs text-muted">
+                  Guideline không định nghĩa riêng nhãn này.
+                </p>
+              )}
+            </div>
+            <textarea
+              aria-label={`Caption cho ${label}`}
+              className="field min-h-16 text-xs"
+              placeholder="a photo of …"
+              defaultValue={(captions[label] ?? []).join('\n')}
+              onChange={(e) =>
+                onCaptions({
+                  ...captions,
+                  [label]: e.target.value
+                    .split('\n')
+                    .map((c) => c.trim())
+                    .filter(Boolean),
+                })
+              }
+            />
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function RulesModal({
   result,
   open,
   onOpenChange,
   choices,
   onChoices,
+  runs,
+  onRuns,
+  captions,
+  onCaptions,
   source,
 }: {
   result: GuidelineExtraction;
@@ -77,6 +162,10 @@ function RulesModal({
   onOpenChange: (open: boolean) => void;
   choices: Choices;
   onChoices: (choices: Choices) => void;
+  runs: Runs;
+  onRuns: (runs: Runs) => void;
+  captions: Captions;
+  onCaptions: (captions: Captions) => void;
   // Name of the guideline, for the heading and the file name of the download.
   source: string;
 }) {
@@ -87,6 +176,7 @@ function RulesModal({
   const views: [View, string, number][] = [
     ['compare', 'So sánh với policy', compared.length],
     ['reviewer', 'Cần người kiểm tra', of('reviewer').length],
+    ['captions', 'Định nghĩa nhãn', of('definition').length],
     ['conflicts', 'Mâu thuẫn', result.conflicts.length],
   ];
   const all = (choice: Choice) =>
@@ -113,7 +203,7 @@ function RulesModal({
                       type="button"
                       role="tab"
                       aria-selected={view === id}
-                      disabled={!total}
+                      disabled={!total && id !== 'captions'}
                       onClick={() => setView(id)}
                       className={`rounded-full border px-3 py-1 text-xs font-semibold transition disabled:opacity-40 ${
                         view === id
@@ -167,48 +257,63 @@ function RulesModal({
                     </thead>
                     <tbody>
                       {compared.map((rule) => (
-                        <tr key={rule.id} className={zebra}>
-                          <td className={td}>
-                            <p>{rule.condition}</p>
-                            <p className="mt-1 text-xs text-muted">
-                              {rule.id} · § {rule.section} · {rule.classes.join(', ')}
-                            </p>
-                            <p className="mt-1 line-clamp-2 text-xs text-muted italic">
-                              “{rule.quote}”
-                            </p>
-                            {rule.missing_parameters.length > 0 && (
-                              <p className="mt-1 text-xs text-amber-700">
-                                Guideline chưa nêu: {rule.missing_parameters.join('; ')}
+                        <React.Fragment key={rule.id}>
+                          <tr className={zebra}>
+                            <td className={td}>
+                              <p>{rule.condition}</p>
+                              <p className="mt-1 text-xs text-muted">
+                                {rule.id} · § {rule.section} · {rule.classes.join(', ')}
                               </p>
-                            )}
-                          </td>
-                          <td className={td}>
-                            <span
-                              className={`rounded-full px-2 py-0.5 text-xs font-semibold whitespace-nowrap ${TONE[rule.relation]}`}
-                            >
-                              {RELATIONS[rule.relation]}
-                            </span>
-                          </td>
-                          <td className={td}>
-                            {rule.overrides.length ? (
-                              rule.overrides.map((id) => (
-                                <div key={id} className="mb-2 last:mb-0">
-                                  <p>{POLICY_RULES[id] ?? 'Chưa có mô tả cho kiểm tra này.'}</p>
-                                  <p className="mt-1 text-xs text-muted">{id}</p>
-                                </div>
-                              ))
-                            ) : (
-                              <p className="text-muted">Chưa có quy tắc tương ứng trong công cụ.</p>
-                            )}
-                          </td>
-                          <td className={td}>
-                            <Pick
-                              rule={rule}
-                              value={choices[rule.id]}
-                              onChange={(choice) => onChoices({ ...choices, [rule.id]: choice })}
-                            />
-                          </td>
-                        </tr>
+                              <p className="mt-1 line-clamp-2 text-xs text-muted italic">
+                                “{rule.quote}”
+                              </p>
+                              {rule.missing_parameters.length > 0 && (
+                                <p className="mt-1 text-xs text-amber-700">
+                                  Guideline chưa nêu: {rule.missing_parameters.join('; ')}
+                                </p>
+                              )}
+                            </td>
+                            <td className={td}>
+                              <span
+                                className={`rounded-full px-2 py-0.5 text-xs font-semibold whitespace-nowrap ${TONE[rule.relation]}`}
+                              >
+                                {RELATIONS[rule.relation]}
+                              </span>
+                            </td>
+                            <td className={td}>
+                              {rule.overrides.length ? (
+                                rule.overrides.map((id) => (
+                                  <div key={id} className="mb-2 last:mb-0">
+                                    <p>{POLICY_RULES[id] ?? 'Chưa có mô tả cho kiểm tra này.'}</p>
+                                    <p className="mt-1 text-xs text-muted">{id}</p>
+                                  </div>
+                                ))
+                              ) : (
+                                <p className="text-muted">
+                                  Chưa có quy tắc tương ứng trong công cụ.
+                                </p>
+                              )}
+                            </td>
+                            <td className={td}>
+                              <Pick
+                                rule={rule}
+                                value={choices[rule.id]}
+                                onChange={(choice) => onChoices({ ...choices, [rule.id]: choice })}
+                              />
+                            </td>
+                          </tr>
+                          {runnable(rule) && choices[rule.id] === 'guideline' && (
+                            <tr className="border-t border-dashed border-line">
+                              <td colSpan={4} className="px-3 pb-3">
+                                <RunEditor
+                                  rule={rule}
+                                  spec={runs[rule.id]}
+                                  onChange={(spec) => onRuns({ ...runs, [rule.id]: spec })}
+                                />
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
                       ))}
                     </tbody>
                   </table>
@@ -238,6 +343,12 @@ function RulesModal({
                       ))}
                     </tbody>
                   </table>
+                ) : view === 'captions' ? (
+                  <CaptionsView
+                    definitions={of('definition')}
+                    captions={captions}
+                    onCaptions={onCaptions}
+                  />
                 ) : (
                   <table className="w-full border-collapse text-sm">
                     <thead>
@@ -262,8 +373,9 @@ function RulesModal({
                 )}
               </div>
               <p className="mt-3 text-xs text-muted">
-                Lựa chọn được lưu kèm dự án khi tạo, ai cũng chọn được (chưa phân quyền). Công cụ
-                chưa tự đổi cách chấm điểm theo lựa chọn này.
+                Lựa chọn được lưu kèm dự án khi tạo. Quy tắc nới hơn mà bạn chọn theo guideline sẽ
+                tắt check tương ứng; quy tắc mới hoặc chặt hơn chỉ chạy khi đã chọn cách kiểm tra và
+                điền đủ số. Caption ở tab Định nghĩa nhãn được gửi kèm cho model xét box.
               </p>
             </Modal.Body>
           </Modal.Dialog>
@@ -285,7 +397,7 @@ export function GuidelineAnalysis({
   // File name of the guideline, when it came from a file.
   name?: string;
   // Called with the analysis and the choices made so far, or null once they no longer apply.
-  onReviewed?: (reviewed: { result: GuidelineExtraction; choices: Choices } | null) => void;
+  onReviewed?: (reviewed: Reviewed | null) => void;
   read: (() => Promise<string>) | null;
   // Changes whenever the guideline source changes, which discards the previous result.
   stamp: string;
@@ -295,12 +407,24 @@ export function GuidelineAnalysis({
     [error, setError] = useState(''),
     [result, setResult] = useState<GuidelineExtraction | null>(null),
     [open, setOpen] = useState(false),
-    [choices, setChoices] = useState<Choices>({});
+    [choices, setChoices] = useState<Choices>({}),
+    [runs, setRuns] = useState<Runs>({}),
+    [captions, setCaptions] = useState<Captions>({});
+  // The Gemini key dialog. The key lives only in this field until the request is sent: it is
+  // never stored, and the field is emptied as soon as it is sent or the dialog closes.
+  const [asking, setAsking] = useState(false),
+    [apiKey, setApiKey] = useState(''),
+    [shownKey, setShownKey] = useState(false);
+  const closeKey = () => {
+    setAsking(false);
+    setApiKey('');
+    setShownKey(false);
+  };
   const report = useRef(onReviewed);
   report.current = onReviewed;
   useEffect(() => {
-    report.current?.(result && { result, choices });
-  }, [result, choices]);
+    report.current?.(result && { result, choices, runs, captions });
+  }, [result, choices, runs, captions]);
   const turn = useRef(0);
   useEffect(() => {
     turn.current++;
@@ -308,22 +432,36 @@ export function GuidelineAnalysis({
     setError('');
     setResult(null);
     setChoices({});
+    setRuns({});
+    setCaptions({});
   }, [stamp]);
-  async function analyse() {
+  async function analyse(key: string) {
     if (!read) return;
     const current = ++turn.current;
     setBusy(true);
     setError('');
     setResult(null);
     setChoices({});
+    setRuns({});
+    setCaptions({});
     try {
       const text = await read();
       const found = await request<GuidelineExtraction>('/guideline/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text }),
+        body: JSON.stringify({ text, api_key: key }),
       });
-      if (current === turn.current) setResult(found);
+      if (current === turn.current) {
+        setResult(found);
+        // A first guess at how each new or stricter rule runs; a person checks it in the table.
+        setRuns(
+          Object.fromEntries(
+            found.rules
+              .filter(runnable)
+              .map((r) => [r.id, guessRun(r, found.classes) ?? undefined]),
+          ),
+        );
+      }
     } catch (e) {
       if (current === turn.current) setError((e as Error).message);
     } finally {
@@ -334,7 +472,7 @@ export function GuidelineAnalysis({
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-3">
-        <Button variant="secondary" isDisabled={!read || busy} onPress={analyse}>
+        <Button variant="secondary" isDisabled={!read || busy} onPress={() => setAsking(true)}>
           {busy ? <Spinner /> : <Icon name="focus" />}
           Phân tích Guideline
         </Button>
@@ -342,9 +480,85 @@ export function GuidelineAnalysis({
           {busy
             ? 'Đang phân tích, có thể mất vài phút…'
             : (unavailable ??
-              'Gửi nội dung guideline tới mô hình ở backend (Gemini) để rút ra bản nháp quy tắc.')}
+              'Gửi nội dung guideline tới mô hình Gemini (bằng API key của bạn) để rút ra bản nháp quy tắc.')}
         </span>
       </div>
+      {asking && (
+        <Modal isOpen onOpenChange={(next) => !next && closeKey()}>
+          <Modal.Backdrop>
+            <Modal.Container>
+              <Modal.Dialog aria-label="Gemini API key">
+                <Modal.CloseTrigger />
+                <Modal.Header>
+                  <Modal.Heading>Phân tích Guideline bằng Gemini</Modal.Heading>
+                </Modal.Header>
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const key = apiKey.trim();
+                    if (!key) return;
+                    closeKey();
+                    analyse(key);
+                  }}
+                >
+                  <Modal.Body>
+                    <label className="block text-sm font-medium" htmlFor="gemini-api-key">
+                      Gemini API key của bạn
+                    </label>
+                    <div className="mt-1.5 flex gap-2">
+                      <input
+                        id="gemini-api-key"
+                        className="field min-w-0 flex-1 rounded-lg px-2.5 py-2 font-mono text-sm"
+                        type={shownKey ? 'text' : 'password'}
+                        value={apiKey}
+                        onChange={(e) => setApiKey(e.target.value)}
+                        placeholder="AIza…"
+                        autoComplete="off"
+                        autoCapitalize="off"
+                        spellCheck={false}
+                        maxLength={200}
+                        required
+                        autoFocus
+                      />
+                      <Button
+                        variant="tertiary"
+                        size="sm"
+                        className="self-center"
+                        onPress={() => setShownKey((v) => !v)}
+                      >
+                        {shownKey ? 'Ẩn' : 'Hiện'}
+                      </Button>
+                    </div>
+                    <p className="mt-3 text-xs leading-5 text-muted">
+                      Key chỉ dùng cho lần phân tích này: gửi kèm guideline tới backend, rồi backend
+                      chuyển thẳng cho Gemini. SmartReview không lưu key (không vào database, log
+                      hay bộ nhớ trình duyệt); lần sau cần nhập lại. Lấy key tại{' '}
+                      <a
+                        className="text-accent underline"
+                        href="https://aistudio.google.com/apikey"
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Google AI Studio
+                      </a>
+                      .
+                    </p>
+                  </Modal.Body>
+                  <Modal.Footer>
+                    <Button variant="secondary" onPress={closeKey}>
+                      Hủy
+                    </Button>
+                    <Button variant="primary" type="submit" isDisabled={!apiKey.trim()}>
+                      <Icon name="focus" />
+                      Phân tích
+                    </Button>
+                  </Modal.Footer>
+                </form>
+              </Modal.Dialog>
+            </Modal.Container>
+          </Modal.Backdrop>
+        </Modal>
+      )}
       {error && (
         <p role="alert" className="text-sm text-rose-700">
           {error}
@@ -369,6 +583,17 @@ export function GuidelineAnalysis({
               }{' '}
               check sẽ tắt khi chấm
             </span>
+            {' · '}
+            <span data-testid="guideline-added">
+              {
+                new Set(
+                  patchesFrom({ rules: result.rules, choices, runs }).map(
+                    (p) => p.op === 'add' && p.rule.check,
+                  ),
+                ).size
+              }{' '}
+              check mới sẽ chạy
+            </span>
             {Boolean(result.unclassified?.length || result.errors?.length) && (
               <span className="mt-1 block text-rose-700" data-testid="guideline-gaps">
                 {result.unclassified?.length ?? 0} dòng của guideline chưa được phân loại
@@ -387,6 +612,10 @@ export function GuidelineAnalysis({
             onOpenChange={setOpen}
             choices={choices}
             onChoices={setChoices}
+            runs={runs}
+            onRuns={setRuns}
+            captions={captions}
+            onCaptions={setCaptions}
             source={name}
           />
         </div>

@@ -551,7 +551,7 @@ Lưu ý: `score` và khoảng tỉ lệ trong ví dụ này là minh hoạ cho k
 - **Câu chữ cho người duyệt, thứ tự và phiên bản check vẫn nằm trong code.**
 - **"Ý kiến thứ hai" chưa có dữ liệu thật.** Dự đoán đã đo không có `label_top2`, nên các quy tắc của file cặp được đo bằng box trùng chỗ; cần đo lại khi có `label_top2`.
 - **`scoring.severe_from_side_px` chưa được engine dùng.**
-- **Bản vá chưa đi hết đường.** Engine đã nhận `set`, `disable`, `narrow`, `add`; server chưa lưu bản vá theo dự án và bước phân tích Guideline chưa sinh ra chúng, nên dự án thật hiện chỉ dùng dạng tắt check theo nhãn.
+- **Bản vá mới đi được một phần đường.** Engine nhận `set`, `disable`, `narrow`, `add`. Dự án thật dùng `add`: quy tắc mới hoặc chặt hơn của Guideline mà người dùng chọn và điền số trong bảng "Kiểm tra rules" thành một quy tắc check `guideline.<id>` (`shared/guideline-rules.ts`), lưu trong `metadata.guideline_patches` và tính vào fingerprint. Phần nới lỏng vẫn đi bằng waivers; `set`, `disable`, `narrow` chưa được sinh ra.
 - **Bộ nhãn khác hẳn** (ví dụ Guideline 3D dùng `Vehicle`, `Pedestrian`) cần thêm một bảng ánh xạ nhãn theo dự án; khuôn dạng này chưa có chỗ cho nó.
 - **Hình học 3D** (cuboid, yaw, mặt đường) chưa có khuôn nào trong engine. Policy 3D đề xuất, kèm các khuôn 3D, nằm ở `policy3d/`: xem [Policy 3D (bản nháp)](policy-3d-draft.md).
 - **Bước dịch Guideline thành bản vá vẫn do mô hình làm**, nên vẫn cần bộ đáp án để đo độ chính xác.

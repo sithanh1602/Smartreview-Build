@@ -7,6 +7,7 @@ import { useProject } from '../features/projects/useProject';
 import { ProjectStatus } from '../features/projects/ProjectLayout';
 import { ImportForm } from '../features/projects/ImportForm';
 import { ProjectPeople } from '../features/projects/ProjectPeople';
+import { GuidelinePanel } from '../features/projects/GuidelinePanel';
 import { StartReviewButton } from '../features/projects/StartReviewButton';
 import { ScanStatus } from '../features/verify/ScanStatus';
 import { request } from '../lib/api';
@@ -304,6 +305,7 @@ export function ProjectDashboardPage() {
               )}
             </p>
           )}
+          <GuidelinePanel meta={dashboard.dataset} />
         </>
       )}
     </>

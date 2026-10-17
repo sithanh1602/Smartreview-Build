@@ -2,6 +2,126 @@
 
 Ghi lại mỗi lần sửa xong một chức năng hoặc thay đổi lớn ở frontend. Mục mới nhất ở trên cùng.
 
+## 2026-10-18 · Project 3D: bàn giao lỗi cho Annotator như 2D
+
+### Đã làm
+
+- Server: `ProjectHandoffs` nhận tên bảng (`project_handoffs` / `project_handoffs_3d`, bảng 3D đã có từ migration 008 nhưng chưa dùng). `server/projects3d/handoff.ts` (mới): `buildReport3D` gom cuboid bị đánh lỗi thành mục theo đối tượng (các frame có cùng quyết định thành một mục, kèm danh sách frame và box key), tuỳ chọn kèm mục Chưa chắc / case rủi ro chưa kiểm tra; `returnRound` (Annotator đánh dấu đã sửa + ghi chú từng mục), `judge` (Reviewer chấp nhận / từ chối / bỏ), `metrics3D`. Route mới: `GET|POST|DELETE /api/projects3d/:id/handoff`, `POST …/handoff/return`, `POST …/handoff/verdict`.
+- Sửa quyền: Annotator không lưu được quyết định review 3D (403); khi đã gửi cho Annotator, review 3D bị khoá (409) tới khi mở lại.
+- `CompleteReviewButton`, `ReopenReviewButton`: thêm prop `base` để dùng cho `/projects3d`.
+- `Handoff3D.tsx` (mới): trang Annotator 3D ba bước như 2D (tải danh sách lỗi CSV/JSON; danh sách cuboid với ô "Đã sửa", ghi chú, link mở trình xem; gửi lại kèm ghi chú), kết quả sau khi gửi lại; khung cho Leader/Reviewer: nút Hoàn thành, thông báo đang khoá + Mở lại review, danh sách lượt gửi lại với Chấp nhận / Từ chối.
+- `Project3DPage`: Annotator chỉ thấy phần việc của mình (hoặc "Chưa có lỗi nào được gửi cho bạn"), không thấy thống kê review.
+- Trình xem 3D: `?frame=&object=` mở đúng frame và chọn sẵn cuboid; Annotator, hoặc khi review đang khoá, thấy quyết định ở dạng chỉ xem (`SavedDecision`) thay cho form.
+
+### Đã kiểm tra
+
+- `tests/handoff3d.test.ts` (mới, 2 test): gom frame theo đối tượng, mục cần xem lại, đếm số; gửi lại, chấp nhận / bỏ, các lỗi đầu vào. Cùng các test risk / guideline / label-verify: 105/105. `tsc`, `vite build`.
+- Chưa chạy luồng thật với MySQL (tài khoản qua tunnel không có quyền với `smartreview_test`); chưa xem trên trình duyệt.
+
+### Chưa làm
+
+- Annotator nộp lại file nhãn đã sửa (phần 2: chưa chọn định dạng); hiện chỉ đánh dấu đã sửa.
+
+## 2026-10-18 · Pop-up hết giờ phiên (gia hạn 5 phút, tối đa 3 lần) và pop-up nhập Gemini key
+
+### Đã làm
+
+- **Hết giờ phiên.** `src/features/auth/SessionTimeout.tsx` (mới), gắn trong `AuthProvider`:
+  - 60 giây trước khi phiên 60 phút hết, hiện pop-up "Hết giờ làm việc" có đếm ngược, không tắt được bằng Esc hay bấm ra ngoài. Hai nút: **Đăng xuất** và **Cho tôi thêm 5 phút (còn n/3 lần)**.
+  - Dùng hết 3 lần (thêm 15 phút), 10 giây cuối hiện pop-up "Đã hết thời gian" đếm ngược; bấm **OK** thì đăng xuất ngay, không bấm thì hết 10 giây tự đăng xuất.
+  - Gia hạn ở một tab thì các tab khác đọc lại giờ hết phiên (`BroadcastChannel` `smartreview-session`).
+- **Backend phiên.** `server/auth/service.ts` + `http.ts`: route mới `POST /api/auth/extend`. Server tự đếm lượt: chỉ cho gia hạn trong 2 phút cuối, mỗi lần +5 phút, phiên dài tối đa 75 phút tính từ `created_at`; hết lượt trả 409. Cookie `access_token` được đặt lại `Max-Age` theo giờ hết mới. `login` và `/api/auth/me` trả thêm `extensionsLeft`. Phiên mới ghi `created_at` bằng UTC (cột này trước đây là giờ máy MySQL); phiên cũ có `created_at` lệch về tương lai thì không được gia hạn. Hằng số dùng chung ở `shared/session.ts`. Không cần migration.
+- **Gemini key cho guideline.** `GuidelineAnalysis.tsx`: bấm "Phân tích Guideline" mở pop-up nhập Gemini API key (ô mật khẩu, nút Hiện/Ẩn, link Google AI Studio). Key chỉ nằm trong ô nhập, xoá ngay khi gửi hoặc đóng; không lưu vào database, log hay bộ nhớ trình duyệt. `server/guideline/http.ts` nhận `api_key` trong body, chỉ chuyển vào header `x-goog-api-key` gửi Gemini cho lần gọi đó; không có key thì dùng `GEMINI_API_KEY` của `.env` như cũ. Engine ngoài (`GUIDELINE_RULES_DIR`) chưa nhận key của người dùng.
+- Test: `tests/auth.test.ts` thêm test gia hạn 3 lần rồi bị từ chối; `tests/guideline.test.ts` thêm test key được chuyển và key sai bị từ chối.
+
+### Đã kiểm tra
+
+- `npm run typecheck`, `vite build`, `tests/guideline.test.ts` (8/8). `tests/auth.test.ts` chưa chạy được: kết nối tới `smartreview_test` bị treo. Chưa chụp màn hình.
+
+## 2026-10-18 · Quét SigLIP đọc ảnh từ thư mục tạm, không tải lại từ kho
+
+### Đã làm (backend)
+
+- `server/projects/service.ts`: khi có kho lưu trữ chung, `finish()` không xoá thư mục tạm nếu đang có lượt quét nhãn chờ cho project (`kept`, `release()`); không có lượt quét thì xoá ngay như trước.
+- `server/verify/service.ts`: `waiting(id)`; lượt quét đọc ảnh trong thư mục tạm được giữ, ảnh nào không có ở đó mới tải từ kho. Quét xong, lỗi, hoặc không bắt đầu được thì gọi `release()` xoá thư mục.
+
+### Đã kiểm tra
+
+- `tsc`; script thử ngoài repo (`verifier-test/staging-scan/check.ts`): có thư mục tạm → 0 ảnh tải từ kho, thư mục bị xoá sau khi quét; không có → tải từ kho như cũ.
+- Thêm test `tests/shared-storage.test.ts` cho luồng import thật, nhưng chưa chạy được: tài khoản MySQL qua tunnel không có quyền với database `smartreview_test`.
+
+### Còn lại
+
+- Yêu cầu quét đến sau khi import đã xong thì vẫn tải ảnh từ kho. Server tắt giữa lúc quét thì thư mục tạm còn lại tới khi xoá hoặc import lại project.
+
+## 2026-10-18 · Popup chọn model luôn mở ở bước 2
+
+### Đã sửa
+
+- `verify/ScanChoice.tsx`: dưới `React.StrictMode` effect chạy hai lần, request đầu bị huỷ rơi vào `catch` và gọi `setStep(2)` (coi như `Model_rescore` trống). Request bị huỷ giờ được bỏ qua, nên popup mở ở bước 1 "Model chấm điểm box" khi thư mục có model.
+
+### Đã kiểm tra
+
+- `tsc`. Chưa mở lại trên trình duyệt.
+
+## 2026-10-18 · Guideline: hiện trên trang project, nhắc người review, caption cho model xét box, check mới chạy được
+
+### Đã làm
+
+- `shared/guideline-rules.ts` (mới): biến lựa chọn trên guideline thành
+  - bản vá policy (`patchesFrom`): quy tắc mới / chặt hơn, verdict `flag`, được chọn "theo guideline" và đã chọn cách kiểm tra đủ số → một quy tắc `add` cho mỗi nhãn, check id `guideline.<id quy tắc>`. 7 khuôn: cạnh nhỏ hơn ngưỡng, tỉ lệ cao/rộng, dải vị trí dọc, attribute bắt buộc, thiếu track_id, confidence thấp, track mất quá số frame;
+  - caption thêm cho model xét box theo nhãn (`captionsFrom`, tối đa 8 câu/nhãn, chỉ nhãn có trong policy);
+  - bản tóm tắt guideline lưu cùng project (`summaryFrom`), và quy tắc cần người xem theo nhãn (`rulesForLabel`).
+- Engine: `supportsPatches`, `checkPatches` (bản vá không chạy được bị từ chối lúc import, lỗi 422). `server/repository.ts`: nhận `patches` và `guideline`; patches vào fingerprint (JSON khoá đã sắp xếp, `stableJson`), project không có patch giữ nguyên fingerprint cũ; meta có `guideline_patches`, `guideline`. `server/projects/service.ts`: `importOptions` đọc rules.json → waivers + patches + tóm tắt; load lại và resubmit truyền lại đủ.
+- Verifier: `verifierRequest(..., { captions })` ghép caption của guideline sau caption policy; `server/verify/service.ts` lấy từ `meta.guideline.captions`. Qwen cũng nhận vì nó dựng lựa chọn từ caption.
+- Bảng "Kiểm tra rules": quy tắc mới/chặt hơn được chọn theo guideline có thêm dòng "Chạy thành check" (`RunEditor.tsx`), đoán sẵn khuôn và con số từ `quantities` + điều kiện, báo thiếu số. Tab mới "Định nghĩa nhãn": định nghĩa trong guideline đặt cạnh ô caption tiếng Anh cho từng nhãn. Dòng tóm tắt thêm "N check mới sẽ chạy". rules.json gửi thêm `runs`, `captions`.
+- Trang project: khung **Guideline** (`GuidelinePanel.tsx`): tên file, số quy tắc / mâu thuẫn, check bị tắt, check thêm (kèm câu trích), số quy tắc cần người xem, caption thêm, bảng toàn bộ quy tắc và lựa chọn.
+- Màn review: khung "Guideline cho nhãn …" trong tab lý do, liệt kê quy tắc `reviewer` và `definition` của nhãn đó hoặc `*`.
+
+### Đã kiểm tra
+
+- `tests/guideline-rules.test.ts` (mới, 6 test): chỉ quy tắc hợp lệ thành patch; check `guideline.G-01` gắn cờ đúng box, lý do là câu của guideline; patch sai bị `checkPatches` từ chối; fingerprint đổi khi có patch và không đổi khi MySQL đảo thứ tự khoá; đoán khuôn; caption ghép vào yêu cầu verifier; tóm tắt và lọc theo nhãn. Cùng các test risk / policy / guideline / label-verify: 115/115. `tsc`, `vite build`.
+- Chưa xem trên trình duyệt; chưa chạy import thật với MySQL và Gemini.
+
+### Chưa làm
+
+- Đổi lựa chọn sau khi đã import (phải nhập lại, vì điểm và fingerprint đổi theo).
+- Quy tắc so hai box / theo cặp (`pair.*`, `frame.label_count`) chưa có khuôn để chạy; khuôn `set` sửa số của quy tắc policy có sẵn chưa dùng (quy tắc chặt hơn chạy thành check thêm).
+- Màn duyệt theo ảnh (`FrameReviewPage`) chưa hiện danh sách guideline. 3D chưa dùng guideline.
+
+## 2026-10-18 · README viết lại, setup.sh tải model theo tên
+
+### Đã làm
+
+- `README.md` (gốc repo): viết lại gọn, cập nhật theo hiện trạng: đăng ký chỉ tạo Thành viên, thêm thành viên trong trang project (bỏ phần mã mời), popup chọn model khi tạo project, hai thư mục `model/`, Risk Engine 2D 7.1.0, bàn giao lỗi; bỏ các đoạn mô tả nhiều phương án.
+- `setup.sh`: thêm `--model A,B` (lặp lại được, cũng nhận `--model=A,B`) và `--all_model` (`--all-models`). Tên: `yolo11n`, `yolo11s`, `yolo11m`, `yolo26n`, `yolo26s-coco` vào `model/Model_rescore/` (tải file release của Ultralytics; `yolo26s-coco` là `yolo26s.pt` gốc đổi tên); `siglip`, `qwen` vào `model/Model_bbox/` (Hugging Face `snapshot_download`, tự cài `huggingface_hub` nếu thiếu, tải tiếp khi chạy lại). Không nêu model thì chỉ `yolo11s`. Tên sai hoặc `yolo26s` (bản fine-tune) thì báo và thoát mã 2. `--check` kiểm tra cả model đã nêu. Bước 9 mới "Model (model/)"; bỏ khối tải `yolo11s` ở bước 5 và khối kiểm tra `LABEL_VERIFIER_*_DIR` ở bước 8.
+- `docs/label-verifier.md`: câu hướng dẫn tải bằng `setup.sh`.
+
+### Đã kiểm tra
+
+- `bash -n setup.sh`; `--help`; `--model foo` và `--model yolo26s` thoát mã 2; `--check --all_model` báo đúng model có/thiếu (symlink cũng được nhận); `./setup.sh --model yolo11m` tải thật 40 MB vào `model/Model_rescore/yolo11m.pt`. Chưa chạy tải `siglip` / `qwen` vì máy đã có.
+
+## 2026-10-18 · Trình xem 3D: thu gọn danh sách "Frame …: cuboid có ghim"
+
+### Đã làm
+
+- `viewer/ObjectPanel.tsx`: tiêu đề "Frame 0000: cuboid có ghim" (hoặc "mọi cuboid") thành nút có mũi tên ▾/▸ (`aria-expanded`), bấm để ẩn/hiện nút "Hiện tất cả…", danh sách cuboid và chú thích cờ. Dòng "x/y đã review" luôn hiện. Trạng thái giữ qua các frame và lưu trong `localStorage` (`viewer3d.frameListOpen`, đọc/ghi trong try/catch, mặc định mở).
+
+### Đã kiểm tra
+
+- `tsc`, `vite build`. Chưa xem trên trình duyệt (máy không có Chrome).
+
+## 2026-10-18 · Trình xem 3D: khoảng cách tới cuboid đang chọn
+
+### Đã làm
+
+- `viewer/engine.ts`: khi chọn một cuboid, vẽ đường nét đứt trên mặt đất (ở cao độ đáy cuboid) từ gốc xe (giữa trục sau) tới tâm cuboid. Khoảng cách hiện trong khối ở góc trái trên khung xem, ngay dưới khung thông tin frame (`Viewer3DPage`, `data-testid="viewer-distance"`): khoảng cách theo mặt đất `√(x² + y²)` và hai thành phần trong hệ tọa độ xe (`dọc ±x · ngang ±y m`; dọc + phía trước, ngang + bên trái). Không tính độ cao. Cập nhật theo frame và giữ theo cuboid đang chọn; đúng cả ở chế độ khung "world" vì nằm trong nhóm tọa độ xe.
+- `ViewSettings.distance` (mặc định bật), ô "Khoảng cách tới cuboid đang chọn" trong nhóm Cuboid của `DisplayPanel`; ẩn khi tắt cuboid.
+
+### Đã kiểm tra
+
+- `tsc`, `vite build`. Chưa xem trên trình duyệt (máy không có Chrome).
+
 ## 2026-10-18 · Popup tạo project hai bước: model chấm điểm, rồi model xét box
 
 ### Đã làm

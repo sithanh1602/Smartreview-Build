@@ -324,6 +324,9 @@ function project(root: string, calls: any[]) {
     requeued,
     context: async () => ({ dataset, reviews }),
     get: async () => ({ status: projects.status }),
+    // No staging directory is kept: these projects are not on a remote.
+    kept: new Map(),
+    release: async () => {},
   };
   return { dataset, service: new VerifyService(projects as any, { verifier }), projects, verifier };
 }

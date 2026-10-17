@@ -11,6 +11,8 @@ import { Icon } from '../../components/Icon';
 import { Tip } from '../../components/Tip';
 import { ReviewDecisionForm } from './ReviewDecisionForm';
 import { EvidenceTable } from '../../components/EvidenceTable';
+import { rulesForLabel, type GuidelineSummary } from '../../../shared/guideline-rules.ts';
+
 import { confidenceText, objectText } from '../../lib/format';
 import { useLoadedDataset } from '../../app/DatasetProvider';
 import { request } from '../../lib/api';
@@ -18,6 +20,36 @@ import type { PanelControls } from './usePanels';
 import { ImageCaseList } from './ImageCaseList';
 import { levelColor } from './grouping';
 import type { AiFindingView, Case, ContextPosition, Observation } from '../../types.ts';
+
+// What the guideline asks a person to check for boxes of this label, which no check can measure.
+function GuidelineChecklist({ summary, label }: { summary?: GuidelineSummary; label: string }) {
+  const rules = rulesForLabel(summary, label);
+  if (!rules.length) return null;
+  return (
+    <section
+      className="mt-3 rounded-xl border border-violet-300 p-3 text-[13px] leading-5"
+      data-testid="guideline-checklist"
+    >
+      <h3 className="text-sm font-semibold">Guideline cho nhãn “{label}”</h3>
+      <p className="mt-0.5 text-xs text-muted">
+        Công cụ không tự đo được các yêu cầu này; hãy nhìn ảnh để đối chiếu.
+      </p>
+      <ul className="mt-2 space-y-2">
+        {rules.map((r) => (
+          <li key={r.id}>
+            <p>
+              {r.kind === 'definition' && <span className="text-muted">Định nghĩa · </span>}
+              {r.condition}
+            </p>
+            <p className="text-xs text-muted">
+              {r.id} · § {r.section}
+            </p>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
 
 type Tab = 'why' | 'objects' | 'details';
 // Which annotations are drawn: all of them, only the flagged one, or all but the flagged one.
@@ -50,8 +82,11 @@ export function CaseDetail({
   onOpenCase,
   wholeImage,
   onWholeImage,
+  guideline,
 }: {
   item: Case;
+  // The project's guideline: its rules for this label that a person must judge by eye.
+  guideline?: GuidelineSummary;
   index: number;
   count: number;
   onNavigate: (delta: number) => void;
@@ -725,6 +760,7 @@ export function CaseDetail({
                 </ul>
               </details>
             </section>
+            <GuidelineChecklist summary={guideline} label={item.class_name} />
           </div>
           <div
             role="tabpanel"

@@ -36,6 +36,15 @@ const decisionKeys = Object.keys(DECISIONS);
 const split = (label: string) => label.match(/^(.*?) \((.*)\)$/)?.slice(1) ?? [label];
 const fixed = (values: number[], digits = 2) => values.map((v) => v.toFixed(digits));
 const MARK: Record<string, string> = { CORRECT: '✓', UNSURE: '?', ERROR: '✗' };
+// Whether the list of the frame's cuboids is open, kept per browser across frames and reloads.
+const LIST_OPEN_KEY = 'viewer3d.frameListOpen';
+function readListOpen() {
+  try {
+    return localStorage.getItem(LIST_OPEN_KEY) !== 'false';
+  } catch {
+    return true;
+  }
+}
 
 // Where a cuboid's centre is in the world: its frame's pose (16 numbers, row-major) applied
 // to the centre given in vehicle coordinates.
@@ -318,6 +327,48 @@ function ReviewForm({
 }
 
 // The cuboids of the frame on screen, the details of the selected one and its review.
+// The decision on a cuboid where it cannot be changed: for annotators, and while the review is
+// with them.
+function SavedDecision({ review, reason }: { review: Review | null; reason: string }) {
+  const kind = review?.error_type && ERROR_TYPES_3D.find(([id]) => id === review.error_type)?.[1];
+  return (
+    <section aria-label="Quyết định review" data-testid="saved-decision">
+      <h3 className="text-base font-semibold">Quyết định</h3>
+      {review ? (
+        <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-sm">
+          <dt className="text-muted">Kết quả</dt>
+          <dd className="font-semibold">{hint(DECISIONS[review.decision])}</dd>
+          {kind && (
+            <>
+              <dt className="text-muted">Loại lỗi</dt>
+              <dd>{kind}</dd>
+            </>
+          )}
+          {review.corrected_value && (
+            <>
+              <dt className="text-muted">Sửa thành</dt>
+              <dd>{review.corrected_value}</dd>
+            </>
+          )}
+          {review.note && (
+            <>
+              <dt className="text-muted">Ghi chú</dt>
+              <dd className="break-words">{review.note}</dd>
+            </>
+          )}
+          <dt className="text-muted">Lúc</dt>
+          <dd>{new Date(review.reviewed_at).toLocaleString('vi-VN')}</dd>
+        </dl>
+      ) : (
+        <p className="mt-2 text-sm text-muted">Cuboid này chưa được review.</p>
+      )}
+      <p className="mt-3 rounded-lg border border-amber-500 bg-amber-50 p-2.5 text-xs text-amber-900">
+        {reason}
+      </p>
+    </section>
+  );
+}
+
 export function ObjectPanel({
   projectId,
   revision,
@@ -335,6 +386,7 @@ export function ObjectPanel({
   onSaved,
   onFocus,
   onOpen,
+  locked,
 }: {
   projectId: string;
   revision: string;
@@ -359,9 +411,19 @@ export function ObjectPanel({
   onFocus: () => void;
   // Opens a frame with an object selected.
   onOpen: (frame: number, objectId: string) => void;
+  // Why decisions cannot be saved here, if they cannot: the decision is then only shown.
+  locked?: string;
 }) {
   // Without the engine there is nothing to narrow the list to.
   const [showAll, setShowAll] = useState(!report);
+  const [listOpen, setListOpen] = useState(readListOpen);
+  const toggleList = () =>
+    setListOpen((open) => {
+      try {
+        localStorage.setItem(LIST_OPEN_KEY, String(!open));
+      } catch {}
+      return !open;
+    });
   useEffect(() => setShowAll(!report), [report]);
   const frame = scene.frames[frameIndex];
   const boxes = [...frame.boxes].sort(
@@ -410,10 +472,24 @@ export function ObjectPanel({
         onOpen={onOpen}
       />
       <section className="border-b border-line py-4">
-        <h2 className="mb-2 flex items-baseline justify-between gap-2 text-sm font-semibold">
-          {showAll
-            ? `Frame ${padFrame(frameIndex)}: mọi cuboid`
-            : `Frame ${padFrame(frameIndex)}: cuboid có ghim`}
+        <h2
+          className={`flex items-baseline justify-between gap-2 text-sm font-semibold ${listOpen ? 'mb-2' : ''}`}
+        >
+          <button
+            type="button"
+            className="flex items-baseline gap-1.5 text-left hover:text-accent"
+            aria-expanded={listOpen}
+            aria-controls="frame-box-list"
+            onClick={toggleList}
+            data-testid="toggle-frame-list"
+          >
+            <span aria-hidden="true" className="w-3 text-xs text-muted">
+              {listOpen ? '▾' : '▸'}
+            </span>
+            {showAll
+              ? `Frame ${padFrame(frameIndex)}: mọi cuboid`
+              : `Frame ${padFrame(frameIndex)}: cuboid có ghim`}
+          </button>
           <span
             className="text-xs font-normal text-muted tabular-nums"
             data-testid="frame-progress"
@@ -421,86 +497,88 @@ export function ObjectPanel({
             {reviewed}/{boxes.length} đã review
           </span>
         </h2>
-        {report && boxes.length > 0 && (
-          <button
-            type="button"
-            className="mb-2 text-[11px] text-accent underline-offset-2 hover:underline"
-            aria-pressed={showAll}
-            onClick={() => setShowAll((v) => !v)}
-            data-testid="toggle-all-boxes"
-          >
-            {showAll
-              ? `Chỉ hiện cuboid có cờ (${flaggedIds.size})`
-              : `Hiện tất cả ${boxes.length} cuboid của frame`}
-          </button>
-        )}
-        {listed.length ? (
-          <ul className="max-h-44 overflow-y-auto pr-1" data-testid="box-list">
-            {listed.map((b) => {
-              const decision = reviewOf(b)?.decision,
-                flag = flags.find((f) => f.objectId === b.id);
-              return (
-                <li key={b.id}>
-                  <button
-                    type="button"
-                    aria-pressed={b.id === selected}
-                    className={`flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-xs ${b.id === selected ? 'bg-accent/10 text-accent' : 'hover:bg-slate-50'}`}
-                    onClick={() => onSelect(b.id === selected ? null : b.id)}
-                  >
-                    <Swatch color={BOX_COLORS[b.type] ?? BOX_COLORS.UNKNOWN} />
-                    <span className="font-semibold">{b.type}</span>
-                    <span className="min-w-0 flex-1 truncate text-muted">{b.id.slice(0, 5)}</span>
-                    <span className="text-muted tabular-nums">{b.points} điểm</span>
-                    {flag && (
-                      <span data-testid={`flag-${flag.number ?? 'warn'}`}>
-                        <Pin
-                          level={flag.level}
-                          number={flag.number}
-                          title={
-                            flag.number === undefined
-                              ? PIN_NAMES[flag.level]
-                              : `Lỗi #${flag.number}: ${PIN_NAMES[flag.level]}, ${flag.source === 'risk' ? 'nghi ' : ''}${FLAG_NAMES[flag.errorType] ?? flag.errorType}`
-                          }
-                        />
-                      </span>
-                    )}
-                    <span
-                      className={`w-3 text-center font-bold ${decision === 'CORRECT' ? 'text-accent' : decision === 'ERROR' ? 'text-rose-700' : 'text-amber-700'}`}
-                      title={decision ? `Đã review: ${hint(DECISIONS[decision])}` : undefined}
+        <div id="frame-box-list" hidden={!listOpen}>
+          {report && boxes.length > 0 && (
+            <button
+              type="button"
+              className="mb-2 text-[11px] text-accent underline-offset-2 hover:underline"
+              aria-pressed={showAll}
+              onClick={() => setShowAll((v) => !v)}
+              data-testid="toggle-all-boxes"
+            >
+              {showAll
+                ? `Chỉ hiện cuboid có cờ (${flaggedIds.size})`
+                : `Hiện tất cả ${boxes.length} cuboid của frame`}
+            </button>
+          )}
+          {listed.length ? (
+            <ul className="max-h-44 overflow-y-auto pr-1" data-testid="box-list">
+              {listed.map((b) => {
+                const decision = reviewOf(b)?.decision,
+                  flag = flags.find((f) => f.objectId === b.id);
+                return (
+                  <li key={b.id}>
+                    <button
+                      type="button"
+                      aria-pressed={b.id === selected}
+                      className={`flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-xs ${b.id === selected ? 'bg-accent/10 text-accent' : 'hover:bg-slate-50'}`}
+                      onClick={() => onSelect(b.id === selected ? null : b.id)}
                     >
-                      {decision ? MARK[decision] : ''}
+                      <Swatch color={BOX_COLORS[b.type] ?? BOX_COLORS.UNKNOWN} />
+                      <span className="font-semibold">{b.type}</span>
+                      <span className="min-w-0 flex-1 truncate text-muted">{b.id.slice(0, 5)}</span>
+                      <span className="text-muted tabular-nums">{b.points} điểm</span>
+                      {flag && (
+                        <span data-testid={`flag-${flag.number ?? 'warn'}`}>
+                          <Pin
+                            level={flag.level}
+                            number={flag.number}
+                            title={
+                              flag.number === undefined
+                                ? PIN_NAMES[flag.level]
+                                : `Lỗi #${flag.number}: ${PIN_NAMES[flag.level]}, ${flag.source === 'risk' ? 'nghi ' : ''}${FLAG_NAMES[flag.errorType] ?? flag.errorType}`
+                            }
+                          />
+                        </span>
+                      )}
+                      <span
+                        className={`w-3 text-center font-bold ${decision === 'CORRECT' ? 'text-accent' : decision === 'ERROR' ? 'text-rose-700' : 'text-amber-700'}`}
+                        title={decision ? `Đã review: ${hint(DECISIONS[decision])}` : undefined}
+                      >
+                        {decision ? MARK[decision] : ''}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <p className="text-xs text-muted">
+              {boxes.length
+                ? 'Frame này không có cuboid nào bị nghi lỗi hay cảnh báo.'
+                : 'Frame này không có cuboid.'}
+            </p>
+          )}
+          {flags.length > 0 && (
+            <p
+              className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted"
+              data-testid="flag-legend"
+            >
+              <span>{`${flags.length} cờ:`}</span>
+              {PIN_LEVELS.map((level) => {
+                const n = flags.filter((f) => f.level === level).length;
+                return (
+                  n > 0 && (
+                    <span key={level} className="inline-flex items-center gap-1">
+                      <Pin level={level} size={10} />
+                      {`${PIN_NAMES[level]} (${n})`}
                     </span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        ) : (
-          <p className="text-xs text-muted">
-            {boxes.length
-              ? 'Frame này không có cuboid nào bị nghi lỗi hay cảnh báo.'
-              : 'Frame này không có cuboid.'}
-          </p>
-        )}
-        {flags.length > 0 && (
-          <p
-            className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted"
-            data-testid="flag-legend"
-          >
-            <span>{`${flags.length} cờ:`}</span>
-            {PIN_LEVELS.map((level) => {
-              const n = flags.filter((f) => f.level === level).length;
-              return (
-                n > 0 && (
-                  <span key={level} className="inline-flex items-center gap-1">
-                    <Pin level={level} size={10} />
-                    {`${PIN_NAMES[level]} (${n})`}
-                  </span>
-                )
-              );
-            })}
-          </p>
-        )}
+                  )
+                );
+              })}
+            </p>
+          )}
+        </div>
       </section>
       {box ? (
         <>
@@ -632,17 +710,21 @@ export function ObjectPanel({
             </dl>
           </section>
           <div className="pt-4">
-            <ReviewForm
-              key={boxKey(frame.timestamp, box.id)}
-              projectId={projectId}
-              revision={revision}
-              timestamp={frame.timestamp}
-              box={box}
-              trackFrames={frames.length}
-              existing={reviewOf(box)}
-              onSaved={onSaved}
-              onNext={onNext}
-            />
+            {locked ? (
+              <SavedDecision review={reviewOf(box)} reason={locked} />
+            ) : (
+              <ReviewForm
+                key={boxKey(frame.timestamp, box.id)}
+                projectId={projectId}
+                revision={revision}
+                timestamp={frame.timestamp}
+                box={box}
+                trackFrames={frames.length}
+                existing={reviewOf(box)}
+                onSaved={onSaved}
+                onNext={onNext}
+              />
+            )}
           </div>
         </>
       ) : (

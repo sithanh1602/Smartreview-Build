@@ -64,6 +64,10 @@ export class VerifyService {
     this.results = new Map();
     this.pending = new Map();
   }
+  // A scan is asked for or running: the import keeps its staging directory for it.
+  waiting(id: string) {
+    return this.pending.has(id) || this.jobs.has(id);
+  }
   directory(id: string) {
     return path.join(this.projects.storageRoot, 'projects', id, 'verify');
   }
@@ -171,6 +175,7 @@ export class VerifyService {
         await this.start(id, options);
       } catch (e) {
         this.pending.delete(id);
+        await this.projects.release(id).catch(() => {});
         console.error('Queued label verify not started:', id, (e as Error).message);
       }
     }
@@ -228,14 +233,27 @@ export class VerifyService {
     const directory = path.join(this.projects.storageRoot, '.tmp', randomUUID());
     try {
       const paths = new Map(frames.map((f) => [f.id, dataset.assets.get(f.id)!]));
-      // The engines read files, so remote frames are fetched into a directory removed afterwards.
+      // The engines read files, so remote frames are fetched into a directory removed afterwards,
+      // unless the import kept its staging directory for this scan: those frames are read there.
       if (dataset.remote) {
         await fs.mkdir(directory, { recursive: true });
+        const staged = this.projects.kept.get(id);
         let next = 0;
         const fetchFrames = async () => {
           while (next < frames.length) {
             const index = next++,
               frame = frames[index];
+            const local = staged && frame.image && path.join(staged, frame.image);
+            if (local && local.startsWith(staged + path.sep)) {
+              const found = await fs.access(local).then(
+                () => true,
+                () => false,
+              );
+              if (found) {
+                paths.set(frame.id, local);
+                continue;
+              }
+            }
             const data = await dataset.readAsset(frame.id);
             if (!data) throw new Error(`Không đọc được ảnh ${frame.id} từ kho lưu trữ chung.`);
             const file = path.join(
@@ -255,7 +273,11 @@ export class VerifyService {
           dataset.normalized,
           (frame) => paths.get(frame.id),
           engine,
-          { state: (annotationId) => risk.get(annotationId)?.state, only },
+          {
+            state: (annotationId) => risk.get(annotationId)?.state,
+            only,
+            captions: dataset.meta.guideline?.captions,
+          },
         );
         const request = { ...built, model: chosen.name, model_dir: chosen.dir };
         Object.assign(state, { stage: engine, completed: 0, total: request.boxes.length });
@@ -309,6 +331,7 @@ export class VerifyService {
       this.active = false;
       this.jobs.delete(id);
       await fs.rm(directory, { recursive: true, force: true }).catch(() => {});
+      await this.projects.release(id).catch(() => {});
       void this.drain();
     }
   }

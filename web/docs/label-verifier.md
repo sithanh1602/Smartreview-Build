@@ -38,7 +38,7 @@ Cả hai mô hình chạy cục bộ; ảnh không rời máy.
 .venv/bin/python web/server/verify/download_models.py     # tải cả hai mô hình; thêm siglip hoặc qwen để tải một
 ```
 
-**Model cho popup quét nhãn nằm trong `model/Model_bbox/`** (ngang hàng với `web/`, đã thêm vào `.gitignore` nên không bị push). Mỗi model là một thư mục con có `config.json` và file trọng số `.safetensors` / `.bin`, ví dụ `model/Model_bbox/siglip2-base-patch16-224/`. Backend tự nhận loại theo `model_type` trong `config.json`: có chữ `siglip` thì dùng cho bước quét, `qwen2_vl` / `qwen2_5_vl` thì dùng cho bước xem lại; thư mục khác bị bỏ qua. Symlink tới thư mục model ở chỗ khác cũng được. Đổi chỗ thư mục bằng `LABEL_VERIFIER_MODELS_DIR` (tính từ `web/`, mặc định `../model/Model_bbox`).
+Tải bằng `./setup.sh --model siglip,qwen` (hoặc `--all_model`): mỗi model vào một thư mục con của `model/Model_bbox/`, tải dở thì chạy lại để tải tiếp. **Model cho popup quét nhãn nằm trong `model/Model_bbox/`** (ngang hàng với `web/`, đã thêm vào `.gitignore` nên không bị push). Mỗi model là một thư mục con có `config.json` và file trọng số `.safetensors` / `.bin`, ví dụ `model/Model_bbox/siglip2-base-patch16-224/`. Backend tự nhận loại theo `model_type` trong `config.json`: có chữ `siglip` thì dùng cho bước quét, `qwen2_vl` / `qwen2_5_vl` thì dùng cho bước xem lại; thư mục khác bị bỏ qua. Symlink tới thư mục model ở chỗ khác cũng được. Đổi chỗ thư mục bằng `LABEL_VERIFIER_MODELS_DIR` (tính từ `web/`, mặc định `../model/Model_bbox`).
 
 Lệnh `npm run verify` và `download_models.py` vẫn dùng hai biến cũ trong `web/.env`, đường dẫn tính từ `web/`:
 
@@ -211,7 +211,8 @@ Guideline Review (`server/guideline`, `docs/policy-format.md`) biến guideline 
 
 - **`verifier.wrong_label` không nằm trong danh mục check gửi cho mô hình đọc guideline**, nên không quy tắc nào của guideline tắt được nó. Lời nhắc của bước đọc guideline còn ghi công cụ không nhìn thấy pixel ảnh; khi verifier được ghép vào engine thì câu đó phải sửa cùng lúc.
 - **Định nghĩa class của guideline không tới được `captions`.** Guideline mẫu (`fixtures/guideline/sample-2d.txt`) xếp bán tải vào `car` và xe ba bánh vào `motorcycle`; policy xếp bán tải vào `truck` và loại xe ba bánh khỏi `two_wheeler`. Với dự án theo guideline đó, verifier sẽ gợi ý `truck` cho một box bán tải gán đúng theo guideline.
-- Vì vậy lượt chạy trong project còn cần nhận `waivers` như Risk Engine và một bản vá `captions` theo dự án. Cả hai chưa làm; phần đọc guideline không bị đổi.
+- **Caption theo dự án đã có:** tab "Định nghĩa nhãn" của bảng "Kiểm tra rules" cho thêm câu mô tả tiếng Anh cho từng nhãn (ví dụ "a photo of a pickup truck" cho `car`). Câu được lưu với project (`metadata.guideline.captions`) và ghép sau caption của policy khi chạy verifier trong project. Bảng `score_by_lead` đã đo với caption gốc, nên thêm câu có thể làm điểm lệch.
+- `waivers` cho `verifier.wrong_label` vẫn chưa làm.
 
 ## Giới hạn
 

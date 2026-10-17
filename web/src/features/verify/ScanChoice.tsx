@@ -53,6 +53,8 @@ export function ScanChoice({
         if (!found.length) setStep(2);
       })
       .catch((e) => {
+        // An aborted request (StrictMode runs the effect twice) says nothing about the folder.
+        if (c.signal.aborted) return;
         failed(e);
         setScoreModels([]);
         setStep(2);

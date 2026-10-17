@@ -14,7 +14,15 @@ type CvatTask = {
 };
 const TOOLS = { cvat: 'CVAT local' } as const;
 
-function Step({ n, title, children }: { n: number; title: string; children: React.ReactNode }) {
+export function Step({
+  n,
+  title,
+  children,
+}: {
+  n: number;
+  title: string;
+  children: React.ReactNode;
+}) {
   return (
     <section className="panel mb-5 p-5" aria-label={title}>
       <h2 className="flex items-center gap-3 font-semibold">

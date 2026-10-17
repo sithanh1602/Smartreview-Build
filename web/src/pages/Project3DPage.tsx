@@ -10,6 +10,7 @@ import { RiskPrecision } from '../features/projects3d/RiskPrecision';
 import { BOX_COLORS, cssColor } from '../features/projects3d/viewer/colors';
 import { roleLabel } from '../features/auth/AuthGate';
 import { useAuth } from '../features/auth/AuthProvider';
+import { Annotator3DWork, Reviewer3DHandoff, useHandoff3D } from '../features/handoff/Handoff3D';
 
 const count = (value: number) => value.toLocaleString('en-US');
 function Stat({ label, value, note }: { label: string; value: string; note?: string }) {
@@ -19,6 +20,36 @@ function Stat({ label, value, note }: { label: string; value: string; note?: str
       <p className="mt-2 text-2xl font-semibold tabular-nums">{value}</p>
       {note && <p className="mt-1 text-xs text-muted">{note}</p>}
     </div>
+  );
+}
+
+// What an annotator of a 3D project sees once it is imported: the cuboids sent to them to fix,
+// as in a 2D project, and nothing of the review itself.
+function Annotator3DSection({ projectId }: { projectId: string }) {
+  const { sent, error, reload } = useHandoff3D(projectId);
+  if (!sent)
+    return (
+      <p role={error ? 'alert' : 'status'} className="panel p-6">
+        {!error && <Spinner />}
+        {error || 'Đang tải lỗi cần sửa…'}
+      </p>
+    );
+  if (!sent.handoff?.for_me)
+    return (
+      <section className="panel p-8" data-testid="no-fixes">
+        <h2 className="font-semibold">Chưa có lỗi nào được gửi cho bạn</h2>
+        <p className="mt-2 text-sm text-muted">
+          Khi Reviewer hoàn thành review và chọn bạn, các cuboid cần sửa sẽ hiện ở đây.
+        </p>
+      </section>
+    );
+  return (
+    <Annotator3DWork
+      key={sent.handoff.status}
+      projectId={projectId}
+      sent={sent}
+      onReturned={reload}
+    />
   );
 }
 
@@ -82,8 +113,17 @@ export function Project3DPage() {
           {stageText(p) ?? 'Đang xử lý…'}
         </p>
       )}
-      {p.status === 'READY' && meta && (
+      {p.status === 'READY' && meta && p.my_role === 'annotator' && (
+        <Annotator3DSection projectId={p.id} />
+      )}
+      {p.status !== 'READY' && p.my_role === 'annotator' && !importing && (
+        <p role="status" className="panel p-8 text-muted">
+          Project chưa có dữ liệu. Leader cần import dataset trước khi bạn làm việc.
+        </p>
+      )}
+      {p.status === 'READY' && meta && p.my_role !== 'annotator' && (
         <>
+          <Reviewer3DHandoff project={p} />
           <section className="panel mb-6 flex flex-wrap items-center justify-between gap-4 p-5">
             <div>
               <h2 className="font-semibold">Review cuboid trên point cloud</h2>
