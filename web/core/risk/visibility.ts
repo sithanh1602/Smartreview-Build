@@ -6,6 +6,10 @@ export interface Visibility {
   value: number;
   // measured: a percentage attribute of the dataset. estimated: worked out from the boxes.
   source: 'measured' | 'estimated';
+  // estimated only: the share of the box still inside the frame, and the share of it under
+  // boxes standing nearer the camera. value = in_frame × (1 − covered).
+  in_frame?: number;
+  covered?: number;
 }
 
 const percent = (value: unknown) =>
@@ -72,7 +76,8 @@ export function estimatedVisibility(
         h = (o.height * shrink) / 2;
       return { x1: cx - w, y1: cy - h, x2: cx + w, y2: cy + h };
     });
-  return inFrame * (1 - coveredShare(box, nearer));
+  const covered = coveredShare(box, nearer);
+  return { value: inFrame * (1 - covered), in_frame: inFrame, covered };
 }
 export function visibilityOf(
   { current, box, peers, media }: CheckContext,
@@ -82,7 +87,7 @@ export function visibilityOf(
   const measured = measuredVisibility(current, config);
   return measured !== null
     ? { value: measured, source: 'measured' }
-    : { value: estimatedVisibility(box, peers, media, config), source: 'estimated' };
+    : { ...estimatedVisibility(box, peers, media, config), source: 'estimated' };
 }
 
 // The second-best class is optional model output carried in attributes; never inferred.

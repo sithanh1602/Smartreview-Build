@@ -17,6 +17,7 @@ export function FrameViewer({
   risk,
   compact = false,
   zoom = false,
+  focus,
   interactive = false,
   showBox = true,
   proposal,
@@ -40,6 +41,8 @@ export function FrameViewer({
   risk?: number;
   compact?: boolean;
   zoom?: boolean;
+  // The shape `zoom` crops to; the observation's own by default.
+  focus?: Geometry;
   interactive?: boolean;
   showBox?: boolean;
   proposal?: { geometry?: Geometry } | null;
@@ -77,17 +80,18 @@ export function FrameViewer({
     unit: number;
   } | null>(null);
   const dragged = useRef(false);
+  const { width: imageWidth, height: imageHeight, geometry: g } = observation;
+  const f = focus ?? g;
+  const validBox = f.type === 'bbox' && f.width > 0 && f.height > 0;
   useEffect(() => {
     setScale(1);
     setPan({ x: 0, y: 0 });
-  }, [zoom, observation.image_url]);
-  const { width: imageWidth, height: imageHeight, geometry: g } = observation;
-  const validBox = g.type === 'bbox' && g.width > 0 && g.height > 0;
-  const pad = validBox ? Math.max(g.width, g.height) * 0.65 : 0;
-  const x = validBox ? Math.max(0, g.x - pad) : 0,
-    y = validBox ? Math.max(0, g.y - pad) : 0;
-  const width = validBox ? Math.min(imageWidth, g.x + g.width + pad) - x : imageWidth;
-  const height = validBox ? Math.min(imageHeight, g.y + g.height + pad) - y : imageHeight;
+  }, [zoom, observation.image_url, validBox && `${f.x},${f.y},${f.width},${f.height}`]);
+  const pad = validBox ? Math.max(f.width, f.height) * 0.65 : 0;
+  const x = validBox ? Math.max(0, f.x - pad) : 0,
+    y = validBox ? Math.max(0, f.y - pad) : 0;
+  const width = validBox ? Math.min(imageWidth, f.x + f.width + pad) - x : imageWidth;
+  const height = validBox ? Math.min(imageHeight, f.y + f.height + pad) - y : imageHeight;
   const cropped = zoom && validBox && width > 0 && height > 0;
   const base = cropped ? [x, y, width, height] : [0, 0, imageWidth, imageHeight];
   const factor = follow ? follow.scale : interactive ? scale : 1;

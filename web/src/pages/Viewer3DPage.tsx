@@ -672,7 +672,7 @@ export function Viewer3DPage() {
         </div>
         {settings && scene && info && revision && showPanel && (
           <aside
-            className="flex shrink-0 flex-col border-t border-line bg-panel lg:w-80 lg:border-t-0 lg:border-l"
+            className="flex shrink-0 flex-col border-t border-line bg-panel lg:w-96 lg:border-t-0 lg:border-l 2xl:w-[26rem]"
             data-testid="viewer-panel"
           >
             <div className="flex gap-2 border-b border-line p-2" role="tablist">

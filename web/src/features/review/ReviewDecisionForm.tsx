@@ -131,22 +131,22 @@ export function ReviewDecisionForm({
       title={locked ? 'Review đã hoàn thành và đã gửi cho Annotator.' : undefined}
     >
       {locked && (
-        <p className="mb-2 text-[11px] font-semibold text-amber-800">
+        <p className="mb-2 text-xs font-semibold text-amber-800">
           Đã khoá: review đã hoàn thành và đã gửi cho Annotator.
         </p>
       )}
       <div
         className={`mb-2 flex-wrap items-baseline justify-between gap-x-2 ${compact ? 'hidden' : 'flex'}`}
       >
-        <h3 className="text-sm font-semibold">Quyết định</h3>
+        <h3 className="text-base font-semibold">Quyết định</h3>
         {existing ? (
-          <p className="text-[11px] text-accent">
+          <p className="text-xs text-accent">
             {hint('✓ Reviewed · ')}
             {hint(DECISIONS[existing.decision])} ·{' '}
             {new Date(existing.reviewed_at).toLocaleString('vi-VN')}
           </p>
         ) : (
-          <p className="text-[11px] text-muted">chưa review</p>
+          <p className="text-xs text-muted">chưa review</p>
         )}
       </div>
       <form
@@ -168,7 +168,7 @@ export function ReviewDecisionForm({
         >
           <legend className="sr-only">{hint('Quyết định review')}</legend>
           {missing && !compact && (
-            <p className="rounded-lg bg-violet-50 px-2 py-1.5 text-[11px] text-violet-900">
+            <p className="rounded-lg bg-violet-50 px-2.5 py-2 text-[13px] leading-5 text-violet-900">
               Model gợi ý ở đây có “{item.class_name}” chưa được vẽ.{' '}
               <strong>Annotation Error</strong> = đúng là bị sót (gửi annotator vẽ bổ sung);{' '}
               <strong>Correct / False Alarm</strong> = gợi ý sai, không có vật cần vẽ.
@@ -180,7 +180,7 @@ export function ReviewDecisionForm({
               return (
                 <label
                   key={value}
-                  className={`flex cursor-pointer items-center justify-center border py-1 ${compact ? 'min-h-8 gap-1.5 rounded-full px-3' : 'min-h-12 flex-col rounded-lg px-1'} text-center text-[11px] leading-4 font-semibold has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-accent ${decision === value ? 'border-accent bg-accent/10 text-accent' : 'border-line hover:border-accent'}`}
+                  className={`flex cursor-pointer items-center justify-center border py-1 ${compact ? 'min-h-8 gap-1.5 rounded-full px-3 text-[11px] leading-4' : 'min-h-14 flex-col rounded-lg px-1 text-sm leading-5'} text-center font-semibold has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-accent ${decision === value ? 'border-accent bg-accent/10 text-accent' : 'border-line hover:border-accent'}`}
                 >
                   <input
                     type="radio"
@@ -192,22 +192,30 @@ export function ReviewDecisionForm({
                     required
                     onChange={() => setDecision(value)}
                   />
-                  {main}
-                  <span className="text-[10px] font-normal text-muted" aria-hidden="true">
-                    {sub ? `${sub} · ` : ''}
-                    {i + 1}
+                  {/* The keyboard shortcut leads the name: "1. Correct". */}
+                  <span>
+                    <span aria-hidden="true">{i + 1}. </span>
+                    {main}
                   </span>
+                  {sub && (
+                    <span
+                      className={`font-normal text-muted ${compact ? 'text-[10px]' : 'text-[11px]'}`}
+                      aria-hidden="true"
+                    >
+                      {sub}
+                    </span>
+                  )}
                 </label>
               );
             })}
           </div>
           {decision === 'ERROR' && (
             <div className={compact ? 'flex w-72 gap-1.5' : 'grid grid-cols-2 gap-1.5'}>
-              <label className="flex flex-col justify-end text-[11px] text-muted">
+              <label className="flex flex-col justify-end text-xs text-muted">
                 {hint('Error Type')}
                 <select
                   aria-label={hint('Error Type')}
-                  className="field mt-1 min-h-9 rounded-lg px-2 py-1 text-xs"
+                  className="field mt-1 min-h-10 rounded-lg px-2 py-1 text-sm"
                   value={type}
                   onChange={(e) => {
                     setType(e.target.value);
@@ -221,13 +229,13 @@ export function ReviewDecisionForm({
                   ))}
                 </select>
               </label>
-              <label className="flex flex-col justify-end text-[11px] text-muted">
+              <label className="flex flex-col justify-end text-xs text-muted">
                 {type === 'CLASS' ? hint('Correct Label') : hint('Correction (optional)')}
                 <input
                   aria-label={
                     type === 'CLASS' ? hint('Correct Label') : hint('Correction (optional)')
                   }
-                  className="field mt-1 min-h-9 rounded-lg px-2 py-1 text-xs"
+                  className="field mt-1 min-h-10 rounded-lg px-2 py-1 text-sm"
                   placeholder={type === 'CLASS' ? `hiện tại: ${item.class_name}` : undefined}
                   maxLength={1000}
                   required={type === 'CLASS'}
@@ -240,7 +248,7 @@ export function ReviewDecisionForm({
           <textarea
             aria-label={hint('Note (optional)')}
             placeholder={hint('Note (optional)')}
-            className={`field min-h-12 resize-y rounded-lg px-2 py-1.5 text-xs ${compact ? 'hidden' : ''}`}
+            className={`field min-h-14 resize-y rounded-lg px-2.5 py-2 text-sm ${compact ? 'hidden' : ''}`}
             rows={2}
             maxLength={4000}
             value={note}
@@ -272,12 +280,12 @@ export function ReviewDecisionForm({
       </form>
       {finish && <div className="mt-2">{finish}</div>}
       {error && (
-        <p role="alert" className="mt-2 text-xs leading-5 text-rose-700">
+        <p role="alert" className="mt-2 text-[13px] leading-5 text-rose-700">
           {error}
         </p>
       )}
       <p
-        className={`mt-2 items-center justify-between gap-2 text-[11px] text-muted ${compact && !message ? 'hidden' : 'flex'}`}
+        className={`mt-2 items-center justify-between gap-2 text-xs text-muted ${compact && !message ? 'hidden' : 'flex'}`}
       >
         <span role="status" className="text-accent">
           {message}

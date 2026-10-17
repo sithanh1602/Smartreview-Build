@@ -3,6 +3,7 @@ import { BUILTINS } from './builtin.ts';
 import { skip, flag, iou, inside, container, weaker, temporalReady } from './shared.ts';
 import type { StaticContext } from './shared.ts';
 import { top2, visibilityOf, weakSignals } from '../visibility.ts';
+import type { Visibility } from '../visibility.ts';
 import type { ActiveRule, Policy } from '../rules.ts';
 import type { BBoxAnnotation, Annotation } from '../../schema/types.ts';
 import type {
@@ -79,10 +80,10 @@ const REASONS: Record<string, (details: Details) => string> = {
   'geometry.pole_aspect': () => 'Box cột không mảnh.',
   'context.pole_covers_objects': ({ covered }) =>
     `Box cột chứa ${covered.length} box đèn hoặc biển.`,
-  'visibility.mostly_hidden': ({ seen, signals }) =>
-    `Vật chỉ còn thấy khoảng ${percent(seen.value)} và có ${signals.length} dấu hiệu khó xác nhận.`,
-  'visibility.barely_visible': ({ seen }) =>
-    `Vật chỉ còn thấy khoảng ${percent(seen.value)}: không đủ để đánh giá.`,
+  'visibility.mostly_hidden': ({ seen, signals, threshold }) =>
+    `Chỉ còn thấy ${percent(seen.value)} vật (${seenFrom(seen)}), dưới ngưỡng ${percent(threshold)}; kèm ${signals.length} dấu hiệu khó xác nhận: ${signals.map((id: string) => SIGNALS[id] ?? id).join(', ')}.`,
+  'visibility.barely_visible': ({ seen, threshold }) =>
+    `Chỉ còn thấy ${percent(seen.value)} vật (${seenFrom(seen)}), dưới ngưỡng ${percent(threshold)}: quá ít để xác nhận có vật thật.`,
   'attribute.required': ({ missing, invalid }) =>
     [
       missing.length && `Thiếu attribute ${missing.join(', ')}.`,
@@ -107,7 +108,19 @@ const REASONS: Record<string, (details: Details) => string> = {
   'pair.relative_size': ({ ratio, neighbours, rival }) =>
     `Chỉ cao gấp ${ratio.toFixed(2)} lần ${neighbours.length} box “${rival}” đứng cùng tầm xa.`,
 };
-const percent = (share: number) => `${Math.round(share * 100)}%`;
+// A share that rounds to 0% but is not zero would read as "nothing visible".
+const percent = (share: number) =>
+  share > 0 && share < 0.005 ? 'dưới 1%' : `${Math.round(share * 100)}%`;
+const seenFrom = (seen: Visibility) =>
+  seen.source === 'measured'
+    ? 'theo thuộc tính che / cắt của dataset'
+    : `ước tính từ box: còn ${percent(seen.in_frame!)} trong khung hình, ${percent(seen.covered!)} bị box gần camera hơn che`;
+const SIGNALS: Record<string, string> = {
+  low_confidence: 'mô hình kém tự tin',
+  poor_image: 'ảnh tối, mưa hoặc mờ',
+  small: 'box nhỏ',
+  second_label_close: 'phân vân với nhãn thứ hai',
+};
 // `tier` replaces the rule's score and level where a rule scores by steps (score_by_margin).
 const hit = (
   rule: ActiveRule,
@@ -622,10 +635,11 @@ export const TEMPLATES: Record<string, Template> = {
         signals.length >= rule.params.weak_signals_at_least &&
         hit(
           rule,
-          { seen, signals },
+          { seen, signals, threshold: rule.params.visibility_below },
           {
             visibility: seen.value,
             visibility_source: seen.source,
+            ...(seen.source === 'estimated' && { in_frame: seen.in_frame, covered: seen.covered }),
             threshold: rule.params.visibility_below,
             weak_signals: signals,
           },
@@ -649,10 +663,11 @@ export const TEMPLATES: Record<string, Template> = {
         seen.value < rule.params.visibility_below &&
         hit(
           rule,
-          { seen },
+          { seen, threshold: rule.params.visibility_below },
           {
             visibility: seen.value,
             visibility_source: seen.source,
+            ...(seen.source === 'estimated' && { in_frame: seen.in_frame, covered: seen.covered }),
             threshold: rule.params.visibility_below,
           },
           rule.error_type,

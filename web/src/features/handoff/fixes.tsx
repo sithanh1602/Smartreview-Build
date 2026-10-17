@@ -56,11 +56,19 @@ const title = (i: Item) =>
       ? 'Thiếu nhãn'
       : 'Cần xem lại';
 const OUTCOMES: Record<Outcome, [string, string]> = {
-  changed: ['Đã sửa', 'text-emerald-700'],
-  removed: ['Đã xoá nhãn', 'text-emerald-700'],
-  added: ['Đã thêm nhãn', 'text-emerald-700'],
-  unchanged: ['Chưa đổi', 'text-rose-700'],
-  not_added: ['Chưa thêm nhãn', 'text-rose-700'],
+  changed: ['✓ Đã sửa', 'text-emerald-700'],
+  removed: ['✓ Đã xoá nhãn', 'text-emerald-700'],
+  added: ['✓ Đã thêm nhãn', 'text-emerald-700'],
+  unchanged: ['✗ Chưa đổi', 'text-rose-700'],
+  not_added: ['✗ Chưa thêm nhãn', 'text-rose-700'],
+};
+// The outcome as a tag that stands out in the list: green once fixed, red while still open.
+const OUTCOME_TAG: Record<Outcome, string> = {
+  changed: 'border-emerald-300 bg-emerald-50',
+  removed: 'border-emerald-300 bg-emerald-50',
+  added: 'border-emerald-300 bg-emerald-50',
+  unchanged: 'border-rose-300 bg-rose-50',
+  not_added: 'border-rose-300 bg-rose-50',
 };
 const IMAGE = /\.(jpe?g|png|webp|gif|bmp|tiff?)$/i;
 const MAX_TEXT_BYTES = 10 * 1024 * 1024;
@@ -209,20 +217,25 @@ export function FixList({
   const returned = handoff.status === 'RETURNED' && result !== null;
   // After a return the items sit on the images of the returned dataset.
   const source = returned ? result : report;
+  const open = (i: Item) => i.outcome === 'unchanged' || i.outcome === 'not_added';
+  // Fixed: the annotator changed, removed or added the label.
+  const fixed = (i: Item) => Boolean(i.outcome) && !open(i);
+  // After a return the fixed items come first, then those still open; each group keeps the
+  // order they were sent in.
   const all: Item[] = [
     ...source.errors.map((e) => ({ ...e, kind: 'error' as const })),
     ...source.missing.map((m) => ({ ...m, kind: 'missing' as const })),
     ...(source.review ?? []).map((c) => ({ ...c, kind: 'review' as const })),
-  ];
+  ].sort((a, b) => Number(fixed(b)) - Number(fixed(a)));
   const judge =
     Boolean(onJudged) && returned && handoff.status === 'RETURNED' && role !== 'annotator';
-  const open = (i: Item) => i.outcome === 'unchanged' || i.outcome === 'not_added';
   const FILTERS: [string, string, (i: Item) => boolean, boolean][] = [
     ['all', 'Tất cả', () => true, true],
     ['pending', 'Chờ kiểm tra', (i) => !i.verdict, judge],
     ['error', 'Nhãn sai', (i) => i.kind === 'error', true],
     ['missing', 'Thiếu nhãn', (i) => i.kind === 'missing', true],
     ['review', 'Cần xem lại', (i) => i.kind === 'review', all.some((i) => i.kind === 'review')],
+    ['fixed', 'Đã sửa', fixed, returned],
     ['open', 'Chưa đổi', open, returned],
   ];
   const shown = FILTERS.filter((f) => f[3]);
@@ -401,45 +414,63 @@ export function FixList({
         <section className="panel p-8">Không có lỗi nào trong mục này.</section>
       ) : (
         <div
-          className={`grid gap-4 ${fill ? 'items-start lg:min-h-0 lg:flex-1 lg:grid-cols-[240px_minmax(0,1fr)] lg:items-stretch' : 'items-start lg:grid-cols-[260px_minmax(0,1fr)]'}`}
+          className={`grid gap-4 ${fill ? 'items-start lg:min-h-0 lg:flex-1 lg:grid-cols-[260px_minmax(0,1fr)] lg:items-stretch 2xl:grid-cols-[300px_minmax(0,1fr)]' : 'items-start lg:grid-cols-[260px_minmax(0,1fr)]'}`}
         >
           <aside
             className={`panel max-h-[40vh] overflow-auto ${fill ? 'lg:max-h-none lg:min-h-0' : 'lg:max-h-[78vh]'}`}
             aria-label="Danh sách lỗi cần sửa"
           >
-            {items.map((i) => (
-              <button
-                key={i.id}
-                onClick={() => setSelected(i.id)}
-                aria-current={current.id === i.id ? 'true' : undefined}
-                className={`block w-full border-b border-l-4 border-b-line px-3 py-2.5 text-left ${KIND_BORDER[i.kind]} ${current.id === i.id ? 'bg-teal-50' : ''}`}
-              >
-                <span className="flex items-center justify-between gap-2">
-                  <strong className={`truncate text-sm ${KIND_COLOR[i.kind]}`}>{title(i)}</strong>
-                  {judge && (
-                    <span className="shrink-0 text-base leading-none">{verdictMark(i)}</span>
-                  )}
-                </span>
-                <span className="mt-1 block truncate text-sm">{i.media_name}</span>
-                <span className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted">
-                  <span className="whitespace-nowrap">
-                    {hint('Frame')} {i.frame_id}
-                    {i.class_name ? ` · ${i.class_name}` : ''}
-                  </span>
-                  {i.outcome && (
-                    <span className={`whitespace-nowrap font-semibold ${OUTCOMES[i.outcome][1]}`}>
-                      {OUTCOMES[i.outcome][0]}
+            {items.map((i, n) => (
+              <React.Fragment key={i.id}>
+                {returned && (n === 0 || fixed(i) !== fixed(items[n - 1])) && (
+                  <p
+                    className={`sticky top-0 z-10 border-b border-line px-3 py-1.5 text-xs font-semibold ${fixed(i) ? 'bg-emerald-50 text-emerald-800' : 'bg-rose-50 text-rose-800'}`}
+                  >
+                    {fixed(i) ? 'Đã sửa' : 'Chưa đổi'} ·{' '}
+                    <span className="tabular-nums">
+                      {items.filter(fixed(i) ? fixed : open).length}
                     </span>
-                  )}
-                </span>
-              </button>
+                  </p>
+                )}
+                <button
+                  onClick={() => setSelected(i.id)}
+                  aria-current={current.id === i.id ? 'true' : undefined}
+                  className={`block w-full border-b border-l-4 border-b-line px-3 py-2.5 text-left ${KIND_BORDER[i.kind]} ${current.id === i.id ? 'bg-teal-50' : ''}`}
+                >
+                  <span className="flex items-center justify-between gap-2">
+                    <strong className={`min-w-0 text-sm ${KIND_COLOR[i.kind]}`}>{title(i)}</strong>
+                    {judge && (
+                      <span className="shrink-0 text-base leading-none">{verdictMark(i)}</span>
+                    )}
+                  </span>
+                  <span
+                    className="mt-1 line-clamp-2 block text-sm [overflow-wrap:anywhere]"
+                    title={i.media_name}
+                  >
+                    {i.media_name}
+                  </span>
+                  <span className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted">
+                    <span className="whitespace-nowrap">
+                      {hint('Frame')} {i.frame_id}
+                      {i.class_name ? ` · ${i.class_name}` : ''}
+                    </span>
+                    {i.outcome && (
+                      <span
+                        className={`whitespace-nowrap rounded-full border px-1.5 font-semibold ${OUTCOMES[i.outcome][1]} ${OUTCOME_TAG[i.outcome]}`}
+                      >
+                        {OUTCOMES[i.outcome][0]}
+                      </span>
+                    )}
+                  </span>
+                </button>
+              </React.Fragment>
             ))}
           </aside>
           <section
             className={`panel p-4 ${fill ? 'lg:flex lg:min-h-0 lg:flex-col lg:overflow-hidden' : ''}`}
           >
             <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-              <h2 className="min-w-0 truncate font-semibold">
+              <h2 className="min-w-0 font-semibold [overflow-wrap:anywhere]">
                 {index + 1}/{items.length} · {current.media_name} · {hint('Frame')}{' '}
                 {current.frame_id}
               </h2>
@@ -457,7 +488,7 @@ export function FixList({
               </div>
             </div>
             <div
-              className={`grid gap-4 ${fill ? 'items-start lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1fr)_260px] lg:items-stretch xl:grid-cols-[minmax(0,1fr)_280px]' : 'items-start xl:grid-cols-[minmax(0,1fr)_300px]'}`}
+              className={`grid gap-4 ${fill ? 'items-start lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-stretch xl:grid-cols-[minmax(0,1fr)_340px]' : 'items-start xl:grid-cols-[minmax(0,1fr)_300px]'}`}
             >
               <div
                 ref={stage}
@@ -643,7 +674,7 @@ export function FixList({
                   </div>
                 )}
                 <dl
-                  className={`grid grid-cols-[max-content_1fr] gap-x-4 ${fill ? 'gap-y-1 text-xs' : 'gap-y-2 text-sm'}`}
+                  className={`grid text-sm [overflow-wrap:anywhere] ${fill ? 'grid-cols-1 [&_dd]:mb-1.5 [&_dt]:text-xs' : 'grid-cols-[max-content_1fr] gap-x-4 gap-y-2'}`}
                 >
                   {current.kind === 'error' ? (
                     <>
@@ -705,12 +736,8 @@ export function FixList({
                 </dl>
                 {current.kind !== 'missing' && current.reasons.length > 0 && (
                   <div>
-                    <h3 className={`font-semibold ${fill ? 'text-xs' : 'text-sm'}`}>
-                      Lý do cảnh báo
-                    </h3>
-                    <ul
-                      className={`mt-1 list-disc space-y-0.5 pl-5 ${fill ? 'text-xs' : 'text-sm'}`}
-                    >
+                    <h3 className="text-sm font-semibold">Lý do cảnh báo</h3>
+                    <ul className="mt-1 list-disc space-y-1 pl-5 text-sm leading-5">
                       {current.reasons.map((r) => (
                         <li key={r}>{r}</li>
                       ))}

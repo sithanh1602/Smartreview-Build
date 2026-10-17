@@ -79,9 +79,10 @@ export interface Verdict {
 export type Risk = Pick<
   Risk3DCase,
   'score' | 'severity' | 'suspected_error' | 'reasons' | 'certain'
-> & {
-  warning?: boolean;
-};
+> &
+  Partial<Pick<Risk3DCase, 'findings'>> & {
+    warning?: boolean;
+  };
 export const boxKey = (timestamp: number, objectId: string) => `${timestamp}:${objectId}`;
 // The rules that find a cuboid sunk into the road, over a run of frames.
 const SINKING = new Set(['fit.sunk', 'fit.lowered', 'box.below_ground']);

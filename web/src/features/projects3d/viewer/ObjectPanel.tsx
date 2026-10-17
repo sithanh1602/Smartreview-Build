@@ -15,6 +15,7 @@ import {
   sunkBoxes,
 } from './flags.ts';
 import { Pin } from './Pin.tsx';
+import { EvidenceTable } from '../../../components/EvidenceTable';
 import { RiskQueue, nextIssue, padFrame } from './RiskQueue.tsx';
 import type { Flag, Issue, Risk } from './flags.ts';
 import type { Box3D, Scene3D } from './engine.ts';
@@ -151,15 +152,15 @@ function ReviewForm({
   return (
     <section aria-label="Quyết định review" data-testid="review-form">
       <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-2">
-        <h3 className="text-sm font-semibold">Quyết định</h3>
+        <h3 className="text-base font-semibold">Quyết định</h3>
         {existing ? (
-          <p className="text-[11px] text-accent">
+          <p className="text-xs text-accent">
             {hint('✓ Reviewed · ')}
             {hint(DECISIONS[existing.decision])} ·{' '}
             {new Date(existing.reviewed_at).toLocaleString('vi-VN')}
           </p>
         ) : (
-          <p className="text-[11px] text-muted">chưa review</p>
+          <p className="text-xs text-muted">chưa review</p>
         )}
       </div>
       <form
@@ -177,7 +178,7 @@ function ReviewForm({
               return (
                 <label
                   key={value}
-                  className={`flex min-h-12 cursor-pointer flex-col items-center justify-center rounded-lg border px-1 py-1 text-center text-[11px] leading-4 font-semibold has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-accent ${decision === value ? 'border-accent bg-accent/10 text-accent' : 'border-line hover:border-accent'}`}
+                  className={`flex min-h-14 cursor-pointer flex-col items-center justify-center rounded-lg border px-1 py-1 text-center text-sm leading-5 font-semibold has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-accent ${decision === value ? 'border-accent bg-accent/10 text-accent' : 'border-line hover:border-accent'}`}
                 >
                   <input
                     type="radio"
@@ -190,7 +191,7 @@ function ReviewForm({
                     onChange={() => setDecision(value)}
                   />
                   {main}
-                  <span className="text-[10px] font-normal text-muted" aria-hidden="true">
+                  <span className="text-[11px] font-normal text-muted" aria-hidden="true">
                     {sub ? `${sub} · ` : ''}
                     {i + 1}
                   </span>
@@ -200,11 +201,11 @@ function ReviewForm({
           </div>
           {decision === 'ERROR' && (
             <>
-              <label className="block text-[11px] text-muted">
+              <label className="block text-xs text-muted">
                 {hint('Error Type')}
                 <select
                   aria-label={hint('Error Type')}
-                  className="field mt-1 min-h-9 rounded-lg px-2 py-1 text-xs"
+                  className="field mt-1 min-h-10 rounded-lg px-2 py-1 text-sm"
                   value={type}
                   onChange={(e) => {
                     setType(e.target.value);
@@ -219,11 +220,11 @@ function ReviewForm({
                 </select>
               </label>
               {type === 'CLASS' ? (
-                <label className="block text-[11px] text-muted">
+                <label className="block text-xs text-muted">
                   {hint('Correct Label')}
                   <select
                     aria-label={hint('Correct Label')}
-                    className="field mt-1 min-h-9 rounded-lg px-2 py-1 text-xs"
+                    className="field mt-1 min-h-10 rounded-lg px-2 py-1 text-sm"
                     required
                     value={correction}
                     onChange={(e) => setCorrection(e.target.value)}
@@ -237,11 +238,11 @@ function ReviewForm({
                   </select>
                 </label>
               ) : (
-                <label className="block text-[11px] text-muted">
+                <label className="block text-xs text-muted">
                   {hint('Correction (optional)')}
                   <input
                     aria-label={hint('Correction (optional)')}
-                    className="field mt-1 min-h-9 rounded-lg px-2 py-1 text-xs"
+                    className="field mt-1 min-h-10 rounded-lg px-2 py-1 text-sm"
                     maxLength={1000}
                     value={correction}
                     onChange={(e) => setCorrection(e.target.value)}
@@ -254,18 +255,18 @@ function ReviewForm({
             <textarea
               aria-label={hint('Note (optional)')}
               placeholder={hint('Note (optional)')}
-              className="field min-h-12 resize-y rounded-lg px-2 py-1.5 text-xs"
+              className="field min-h-14 resize-y rounded-lg px-2.5 py-2 text-sm"
               rows={2}
               maxLength={NOTE_MAX}
               value={note}
               onChange={(e) => setNote(e.target.value)}
             />
-            <p className="text-right text-[10px] text-muted tabular-nums">
+            <p className="text-right text-[11px] text-muted tabular-nums">
               {note.length}/{NOTE_MAX}
             </p>
           </div>
           {trackFrames > 1 && (
-            <label className="flex cursor-pointer items-start gap-2 text-xs">
+            <label className="flex cursor-pointer items-start gap-2 text-sm">
               <input
                 type="checkbox"
                 className="mt-0.5 size-4 accent-teal-600"
@@ -274,7 +275,7 @@ function ReviewForm({
               />
               <span>
                 {`Áp dụng cho cả ${trackFrames} frame của đối tượng này`}
-                <span className="block text-[11px] text-muted">
+                <span className="block text-xs text-muted">
                   Ghi đè quyết định đã có ở các frame đó.
                 </span>
               </span>
@@ -282,7 +283,7 @@ function ReviewForm({
           )}
           <div className="flex gap-1.5">
             <button
-              className="sr-button min-h-9 flex-1 py-1 text-xs"
+              className="sr-button min-h-10 flex-1 py-1 text-sm"
               type="submit"
               disabled={!decision || saving}
             >
@@ -291,7 +292,7 @@ function ReviewForm({
             </button>
             {onNext && (
               <button
-                className="sr-button min-h-9 border-accent py-1 text-xs text-accent"
+                className="sr-button min-h-10 border-accent py-1 text-sm text-accent"
                 type="button"
                 disabled={!decision || saving}
                 onClick={saveAndNext}
@@ -303,12 +304,12 @@ function ReviewForm({
         </fieldset>
       </form>
       {message && (
-        <p role="status" className="mt-2 text-xs text-accent">
+        <p role="status" className="mt-2 text-[13px] text-accent">
           {message}
         </p>
       )}
       {error && (
-        <p role="alert" className="mt-2 text-xs text-rose-700">
+        <p role="alert" className="mt-2 text-[13px] text-rose-700">
           {error}
         </p>
       )}
@@ -505,11 +506,11 @@ export function ObjectPanel({
         <>
           {risk && (
             <section
-              className={`mt-4 rounded-md border px-3 py-2 text-xs ${risk.warning ? 'border-line bg-slate-50' : risk.certain ? 'border-rose-300 bg-rose-50 text-rose-950' : 'border-orange-300 bg-orange-50 text-orange-950'}`}
+              className={`mt-4 rounded-md border px-3 py-2.5 text-[13px] leading-5 ${risk.warning ? 'border-line bg-slate-50' : risk.certain ? 'border-rose-300 bg-rose-50 text-rose-950' : 'border-orange-300 bg-orange-50 text-orange-950'}`}
               role="note"
               data-testid="box-risk"
             >
-              <p className="flex items-center gap-1.5 font-semibold">
+              <p className="flex items-center gap-1.5 text-sm font-semibold">
                 <Pin
                   level={
                     risk.warning
@@ -528,16 +529,35 @@ export function ObjectPanel({
                   : `Lỗi #${issue?.number ?? '?'} · Frame ${padFrame(frameIndex)} · ${ISSUE_NAMES[risk.suspected_error ?? 'OTHER'] ?? risk.suspected_error}`}
               </p>
               {!risk.warning && (
-                <p className="mt-0.5">
+                <p className="mt-1">
                   {risk.certain ? 'Engine chắc chắn đây là lỗi' : 'Engine nghi'}, rủi ro{' '}
                   {SEVERITY_NAMES[risk.severity] ?? risk.severity} ({risk.score} điểm). Lý do:
                 </p>
               )}
-              <ul className="mt-1 list-disc pl-4">
-                {risk.reasons.map((reason) => (
-                  <li key={reason}>{reason}</li>
-                ))}
-              </ul>
+              {risk.findings?.length ? (
+                <ul className="mt-2 space-y-2.5">
+                  {risk.findings.map((f) => (
+                    <li key={f.check_id} className="rounded-lg border border-line bg-panel p-2.5">
+                      <div className="flex items-start justify-between gap-2">
+                        <span className="font-mono text-[11px] break-all text-muted">
+                          {f.check_id}
+                        </span>
+                        <span className="shrink-0 font-semibold">
+                          {f.level === 'warning' || !f.score ? 'cảnh báo' : `+${f.score} điểm`}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-[15px] leading-6 font-medium">{f.reason}</p>
+                      <EvidenceTable checkId={f.check_id} evidence={f.evidence} />
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <ul className="mt-1 list-disc pl-4">
+                  {risk.reasons.map((reason) => (
+                    <li key={reason}>{reason}</li>
+                  ))}
+                </ul>
+              )}
             </section>
           )}
           <section className="border-b border-line py-4" data-testid="box-details">
@@ -561,7 +581,7 @@ export function ObjectPanel({
                 </button>
               </span>
             </h2>
-            <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-xs">
+            <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-[13px] leading-5">
               <dt className="text-muted">Track ID</dt>
               <dd className="break-all">{box.id}</dd>
               <dt className="text-muted">Loại</dt>
