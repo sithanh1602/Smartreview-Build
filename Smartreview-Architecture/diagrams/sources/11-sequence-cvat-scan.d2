@@ -1,0 +1,32 @@
+# Source baseline: Smartreview-Build @ 8a91f5c911173453d9cacc743899c6e018e6fdc3
+# Source evidence and scope: ../../architecture.md and ../../system-spec-design.md
+...@../theme
+heading: "11 · CVAT SCAN QA" {shape: text; near: top-center; style: {font-size: 28; bold: true; font-color: "#172B4D"}}
+caption: "Sequence · Lịch sử theo user; đọc CVAT, không ghi lại annotation" {shape: text; near: bottom-center; style: {font-size: 16; font-color: "#52657E"}}
+direction: down
+flow: "" {
+  shape: sequence_diagram
+  ui: "Người dùng đã đăng nhập" {class: ui}
+  api: "CvatScans" {class: service}
+  cvat: "CVAT REST" {class: external}
+  worker: "Engine / Python" {class: ai}
+  db: "MySQL" {class: data}
+  ui -> api: "POST /api/cvat/scan {job_id,min_score?}"
+  api -> cvat: "Đọc job / meta / labels / annotations"
+  cvat -> api: "Job 2D hoặc cuboids 3D"
+  fragment3: "ALT / dimension=2d" {
+    style: {fill: "#F2F6FB"; stroke: "#A5B4C8"; font-size: 16}
+    api -> worker: "2D: map dataset; YOLO ≤30 ảnh nếu sẵn sàng"
+    worker -> api: "Gắn confidence theo IoU; Risk 2D + AI comparison"
+  }
+  fragment5: "ALT / dimension=3d" {
+    style: {fill: "#F2F6FB"; stroke: "#A5B4C8"; font-size: 16}
+    api -> worker: "3D: keyframe yaw; đo PCD ≤30 frame nếu có"
+    worker -> api: "Scene scoring; temporal=false; fallback geometry"
+  }
+  api -> db: "INSERT cvat_scans (user_id, job_id, result)"
+  api -> ui: "201 scan result + cảnh báo / giới hạn"
+  ui -> api: "GET /cvat/scans hoặc /cvat/scans/:id"
+  api -> db: "SELECT WHERE user_id = caller"
+  api -> ui: "Lịch sử / kết quả riêng người dùng"
+}

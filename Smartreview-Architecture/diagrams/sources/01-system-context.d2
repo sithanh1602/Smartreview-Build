@@ -1,0 +1,26 @@
+# Source baseline: Smartreview-Build @ 8a91f5c911173453d9cacc743899c6e018e6fdc3
+# Source evidence and scope: ../../architecture.md and ../../system-spec-design.md
+...@../theme
+heading: "01 · BỐI CẢNH HỆ THỐNG" {shape: text; near: top-center; style: {font-size: 28; bold: true; font-color: "#172B4D"}}
+caption: "C4 / System Context · Các kết nối tùy chọn có nhãn rõ ràng" {shape: text; near: bottom-center; style: {font-size: 16; font-color: "#52657E"}}
+direction: right
+people: Người sử dụng {
+  class: boundary
+  leader: "Leader\nTạo project • quản lý thành viên" {class: person}
+  reviewer: "Reviewer\nĐánh giá • bàn giao lỗi" {class: person}
+  annotator: "Annotator\nSửa nhãn • Scan QA" {class: person}
+}
+system: "SMARTREVIEW\nƯu tiên rủi ro annotation 2D / 3D\nReview có phiên bản • theo dõi kết quả sửa" {class: service}
+outside: Hệ thống ngoài {
+  class: boundary
+  cvat: "CVAT · tùy chọn\nĐọc job để Scan QA\nSửa nhãn qua xuất / nhập file" {class: external}
+  dropbox: "Dropbox · tùy chọn\nLưu artifacts và media" {class: external}
+  gemini: "Gemini · tùy chọn\nĐề xuất quy tắc từ guideline" {class: external}
+}
+people.leader -> system: Import / quản trị
+people.reviewer -> system: Review / handoff
+people.annotator -> system: Xem lỗi / trả nhãn / scan
+system -> outside.cvat: REST đọc job / nhãn / ảnh
+people.annotator -> outside.cvat: Chỉnh sửa nhãn bên ngoài
+system -> outside.dropbox: REST + OAuth phía server
+system -> outside.gemini: Gửi văn bản guideline

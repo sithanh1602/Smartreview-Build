@@ -1,0 +1,30 @@
+# Source baseline: Smartreview-Build @ 8a91f5c911173453d9cacc743899c6e018e6fdc3
+# Source evidence and scope: ../../architecture.md and ../../system-spec-design.md
+...@../theme
+heading: "13 · TRIỂN KHAI VÀ KHOẢNG TRỐNG ĐÓNG GÓI" {shape: text; near: top-center; style: {font-size: 28; bold: true; font-color: "#172B4D"}}
+caption: "Deployment view · Cấu hình có trong source; chưa chạy Docker / dịch vụ ngoài xác nhận" {shape: text; near: bottom-center; style: {font-size: 16; font-color: "#52657E"}}
+direction: down
+browser: "Trình duyệt" {class: person}
+native: Native / development {
+  class: boundary
+  ui: "Vite dev server\nProxy /api → Node" {class: ui}
+  node: "Node ≥22.18\nserver/index.ts\nPhục vụ UI đã build ở dist" {class: service}
+  python: "Repo .venv / Python tùy chọn\nPackages + weights cài riêng" {class: ai}
+  node -> python: Subprocess
+  ui -> node: /api proxy
+}
+compose: Docker Compose hiện có {
+  class: boundary
+  web: "web · Node 24\nHTTP :3100 → loopback host\nEntrypoint chạy migrations" {class: service}
+  mysql: "db · MySQL 8.4\nmysql_data volume" {class: data}
+  disk: "project_storage volume\n/app/web/storage" {class: data}
+  defect: "Thiếu policy3d trong runtime COPY\nDự kiến lỗi import ESM khi khởi động\nThiếu Python / weights / score_boxes.py" {class: note}
+  web -> mysql: db:3306 / depends_on health
+  web -> disk: Artifacts / staging
+  defect -> web: Khoảng trống xác định từ source {style.stroke-dash: 5}
+}
+external: "Ngoài phạm vi Compose\nHTTPS termination cho production\nDropbox / CVAT / Gemini tùy chọn" {class: external}
+browser -> native.ui: Development
+browser -> compose.web: Cấu hình local HTTP\nChưa xác nhận chạy được
+native.node -> external: Tùy cấu hình
+compose.web -> external: Tùy cấu hình

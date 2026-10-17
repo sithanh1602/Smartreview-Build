@@ -1,0 +1,28 @@
+# Source baseline: Smartreview-Build @ 8a91f5c911173453d9cacc743899c6e018e6fdc3
+# Source evidence and scope: ../../architecture.md and ../../system-spec-design.md
+...@../theme
+heading: "03 · THÀNH PHẦN FRONTEND" {shape: text; near: top-center; style: {font-size: 28; bold: true; font-color: "#172B4D"}}
+caption: "C4 / Component · Quyền thực tế được kiểm tra lại tại backend" {shape: text; near: bottom-center; style: {font-size: 16; font-color: "#52657E"}}
+direction: right
+shell: "App shell\nmain.tsx • router.tsx\nAuthProvider / AuthGate" {class: ui}
+features: React feature modules {
+  class: boundary
+  project: "Projects 2D / 3D\nTạo • join • import • members\nGuidelineAnalysis" {class: ui}
+  review: "Review 2D / Frames\nCaseQueue • Overlay\nReviewDecisionForm" {class: ui}
+  handoff: "Handoff / Fixes\nBáo cáo • ZIP • trả file\nCVAT Scan panel" {class: ui}
+  ai: "AI Check / Label Verify\nGửi yêu cầu • poll trạng thái" {class: ai}
+  viewer: "Viewer 3D · lazy route\nReact controls + ObjectPanel\nPointCloudEngine / Three.js" {class: ui}
+}
+client: "API client · lib/api.ts\nCookie cùng origin\n401 → hết phiên" {class: service}
+backend: "Node /api\nNguồn thẩm quyền RBAC\nJSON • ảnh • binary" {class: external}
+shell -> features.project: Route / context
+shell -> features.review: Route / context
+shell -> features.handoff: Route / context
+shell -> features.ai: Route / context
+shell -> features.viewer: Dynamic import
+features.project -> client: Import / quản lý
+features.review -> client: Cases / frames / version
+features.handoff -> client: Handoff / scan
+features.ai -> client: Job status
+features.viewer -> client: Scene + lazy cloud / camera
+client -> backend: fetch

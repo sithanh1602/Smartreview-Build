@@ -1,0 +1,34 @@
+# Source baseline: Smartreview-Build @ 8a91f5c911173453d9cacc743899c6e018e6fdc3
+# Source evidence and scope: ../../architecture.md and ../../system-spec-design.md
+...@../theme
+heading: "04 · THÀNH PHẦN BACKEND" {shape: text; near: top-center; style: {font-size: 28; bold: true; font-color: "#172B4D"}}
+caption: "C4 / Component · Một tiến trình Node; caches và job guards nằm trong bộ nhớ" {shape: text; near: bottom-center; style: {font-size: 16; font-color: "#52657E"}}
+direction: right
+entry: "index.ts → app.ts\nNative HTTP routing\nCookie auth • origin checks" {class: service}
+domain: Service & handlers {
+  class: boundary
+  auth: "AuthService\nScrypt • sessions • throttles" {class: service}
+  p2: "ProjectService · 2D\nImport / resume • context\nMembers / handoff / return" {class: service}
+  p3: "Project3DService\nWaymo import • artifacts\nCuboid / track reviews" {class: service}
+  integrations: "CVAT / Guideline handlers\nScan QA • rule drafts" {class: service}
+}
+core: Canonical models & engines {
+  class: boundary
+  two: "Importers → Ajv normalize\nRepository → Risk 7.1.0\nPolicy JSON + waivers" {class: service}
+  three: "Scene → Risk 3d-1.11.0\nPolicy 1.11.0\nĐọc measurements đã xuất" {class: service}
+  workers: "AI / verifier / export adapters\nGọi Python subprocess" {class: ai}
+}
+persistence: "Persistence adapters\nReviewStore / FrameReviewStore\nMySQL + local / Dropbox" {class: service}
+entry -> domain.auth: Xác thực
+entry -> domain.p2: /projects
+entry -> domain.p3: /projects3d
+entry -> domain.integrations: /cvat • /guideline
+domain.p2 -> core.two: Chuẩn hóa / scoring
+domain.p3 -> core.three: Scene scoring
+domain.p2 -> core.workers: Rescore / AI Check / Verify
+domain.p3 -> core.workers: Waymo exporter
+domain.integrations -> core.two: CVAT 2D
+domain.integrations -> core.three: CVAT 3D
+domain.auth -> persistence: Sessions / users
+domain.p2 -> persistence: Metadata / reviews / files
+domain.p3 -> persistence: Metadata / reviews / files

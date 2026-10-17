@@ -1,0 +1,93 @@
+# Source baseline: Smartreview-Build @ 8a91f5c911173453d9cacc743899c6e018e6fdc3
+# Source evidence and scope: ../../architecture.md and ../../system-spec-design.md
+...@../theme
+heading: "06 · DỮ LIỆU AUTH, PROJECT VÀ REVIEW 2D" {shape: text; near: top-center; style: {font-size: 28; bold: true; font-color: "#172B4D"}}
+caption: "ERD rút gọn · Trường đầy đủ / indexes trong system-spec-design.md" {shape: text; near: bottom-center; style: {font-size: 16; font-color: "#52657E"}}
+direction: right
+users: users {
+  shape: sql_table
+  id: char(36) {constraint: primary_key}
+  username: varchar(64) {constraint: unique}
+  role: leader / member
+  enabled: boolean
+  style.fill: "#245B8E"
+}
+sessions: auth_sessions {
+  shape: sql_table
+  id: char(36) {constraint: primary_key}
+  user_id: char(36) {constraint: foreign_key}
+  access_hash: char(64) {constraint: unique}
+  access_expires_at: datetime(3)
+  refresh_fields: nullable / legacy
+  style.fill: "#245B8E"
+}
+members: project_members {
+  shape: sql_table
+  project_id: char(36) {constraint: primary_key}
+  user_id: char(36) {constraint: primary_key}
+  role: reviewer / annotator
+  style.fill: "#12766C"
+}
+projects: projects {
+  shape: sql_table
+  id: char(36) {constraint: primary_key}
+  dataset_revision_id: bigint {constraint: unique}
+  created_by: char(36) / logical reference
+  status: enum
+  hidden: boolean
+  style.fill: "#12766C"
+}
+revisions: dataset_revisions {
+  shape: sql_table
+  id: bigint {constraint: primary_key}
+  fingerprint: char(20) {constraint: unique}
+  engine_version: varchar(32)
+  style.fill: "#97620D"
+}
+cases: risk_cases {
+  shape: sql_table
+  id: bigint {constraint: primary_key}
+  dataset_revision_id: bigint {constraint: foreign_key}
+  annotation_key: char(64)
+  score: 0..100
+  style.fill: "#97620D"
+}
+decisions: review_decisions {
+  shape: sql_table
+  risk_case_id: bigint {constraint: primary_key}
+  decision: CORRECT / ERROR / UNSURE
+  version: unsigned int
+  style.fill: "#97620D"
+}
+frames: frame_reviews {
+  shape: sql_table
+  dataset_revision_id: bigint {constraint: primary_key}
+  frame_key: char(64) {constraint: primary_key}
+  missing_regions: JSON
+  version: unsigned int
+  style.fill: "#97620D"
+}
+invites: project_invites {
+  shape: sql_table
+  project_id: char(36) {constraint: primary_key}
+  role: enum {constraint: primary_key}
+  code: char(10) {constraint: unique}
+  style.fill: "#12766C"
+}
+handoff: project_handoffs {
+  shape: sql_table
+  project_id: char(36) {constraint: primary_key}
+  status: SENT / RETURNED
+  report: mediumtext
+  recipients: JSON
+  style.fill: "#12766C"
+}
+users.id -> sessions.user_id: 1 : N
+users.id -> members.user_id: 1 : N
+projects.id -> members.project_id: 1 : N
+projects.id -> invites.project_id: 1 : N
+projects.id -> handoff.project_id: 1 : 0..1
+revisions.id -> projects.dataset_revision_id: 1 : 0..1
+revisions.id -> cases.dataset_revision_id: 1 : N
+revisions.id -> frames.dataset_revision_id: 1 : N
+cases.id -> decisions.risk_case_id: 1 : 0..1

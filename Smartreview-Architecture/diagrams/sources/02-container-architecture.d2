@@ -1,0 +1,26 @@
+# Source baseline: Smartreview-Build @ 8a91f5c911173453d9cacc743899c6e018e6fdc3
+# Source evidence and scope: ../../architecture.md and ../../system-spec-design.md
+...@../theme
+heading: "02 · KIẾN TRÚC CONTAINER" {shape: text; near: top-center; style: {font-size: 28; bold: true; font-color: "#172B4D"}}
+caption: "C4 / Container · Python là tiến trình con, không phải AI HTTP service" {shape: text; near: bottom-center; style: {font-size: 16; font-color: "#52657E"}}
+direction: down
+browser: Trình duyệt {
+  class: boundary
+  direction: right
+  spa: "React SPA\nReact Router • HeroUI • Tailwind\nThree.js cho viewer 3D\nMediaPipe cục bộ · tùy chọn" {class: ui}
+}
+server: Máy chủ SmartReview {
+  class: boundary
+  direction: right
+  api: "Node HTTP API + phục vụ dist\nAuth • Project 2D / 3D • Review\nRisk engines TypeScript" {class: service}
+  py: "Python subprocess · tùy chọn\nYOLO / SigLIP / Qwen\nWaymo exporter / CVAT PCD" {class: ai}
+  local: "Filesystem\nStaging + dataset / scene\nMedia + reports" {class: data}
+  api -> py: spawn + file / JSON IPC
+  api -> local: Đọc / ghi
+}
+db: "MySQL 8.4 trong Compose\nMetadata • sessions • memberships\nReviews • CVAT scan history" {class: data}
+ext: "Dịch vụ ngoài · tùy chọn\nDropbox • CVAT • Gemini\nModel download / Hugging Face" {class: external}
+browser.spa -> server.api: /api cùng origin\nCookie + JSON / multipart / binary
+server.api -> db: SQL
+server.api -> ext: REST qua adapter
+server.py -> ext: Tải weights nếu cần
