@@ -1,5 +1,8 @@
 import { ReviewError } from '../../shared/review.ts';
 
+const authHeader = (token: string) =>
+  token.startsWith('Bearer ') || token.startsWith('Token ') ? token : `Token ${token}`;
+
 // CVAT token is a server-side secret: never forward it to the browser.
 async function cvatGet(path: string): Promise<unknown> {
   const base = process.env.CVAT_BASE_URL,
@@ -9,7 +12,7 @@ async function cvatGet(path: string): Promise<unknown> {
   try {
     response = await fetch(new URL(path, base), {
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: authHeader(token),
         Accept: 'application/vnd.cvat+json, application/json;q=0.9',
       },
       signal: AbortSignal.timeout(30_000),
@@ -33,7 +36,7 @@ export async function getCvatFrameImage(jobId: number, frameNumber: number): Pro
     response = await fetch(
       new URL(`/api/jobs/${jobId}/data?type=frame&quality=compressed&number=${frameNumber}`, base),
       {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { Authorization: authHeader(token) },
         signal: AbortSignal.timeout(30_000),
       },
     );
@@ -50,7 +53,7 @@ export async function createCvatShapes(jobId: number, shapes: Record<string, unk
   if (!base || !token) throw new ReviewError(503, 'Thiếu cấu hình CVAT_BASE_URL / CVAT_TOKEN.');
   const response = await fetch(new URL(`/api/jobs/${jobId}/annotations?action=create`, base), {
     method: 'PATCH',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    headers: { Authorization: authHeader(token), 'Content-Type': 'application/json' },
     body: JSON.stringify({ version: 0, tags: [], tracks: [], shapes }),
     signal: AbortSignal.timeout(60_000),
   });

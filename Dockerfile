@@ -7,6 +7,17 @@ RUN npm run build
 
 FROM node:24-bookworm-slim AS runtime
 ENV NODE_ENV=production HOST=0.0.0.0 PORT=3100 AUTH_COOKIE_SECURE=true
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 python3-pip python3-venv \
+    && rm -rf /var/lib/apt/lists/* \
+    && python3 -m venv /opt/venv \
+    && /opt/venv/bin/pip install --no-cache-dir numpy pyarrow ultralytics opencv-python-headless \
+    && chmod -R a+rx /opt/venv
+
+ENV SMARTREVIEW_3D_PYTHON=/opt/venv/bin/python \
+    SMARTREVIEW_AI_PYTHON=/opt/venv/bin/python \
+    PATH="/opt/venv/bin:$PATH"
+
 WORKDIR /app/web
 COPY web/package.json web/package-lock.json ./
 RUN npm ci --omit=dev && npm cache clean --force
@@ -17,8 +28,9 @@ COPY web/policy ./policy
 COPY web/policy3d ./policy3d
 COPY web/shared ./shared
 COPY web/scripts ./scripts
+COPY ai-service /app/ai-service
 COPY docker/entrypoint.sh /app/entrypoint.sh
-RUN mkdir -p /app/web/storage && chown node:node /app/web/storage
+RUN mkdir -p /app/web/storage && chown -R node:node /app/web/storage
 USER node
 EXPOSE 3100
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
