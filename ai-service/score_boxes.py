@@ -91,8 +91,21 @@ class Scorer:
 
     def cls(self, label):
         key = ' '.join(str(label).lower().replace('_', ' ').replace('-', ' ').split())
+        # A fine-tuned model speaks the file's own taxonomy (BDD names): keep its words
+        # untouched, so 'rider' stays 'rider' instead of becoming COCO's 'person'.
+        if key in self.names:
+            return self.names[key]
         key = ALIASES.get(key.replace(' ', '_'), key)
-        return self.names.get(key) if key else None
+        if not key:
+            return None
+        if key in self.names:
+            return self.names[key]
+        # The alias points at a class this model does not have (COCO 'person'): read it back
+        # to the file-side name the model does know ('person' -> 'pedestrian').
+        for alias, target in ALIASES.items():
+            if target == key and alias.replace('_', ' ') in self.names:
+                return self.names[alias.replace('_', ' ')]
+        return None
 
     def _pass(self, image, boxes, classes):
         r = self.model.predict(image, **self.args)[0]
@@ -155,6 +168,18 @@ def wanted_classes(scorer, labels):
         if c is not None:
             named.setdefault(c, label)
     return named
+
+
+def drop_blind(labels, boxes, blind):
+    """Labels a model is blind to (measured zero recall) leave no score: drop them before
+    scoring, like unknown labels, so their boxes skip instead of flagging on blindness.
+    boxes: [{label, ...}] dicts; both inputs keep their order, minus the dropped."""
+    if not blind:
+        return labels, boxes
+    norm = lambda l: ' '.join(str(l).lower().replace('_', ' ').replace('-', ' ').split())
+    blinded = {norm(b) for b in blind}
+    return ([l for l in labels if norm(l) not in blinded],
+            [b for b in boxes if norm(b['label']) not in blinded])
 
 
 def set_score(shape, value):

@@ -21,9 +21,17 @@ export const rescoreSetup = () => ({
 // Models the import can score with. Measured: BDD100K, the scorer of score_boxes.py at 1280 px on
 // CPU (THAY-DOI-RISK-ENGINE.md 5). Estimated: the YOLO11s time scaled by Ultralytics' COCO CPU
 // times (n 56, s 90, m 183 ms). Only YOLO11s has the policy thresholds (0.02, 0.4) measured for
-// it; the others reuse them until ai-service/risk/ measures their own. `download`: the size of the
-// Ultralytics release asset fetched into ai-service/ the first time a machine without the file
-// picks it, so a fresh checkout scores with any of them.
+// it; the others reuse them until ai-service/risk/ measures their own. A `missing` entry overrides
+// the detection floor its own hints are cut at (default 0.4), and `imgsz` the pixels its weights
+// were trained at (default 1280); both travel to the worker and the used floor is kept in
+// dataset.metadata.rescore_missing, so the frame rule judges hints on the scorer's own scale.
+// `blind` lists labels measured at zero recall: the worker leaves them unscored like unknown
+// labels. `rescore_floor` travels only once the model is measured on the rescore scale itself,
+// into dataset.metadata.rescore_floor for the box rule; until then the policy number rules.
+// `download`: the size of the Ultralytics release asset fetched into ai-service/ the first time
+// a machine without the file picks it, so a fresh checkout scores with any of them. A `localOnly`
+// entry is never downloaded: its weights must be copied by hand into ai-service/ (fine-tuned
+// models are not release assets).
 export const DEFAULT_SCORE_MODEL = 'yolo11s';
 export const SCORE_MODELS = [
   {
@@ -52,6 +60,28 @@ export const SCORE_MODELS = [
     speed: 'Chậm nhất · ~0,6–1,0 giây/ảnh (ước tính)',
     quality: 'AUROC 0,92 tách box hỏng · COCO mAP 51,5',
     note: 'Chậm gấp đôi YOLO11s, rescore không tốt hơn; có thể tìm vật bị sót tốt hơn (chưa đo).',
+  },
+  {
+    // Fine-tuned on BDD100K at 960 px (result_yolo26s, run bdd100k-yolo26s-960-seed42). `missing`
+    // is the operating point of its own calibration (threshold_lock.json: 0.3055 at precision
+    // 0.80). Knows traffic light/sign, which COCO models do not. `rescore_floor` was measured
+    // with the broken-box protocol (400 val images, 15% broken, seed 0): AUROC 0.9505, and at
+    // 0.02 it catches 93% of broken boxes while flagging 11% of correct ones (YOLO11s: 91%/18%;
+    // boxes >= 16 px: 94%/6%). Recording 0.02 pins the measured value into each dataset it
+    // scores, so a later policy move cannot silently re-judge those datasets.
+    id: 'yolo26s',
+    file: 'yolo26s.pt',
+    download: '20 MB · copy tay, không tự tải',
+    name: 'YOLO26s fine-tune',
+    speed: 'Cân bằng · ~0,3–0,5 giây/ảnh (ước tính)',
+    quality: 'Fine-tune BDD100K · precision 0,81 / recall 0,67 holdout · chấm được biển báo, đèn',
+    note: 'Weights result_yolo26s của bạn. Vật bị sót cắt ở 0,31 (điểm vận hành của nó); thang rescore đã đo riêng (AUROC 0,95), giữ 0,02.',
+    missing: 0.3055,
+    imgsz: 960,
+    rescore_floor: 0.02,
+    // REPORT.md holdout: 0/15 trains found. Left unscored instead of flagging on blindness.
+    blind: ['train'],
+    localOnly: true,
   },
 ] as const;
 export type ScoreModelId = (typeof SCORE_MODELS)[number]['id'];
@@ -93,6 +123,27 @@ export async function listScoreModels() {
     }),
   );
 }
+// The scorer's numbers for one model id: its hint cut, training pixels, blind labels, and the
+// measured rescore floor when it has one. Pinned here so a dataset keeps the values its model
+// was measured at even if the policy defaults move later; unknown ids fail before any I/O.
+export const scoreSettings = (modelId: string) => {
+  const entry = SCORE_MODELS.find((m) => m.id === modelId);
+  if (!entry) throw new ReviewError(400, `Không có model chấm điểm “${modelId}”.`);
+  return {
+    entry,
+    // The scorer's own cut for this model's hints, and the pixels its weights were trained at.
+    missing: 'missing' in entry && typeof entry.missing === 'number' ? entry.missing : 0.4,
+    imgsz: 'imgsz' in entry && typeof entry.imgsz === 'number' ? entry.imgsz : 1280,
+    // Labels the model is blind to (measured zero recall): left unscored like unknown labels,
+    // so their boxes skip instead of flagging on noise. The rescore floor travels only when
+    // this model was measured on the rescore scale; the rest reuse the policy number.
+    blind: 'blind' in entry && Array.isArray(entry.blind) ? (entry.blind as string[]) : [],
+    rescoreFloor:
+      'rescore_floor' in entry && typeof entry.rescore_floor === 'number'
+        ? (entry.rescore_floor as number)
+        : undefined,
+  };
+};
 export async function rescoreDataset(
   data: Dataset,
   // Frame id -> image file on disk.
@@ -103,9 +154,15 @@ export async function rescoreDataset(
   modelId: string = DEFAULT_SCORE_MODEL,
 ) {
   const { python } = rescoreSetup();
-  const entry = SCORE_MODELS.find((m) => m.id === modelId);
-  if (!entry) throw new ReviewError(400, `Không có model chấm điểm “${modelId}”.`);
+  const { entry, missing, imgsz, blind, rescoreFloor } = scoreSettings(modelId);
   const found = await scoreModelPath(modelId);
+  // A fine-tuned model is not a release asset, so a missing one must not be "downloaded"
+  // (the worker would fetch the wrong weights). Tell the user to copy the file instead.
+  if (!found && 'localOnly' in entry && entry.localOnly)
+    throw new ReviewError(
+      503,
+      `Chưa có file model ${entry.file}. Copy file weights đã fine-tune vào thư mục ai-service/ rồi import lại. Bỏ chọn “Chấm điểm box bằng model” để import không chấm điểm.`,
+    );
   // A model not on disk is downloaded by the worker the first time it is picked.
   const model = found ?? downloadPath(entry.file);
   const hasPython = await fs.access(python).then(
@@ -147,7 +204,7 @@ export async function rescoreDataset(
   );
   onProgress(0, frames.length, !found);
   await new Promise<void>((resolve, reject) => {
-    const child = spawn(python, [worker, input, model, output, projectRoot], {
+    const child = spawn(python, [worker, input, model, output, projectRoot, String(imgsz), String(missing), JSON.stringify(blind)], {
       stdio: ['ignore', 'pipe', 'pipe'],
       env: { ...process.env, OMP_NUM_THREADS: '2', MKL_NUM_THREADS: '2' },
     });
@@ -196,6 +253,7 @@ export async function rescoreDataset(
   const result: {
     rescore: Record<string, number>;
     missing: Record<string, { label: string; confidence: number; box: number[] }[]>;
+    model?: { name?: string; missing_threshold?: number };
   } = JSON.parse(await fs.readFile(output, 'utf8'));
   await fs.rm(input, { force: true });
   await fs.rm(output, { force: true });
@@ -214,8 +272,16 @@ export async function rescoreDataset(
   // A file scored before keeps no hints of its own: these replace them.
   if (data.dataset.metadata) delete data.dataset.metadata.missing_hints;
   applyMissingHints(data, hints);
-  // Thresholds belong to a model, so the dataset keeps which one scored it.
-  data.dataset.metadata = { ...data.dataset.metadata, rescore_model: modelId };
+  // Thresholds belong to a model, so the dataset keeps which one scored it and the cut its
+  // hints were made at; the frame rule judges hints on that cut, not the policy default.
+  const usedMissing =
+    typeof result.model?.missing_threshold === 'number' ? result.model.missing_threshold : missing;
+  data.dataset.metadata = {
+    ...data.dataset.metadata,
+    rescore_model: modelId,
+    rescore_missing: usedMissing,
+    ...(rescoreFloor !== undefined && { rescore_floor: rescoreFloor }),
+  };
   return {
     scored: Object.keys(result.rescore).length,
     missing: Object.values(hints).flat().length,
