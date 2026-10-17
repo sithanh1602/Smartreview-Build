@@ -14,6 +14,7 @@ COPY --from=build /app/web/dist ./dist
 COPY web/server ./server
 COPY web/core ./core
 COPY web/policy ./policy
+COPY web/policy3d ./policy3d
 COPY web/shared ./shared
 COPY web/scripts ./scripts
 COPY docker/entrypoint.sh /app/entrypoint.sh
