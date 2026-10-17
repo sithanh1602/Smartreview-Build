@@ -13,6 +13,7 @@ import type { ProjectService } from './projects/service.ts';
 import type { Project3DService } from './projects3d/service.ts';
 import type { ReviewStore } from './reviews/store.ts';
 import type { Json, LoadedDataset, Req, Res } from './types.ts';
+import { queueService } from './queue/index.ts';
 
 export interface AppOptions {
   dataset?: LoadedDataset | null;
@@ -63,6 +64,8 @@ export function createHandler({
       if (await handleAuth(req, res, url.pathname, { auth, json, secureCookies })) return;
       if (url.pathname === '/api/health' && req.method === 'GET')
         return json(res, 200, { ok: true });
+      if (url.pathname === '/api/queue/status' && req.method === 'GET')
+        return json(res, 200, await queueService.getStatus());
       if (url.pathname.startsWith('/api/')) {
         if (!auth) throw new ReviewError(503, 'Dịch vụ đăng nhập chưa sẵn sàng.');
         req.user = await auth.authenticate(cookie(req, SESSION_COOKIE));

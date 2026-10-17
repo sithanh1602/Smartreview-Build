@@ -25,7 +25,8 @@ def main():
     predictions = []
     frames = manifest.get("frames", [])
 
-    for item in frames:
+    for idx, item in enumerate(frames):
+        print(f"[PROGRESS] {idx + 1}/{len(frames)}", file=sys.stderr, flush=True)
         frame_id = item["id"]
         frame_index = item.get("index", 0)
         img_path = item["path"]

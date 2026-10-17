@@ -37,12 +37,23 @@ services:
       DB_NAME: smartreview
       DB_USER: smartreview_app
       DB_PASSWORD: ${DOCKER_DB_PASSWORD:?Run node docker/setup.ts first}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
       SMARTREVIEW_STORAGE: /app/web/storage
     ports:
       - "127.0.0.1:${DOCKER_HTTP_PORT:-3100}:3100"
     volumes:
       - project_storage:/app/web/storage
 
+  redis:
+    image: redis:7.2.11-alpine
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redis_data:/data
+
 volumes:
   mysql_data:
   project_storage:
+  redis_data:

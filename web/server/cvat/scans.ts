@@ -6,6 +6,7 @@ import { ReviewError } from '../../shared/review.ts';
 import { loadCvatJob } from './client.ts';
 import { mapCvatJob } from './mapper.ts';
 import { runYoloOnJobFrames } from './yolo.ts';
+import { setScanProgress } from './progress.ts';
 import type { Annotation, BBox } from '../../core/schema/types.ts';
 import type { Db, Rows, User } from '../types.ts';
 
@@ -24,7 +25,7 @@ export interface Risk {
   confidence?: number;
   geometry_type?: 'cuboid';
   object_kind?: 'shape' | 'track';
-  cuboid?: { center: number[]; size: number[]; heading: number };
+  cuboid?: { center: number[]; size: number[]; heading: number; lift?: number; penetration_depth?: number };
   evidence?: Record<string, unknown>[];
 }
 
@@ -99,28 +100,35 @@ export class CvatScans {
       throw new ReviewError(400, 'Job ID CVAT không hợp lệ.');
 
     const started = Date.now();
-    const data = await loadCvatJob(jobId);
-    if (data.job.dimension === '3d') {
-      const result = await scanCvat3D(data),
-        id = randomUUID();
-      await this.pool.execute<Rows>(
-        `INSERT INTO cvat_scans(id,user_id,job_id,annotation_hash,engine_version,annotation_count,risk_count,duration_ms,result,scanned_by_name) VALUES (?,?,?,?,?,?,?,?,?,?)`,
-        [
-          id,
-          user.id,
-          jobId,
-          result.hash,
-          result.engine_version,
-          result.annotation_count,
-          result.risks.length,
-          Date.now() - started,
-          JSON.stringify({ ...result, dimension: '3d' }),
-          user.username,
-        ],
-      );
-      return (await this.get(user.id, id))!;
-    }
-    const { dataset, skipped, hash } = mapCvatJob(data);
+    try {
+      setScanProgress(jobId, 5, 'Đang tải thông tin Job và annotations từ CVAT...', 'loading');
+      const data = await loadCvatJob(jobId);
+      if (data.job.dimension === '3d') {
+        const result = await scanCvat3D(data, (pct, msg, stage) => {
+          setScanProgress(jobId, pct, msg, stage);
+        });
+        setScanProgress(jobId, 98, 'Đang lưu kết quả quét 3D vào cơ sở dữ liệu...', 'policy');
+        const id = randomUUID();
+        await this.pool.execute<Rows>(
+          `INSERT INTO cvat_scans(id,user_id,job_id,annotation_hash,engine_version,annotation_count,risk_count,duration_ms,result,scanned_by_name) VALUES (?,?,?,?,?,?,?,?,?,?)`,
+          [
+            id,
+            user.id,
+            jobId,
+            result.hash,
+            result.engine_version,
+            result.annotation_count,
+            result.risks.length,
+            Date.now() - started,
+            JSON.stringify({ ...result, dimension: '3d' }),
+            user.username,
+          ],
+        );
+        setScanProgress(jobId, 100, 'Hoàn tất quét 3D!', 'done');
+        return (await this.get(user.id, id))!;
+      }
+      setScanProgress(jobId, 15, 'Đang chuẩn bị dữ liệu 2D và tập hợp frame cần quét...', 'loading');
+      const { dataset, skipped, hash } = mapCvatJob(data);
     const minScore = Number((input as any)?.min_score ?? 10);
 
     // 1. Collect annotated frames for YOLO evaluation
@@ -141,10 +149,15 @@ export class CvatScans {
     );
 
     // 2. Run YOLO inference on frames
+    setScanProgress(jobId, 25, 'Đang tải hình ảnh và khởi chạy mô hình YOLO AI...', 'ai');
     const yolo = await runYoloOnJobFrames(
       jobId,
       annotatedFrames.length ? annotatedFrames : [0],
       (f) => `cvat-${jobId}-frame-${f}:0`,
+      (done, total) => {
+        const pct = 25 + Math.round((done / total) * 45);
+        setScanProgress(jobId, pct, `YOLO AI: Đang quét frame ${done}/${total}...`, 'ai');
+      },
     );
 
     // 3. Attach matched YOLO confidence to annotations
@@ -166,6 +179,7 @@ export class CvatScans {
     }
 
     // 4. Run Policy Rule Engine
+    setScanProgress(jobId, 75, 'Đang kiểm tra toàn diện các quy tắc SmartReview Policy 2D...', 'policy');
     const report = analyzeDataset(dataset, { minScore });
     const ann = new Map(dataset.annotations.map((a) => [a.id, a]));
 
@@ -188,6 +202,7 @@ export class CvatScans {
 
     // 5. Run AI Comparison with YOLO predictions
     if (yolo.available && yolo.predictions.length) {
+      setScanProgress(jobId, 88, 'Đang đối chiếu phát hiện YOLO với annotations và phân loại lỗi...', 'ai');
       const supportedLabels = Array.from(
         new Set([...dataset.annotations.map((a) => a.label), ...yolo.labels]),
       );
@@ -231,6 +246,7 @@ export class CvatScans {
     const id = randomUUID(),
       duration = Date.now() - started;
 
+    setScanProgress(jobId, 98, 'Đang lưu kết quả quét 2D vào cơ sở dữ liệu...', 'policy');
     await this.pool.execute<Rows>(
       `INSERT INTO cvat_scans(id,user_id,job_id,annotation_hash,engine_version,annotation_count,risk_count,duration_ms,result,scanned_by_name)
        VALUES (?,?,?,?,?,?,?,?,?,?)`,
@@ -248,7 +264,12 @@ export class CvatScans {
       ],
     );
 
+    setScanProgress(jobId, 100, 'Hoàn tất quét 2D!', 'done');
     return (await this.get(user.id, id))!;
+    } catch (err) {
+      setScanProgress(jobId, 0, (err as Error).message || 'Lỗi khi quét', 'error');
+      throw err;
+    }
   }
 
   async get(userId: string, id: string): Promise<Scan | null> {

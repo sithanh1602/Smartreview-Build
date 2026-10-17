@@ -17,6 +17,7 @@ import type { RemoteStorage } from '../storage/remote.ts';
 import type { Untrusted } from '../../shared/review.ts';
 import type { Scene3DSummary } from '../../shared/waymo.ts';
 import type { Connection, Db, ProjectRole, Req, Result, Rows, User } from '../types.ts';
+import { queueService } from '../queue/index.ts';
 
 type ProjectRow = Rows[number];
 // Everything a 3D project stores, on disk and on the remote, sits under this folder.
@@ -232,43 +233,50 @@ export class Project3DService {
         'Chưa có Python cho project 3D. Đặt SMARTREVIEW_3D_PYTHON trong .env tới một Python có numpy và pyarrow.',
       );
     }
-    await new Promise<void>((resolve, reject) => {
-      const child = spawn(this.python, [this.script, source, '-o', out], {
-        stdio: ['ignore', 'pipe', 'pipe'],
-      });
-      let errors = '';
-      const timer = setTimeout(() => child.kill('SIGKILL'), EXPORT_TIMEOUT_MS);
-      // The exporter rewrites one line as it goes: "<n> frame", then "<n> image".
-      child.stdout.on('data', (chunk: Buffer) => {
-        const text = chunk.toString(),
-          images = text.match(/\d+(?= image)/g),
-          frames = text.match(/\d+(?= frame)/g);
-        if (images) this.progress.set(id, { step: 'cameras', done: +images.at(-1)!, total: null });
-        else if (frames)
-          this.progress.set(id, { step: 'export', done: +frames.at(-1)!, total: null });
-      });
-      child.stderr.on('data', (chunk: Buffer) => {
-        errors = (errors + chunk.toString()).slice(-4000);
-      });
-      child.on('error', (e) => {
-        clearTimeout(timer);
-        reject(e);
-      });
-      child.on('close', (code) => {
-        clearTimeout(timer);
-        if (code === 0) return resolve();
-        console.error('3D export failed:', errors.trim().slice(-1000));
-        if (/No module named/.test(errors))
-          return reject(
-            new ReviewError(
-              503,
-              'Python của project 3D thiếu numpy hoặc pyarrow. Cài hai gói đó rồi thử lại.',
-            ),
-          );
-        const reason = errors.trim().split('\n').pop() || 'exporter dừng bất thường';
-        reject(new ReviewError(422, `Không chuyển được dữ liệu Waymo: ${reason.slice(0, 300)}`));
-      });
-    });
+
+    return queueService.runImportTask(
+      `3D Waymo Export (${id})`,
+      async () => {
+        await new Promise<void>((resolve, reject) => {
+          const child = spawn(this.python, [this.script, source, '-o', out], {
+            stdio: ['ignore', 'pipe', 'pipe'],
+          });
+          let errors = '';
+          const timer = setTimeout(() => child.kill('SIGKILL'), EXPORT_TIMEOUT_MS);
+          // The exporter rewrites one line as it goes: "<n> frame", then "<n> image".
+          child.stdout.on('data', (chunk: Buffer) => {
+            const text = chunk.toString(),
+              images = text.match(/\d+(?= image)/g),
+              frames = text.match(/\d+(?= frame)/g);
+            if (images) this.progress.set(id, { step: 'cameras', done: +images.at(-1)!, total: null });
+            else if (frames)
+              this.progress.set(id, { step: 'export', done: +frames.at(-1)!, total: null });
+          });
+          child.stderr.on('data', (chunk: Buffer) => {
+            errors = (errors + chunk.toString()).slice(-4000);
+          });
+          child.on('error', (e) => {
+            clearTimeout(timer);
+            reject(e);
+          });
+          child.on('close', (code) => {
+            clearTimeout(timer);
+            if (code === 0) return resolve();
+            console.error('3D export failed:', errors.trim().slice(-1000));
+            if (/No module named/.test(errors))
+              return reject(
+                new ReviewError(
+                  503,
+                  'Python của project 3D thiếu numpy hoặc pyarrow. Cài hai gói đó rồi thử lại.',
+                ),
+              );
+            const reason = errors.trim().split('\n').pop() || 'exporter dừng bất thường';
+            reject(new ReviewError(422, `Không chuyển được dữ liệu Waymo: ${reason.slice(0, 300)}`));
+          });
+        });
+      },
+      { projectId: id },
+    );
   }
   // Every file of an import directory goes to the remote under the same relative path.
   async publish(id: string, key: string) {
