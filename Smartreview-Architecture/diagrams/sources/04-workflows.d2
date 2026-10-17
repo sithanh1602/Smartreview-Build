@@ -1,0 +1,28 @@
+# Source baseline: 0a2b6451000b7ce681b3aa2b5a2b1a72d7a5f20f
+# Evidence: ../../architecture.md
+...@../theme
+heading: "04 · LUỒNG XỬ LÝ TỔNG QUAN" {shape: text; near: top-center; style: {font-size: 28; bold: true}}
+caption: "Data flow · Hai nhánh dữ liệu; con người quyết định kết quả review" {shape: text; near: bottom-center; style: {font-size: 16; font-color: "#52657E"}}
+direction: right
+two: Project 2D {
+  class: boundary
+  input: "Nhãn + ảnh\nGuideline / metadata tùy chọn" {class: ui}
+  prepare: "Kiểm tra và chuẩn hóa\nRescore bằng model nếu chọn" {class: service}
+  risk: "Risk Engine 2D\nƯu tiên case / frame" {class: service}
+  review: "Review 2D\nXác nhận lỗi • Bàn giao\nNhận nhãn sửa thành revision mới" {class: ui}
+  input -> prepare: Upload
+  prepare -> risk: Canonical dataset + tín hiệu
+  risk -> review: Findings / hàng đợi
+  prepare -> review: Ảnh / annotation
+}
+three: Project 3D {
+  class: boundary
+  input: "Một segment Waymo v2\nParquet + camera tùy chọn" {class: ui}
+  prepare: "Python exporter\nScene • Cloud • Measurements" {class: ai}
+  risk: "Risk Engine 3D\nĐọc scene / measurements đã xuất" {class: service}
+  review: "Viewer / Review 3D\nPoint cloud • Camera\nĐánh giá cuboid / track" {class: ui}
+  input -> prepare: Upload
+  prepare -> risk: Scene đã xuất
+  risk -> review: Findings nếu scoring thành công
+  prepare -> review: Scene / cloud / camera
+}
