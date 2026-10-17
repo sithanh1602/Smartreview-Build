@@ -73,10 +73,13 @@ const TEMPLATES: Record<string, (rule: FrameRule) => ImageRule['run']> = {
   // (`skip_near_flagged_iou`) is that box drawn in the wrong place, which its own case reports.
   model_missing: (rule) => {
     const { labels, min_confidence = 0, skip_near_flagged_iou: near = Infinity } = rule.params;
-    return ({ hints = [], flagged = [] }) => {
+    return ({ hints = [], flagged = [], model_confidence }) => {
+      // Hints already end at the scoring model's own floor; judging them on a higher policy
+      // number would silently drop what the model was set to report.
+      const floor = model_confidence ?? min_confidence;
       const objects = hints
         .map((h) => ({ ...h, label: canonicalLabel(h.label) }))
-        .filter((h) => h.confidence >= min_confidence && labels.includes(h.label))
+        .filter((h) => h.confidence >= floor && labels.includes(h.label))
         .filter(
           (h) => !flagged.some((b) => b.label === h.label && iou(b.geometry, h.geometry) >= near),
         )

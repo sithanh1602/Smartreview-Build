@@ -79,6 +79,9 @@ export interface CheckContext {
   box: Box;
   frameBoxes: Box[];
   env_risk?: number;
+  // The rescore floor the scoring model was measured at (dataset.metadata.rescore_floor).
+  // A check without it falls back to its policy number.
+  rescore_floor?: number;
   // Filled in before relational checks run.
   peers: LabelBox[];
   // Attribute names the dataset carries on boxes of this kind (model output, or hand-drawn).
@@ -100,6 +103,9 @@ export interface ImageRuleInput {
   missing: GreyBox[];
   // Objects a model found that no drawn box covers, from the import (dataset metadata).
   hints?: MissingHint[];
+  // The confidence floor the scoring model cut its own hints at (dataset.metadata.rescore_missing).
+  // A rule without it falls back to its policy number.
+  model_confidence?: number;
   // Boxes of the frame already flagged for review.
   flagged?: MeasuredBox[];
   env_risk?: number;
