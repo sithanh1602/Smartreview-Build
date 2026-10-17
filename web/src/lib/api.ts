@@ -1,7 +1,8 @@
 import type { ApiError, DatasetData, Metrics, Review, ReviewValues, User } from '../types.ts';
 
 // expiresAt: when the hour-long session ends; the server signs the user out then.
-export type Session = { user: User; expiresAt: string };
+// extensionsLeft: how many more times the user may ask for 5 more minutes near the end.
+export type Session = { user: User; expiresAt: string; extensionsLeft: number };
 // Responses are JSON documents; callers name the shape they asked for.
 async function parseResponse<T = any>(response: Response): Promise<T> {
   let data;

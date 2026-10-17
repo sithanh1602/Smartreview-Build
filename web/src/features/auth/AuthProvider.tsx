@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { authRequest, getSession, withSessionLock } from '../../lib/api';
 import type { Session } from '../../lib/api';
+import { SessionTimeout } from './SessionTimeout';
 import type { ApiError, MemberRole, User } from '../../types.ts';
 
 interface AuthValue {
@@ -12,6 +13,10 @@ interface AuthValue {
   chooseWorkRole(role: MemberRole | null): void;
   login(username: string, password: string): Promise<User>;
   logout(): Promise<void>;
+  // When the session ends, and how many 5-minute extensions are left (SessionTimeout).
+  expiresAt: string | null;
+  extensionsLeft: number;
+  extend(): Promise<void>;
   retry(): void;
 }
 const Context = createContext<AuthValue | null>(null);
@@ -40,11 +45,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [workRole, setWorkRole] = useState(storedWorkRole);
   // When the hour-long session ends; the user is signed out at that moment.
   const [expiresAt, setExpiresAt] = useState<string | null>(null);
+  const [extensionsLeft, setExtensionsLeft] = useState(0);
   const version = useRef(0);
   function start(session: Session) {
     setUser(session.user);
     setExpiresAt(session.expiresAt);
+    setExtensionsLeft(session.extensionsLeft ?? 0);
     setError('');
+  }
+  // 5 more minutes; the other tabs read the new end of the session.
+  async function extend() {
+    const current = version.current;
+    const result = await withSessionLock(() => authRequest('extend'));
+    if (current === version.current) start(result);
+    const channel = globalThis.BroadcastChannel
+      ? new BroadcastChannel('smartreview-session')
+      : null;
+    channel?.postMessage('extended');
+    channel?.close();
   }
   function chooseWorkRole(role: MemberRole | null) {
     setWorkRole(role);
@@ -131,6 +149,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
     return () => channel.close();
   }, []);
+  useEffect(() => {
+    if (!globalThis.BroadcastChannel) return;
+    const channel = new BroadcastChannel('smartreview-session');
+    channel.onmessage = () => restore();
+    return () => channel.close();
+  }, []);
   return (
     <Context.Provider
       value={{
@@ -141,6 +165,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         chooseWorkRole,
         login,
         logout,
+        expiresAt,
+        extensionsLeft,
+        extend,
         retry: () => {
           setLoading(true);
           setError('');
@@ -149,6 +176,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }}
     >
       {children}
+      <SessionTimeout />
     </Context.Provider>
   );
 }

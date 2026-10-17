@@ -90,7 +90,8 @@ test('the only cookie is an HttpOnly access_token; secrets are hashed in DB, abs
   const res = await login(reviewer),
     cookies = jar(res);
   const body = await res.json();
-  assert.deepEqual(Object.keys(body).sort(), ['expiresAt', 'user']);
+  assert.deepEqual(Object.keys(body).sort(), ['expiresAt', 'extensionsLeft', 'user']);
+  assert.equal(body.extensionsLeft, 3);
   const set = res.headers.getSetCookie();
   const session = set.filter((c) => !/Max-Age=0/.test(c));
   assert.equal(session.length, 1);
@@ -131,6 +132,33 @@ test('the session ends after its hour and cannot be extended; logout revokes it'
   assert.equal(logout.status, 200);
   assert.ok(logout.headers.getSetCookie().every((c) => c.includes('Max-Age=0')));
   assert.equal((await call('/api/auth/me', 'GET', fresh)).status, 401);
+});
+test('the last minutes of a session can be extended by 5 minutes, at most 3 times', async () => {
+  const cookies = jar(await login(reviewer));
+  const hash = tokenHash(value(cookies, 'access_token'));
+  // Too early: nothing to extend yet.
+  assert.equal((await call('/api/auth/extend', 'POST', cookies, {})).status, 409);
+  // Move the session to its last minute, keeping the hour it started with.
+  const toLastMinute = () =>
+    pool.execute(
+      'UPDATE auth_sessions SET created_at=DATE_SUB(created_at, INTERVAL TIMESTAMPDIFF(SECOND, UTC_TIMESTAMP(3), access_expires_at) - 60 SECOND), access_expires_at=DATE_ADD(UTC_TIMESTAMP(3), INTERVAL 60 SECOND) WHERE access_hash=?',
+      [hash],
+    );
+  for (const left of [2, 1, 0]) {
+    await toLastMinute();
+    const res = await call('/api/auth/extend', 'POST', cookies, {});
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.equal(body.extensionsLeft, left);
+    const minutes = (Date.parse(body.expiresAt) - Date.now()) / 60000;
+    assert.ok(minutes > 5.9 && minutes <= 6, `extended to ${minutes} minutes`);
+    assert.match(res.headers.getSetCookie()[0], /Max-Age=3[56]\d;/);
+  }
+  await toLastMinute();
+  const spent = await call('/api/auth/extend', 'POST', cookies, {});
+  assert.equal(spent.status, 409);
+  assert.match((await spent.json()).error, /hết lượt gia hạn/);
+  assert.equal((await call('/api/auth/extend', 'POST', '', {})).status, 401);
 });
 test('role changes and disabled accounts take effect for existing tokens', async () => {
   const cookies = jar(await login(reviewer));

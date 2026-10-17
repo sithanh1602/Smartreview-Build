@@ -19,10 +19,10 @@ export function checkOrigin(req: Req) {
 // The session's only cookie. HttpOnly keeps it from page scripts; Max-Age makes the browser
 // drop it when the session ends, though MySQL's expiry is what decides.
 export const SESSION_COOKIE = 'access_token';
-function cookies(res: Res, accessToken: string | null, secure: boolean) {
+function cookies(res: Res, accessToken: string | null, secure: boolean, seconds = SESSION_SECONDS) {
   const flags = `; HttpOnly; SameSite=Strict${secure ? '; Secure' : ''}`;
   res.setHeader('Set-Cookie', [
-    `${SESSION_COOKIE}=${accessToken || ''}; Path=/api${flags}; Max-Age=${accessToken ? SESSION_SECONDS : 0}`,
+    `${SESSION_COOKIE}=${accessToken || ''}; Path=/api${flags}; Max-Age=${accessToken ? seconds : 0}`,
     // Left by versions that also had a refresh token.
     `sr_access=; Path=/api${flags}; Max-Age=0`,
     `sr_refresh=; Path=/api/auth${flags}; Max-Age=0`,
@@ -41,7 +41,11 @@ export async function handleAuth(
     json(res, 200, await auth.session(cookie(req, SESSION_COOKIE)));
     return true;
   }
-  if (!['/api/auth/register', '/api/auth/login', '/api/auth/logout'].includes(pathname))
+  if (
+    !['/api/auth/register', '/api/auth/login', '/api/auth/logout', '/api/auth/extend'].includes(
+      pathname,
+    )
+  )
     throw new ReviewError(404, 'Unknown authentication route.');
   if (req.method !== 'POST') throw new ReviewError(405, 'Use POST.');
   checkOrigin(req);
@@ -49,6 +53,15 @@ export async function handleAuth(
   if (pathname === '/api/auth/register') {
     const user = await auth.register(body, req.socket.remoteAddress || 'unknown');
     json(res, 201, { user });
+    return true;
+  }
+  if (pathname === '/api/auth/extend') {
+    // The same token, its cookie kept until the new end of the session.
+    const token = cookie(req, SESSION_COOKIE);
+    const session = await auth.extend(token);
+    const seconds = Math.ceil((Date.parse(session.expiresAt) - Date.now()) / 1000);
+    cookies(res, token, secureCookies, Math.max(1, seconds));
+    json(res, 200, session);
     return true;
   }
   if (pathname === '/api/auth/logout') {

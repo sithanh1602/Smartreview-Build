@@ -225,6 +225,21 @@ test('the analyze route hands the posted text to the model call and returns its 
   assert.deepEqual(seen, [GUIDELINE]);
   assert.equal(sent.status, 200);
   assert.equal(sent.data.model, 'm');
+  // The person's own key reaches the model call for this request only.
+  const keys: (string | undefined)[] = [];
+  await post(JSON.stringify({ text: GUIDELINE, api_key: ' AIza-own-key ' }), async (_t, key) => {
+    keys.push(key);
+    return { model: 'm', classes: [], rules: [], conflicts: [], rejected: [] };
+  });
+  assert.deepEqual(keys, ['AIza-own-key']);
+  await assert.rejects(
+    post(JSON.stringify({ text: GUIDELINE, api_key: 'two words' }), extract),
+    /API key không hợp lệ/,
+  );
+  await assert.rejects(
+    post(JSON.stringify({ text: GUIDELINE, api_key: 7 }), extract),
+    /không hợp lệ/,
+  );
   await assert.rejects(post(JSON.stringify({ text: ' ' }), extract), /rỗng/);
   await assert.rejects(post('{', extract), /Invalid JSON/);
   await assert.rejects(post(JSON.stringify({ text: 'x'.repeat(600 * 1024) }), extract), /512 KB/);
