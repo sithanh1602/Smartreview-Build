@@ -11,7 +11,7 @@ const ROLES: [MemberRole, string, string][] = [
   ['annotator', 'Annotator', 'Xem và sửa nhãn trong các project bạn tham gia.'],
 ];
 // Asked after a member signs in. The choice only picks which of the member's projects are
-// listed; what the member may do in a project comes from the invite code used to join it.
+// listed; what the member may do in a project is the role the leader gave it there.
 export function RolePage() {
   const { user, workRole, chooseWorkRole, logout } = useAuth();
   const navigate = useNavigate();
@@ -34,8 +34,7 @@ export function RolePage() {
       }
     >
       <p className="mb-6 text-center text-sm text-(--muted)">
-        Bạn đổi được vai trò bất cứ lúc nào. Chưa tham gia project? Chọn vai trò rồi nhập mã mời
-        Leader gửi cho bạn.
+        Bạn đổi được vai trò bất cứ lúc nào. Chưa có project? Nhờ Leader thêm bạn vào project.
       </p>
       <div className="flex flex-col gap-4">
         {ROLES.map(([role, label, description]) => (

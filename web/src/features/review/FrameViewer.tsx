@@ -23,6 +23,7 @@ export function FrameViewer({
   maxHeight,
   tone = 'light',
   fill = false,
+  wheel = false,
   controlsSlot,
   follow,
   onViewChange,
@@ -47,6 +48,8 @@ export function FrameViewer({
   // laptop width up instead of the image's aspect ratio.
   tone?: 'light' | 'canvas';
   fill?: boolean;
+  // Lets the wheel zoom an interactive viewer that does not fill its parent.
+  wheel?: boolean;
   // When given, the zoom controls render into this element instead of over the image.
   controlsSlot?: HTMLElement | null;
   // A second viewer shown beside an interactive one copies its zoom and pan through these.
@@ -102,7 +105,7 @@ export function FrameViewer({
   const unavailable = !observation.image_url;
   const unsupported = !['bbox', 'polygon', 'polyline'].includes(g.type);
   const svgRef = useRef<SVGSVGElement>(null);
-  const wheelZoom = interactive && fill;
+  const wheelZoom = interactive && (fill || wheel);
   useEffect(() => {
     const svg = svgRef.current;
     if (!svg || !wheelZoom) return;

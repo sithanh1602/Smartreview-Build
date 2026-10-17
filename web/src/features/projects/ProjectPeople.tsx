@@ -1,15 +1,10 @@
 import React, { useEffect, useState } from 'react';
+import { Button, Modal } from '@heroui/react';
+import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { Spinner } from '../../components/Spinner';
 import { request } from '../../lib/api';
-import { ui } from '../../lib/i18n';
 import { roleLabel } from '../auth/AuthGate';
-import type {
-  InviteCodes,
-  MemberRole,
-  Person,
-  Project,
-  ProjectPeople as People,
-} from '../../types.ts';
+import type { MemberRole, Person, Project, ProjectPeople as People } from '../../types.ts';
 
 const GROUPS: [MemberRole, 'reviewers' | 'annotators'][] = [
   ['reviewer', 'reviewers'],
@@ -22,54 +17,38 @@ const json = (method: string, data?: unknown): RequestInit => ({
   body: JSON.stringify(data ?? {}),
 });
 
-// Who created the project and who reviews and annotates it. The leader adds members by
-// username, moves or removes them, and can hand out an invite code per role instead. A
-// reviewer can add annotators.
 export function ProjectPeople({
   project,
   collection = '/projects',
 }: {
   project: Pick<Project, 'id' | 'my_role'>;
-  // The API collection the project belongs to: 3D projects have their own.
   collection?: string;
 }) {
   const leader = project.my_role === 'leader';
   const canAdd = leader || project.my_role === 'reviewer';
   const base = `${collection}/${project.id}`;
   const [people, setPeople] = useState<People | null>(null);
-  // Member accounts not in the project yet, offered while typing a username.
-  const [candidates, setCandidates] = useState<string[]>([]);
-  const [username, setUsername] = useState('');
-  const [role, setRole] = useState<MemberRole>(leader ? 'reviewer' : 'annotator');
-  const [added, setAdded] = useState('');
-  // Invite codes are created on the server the first time they are asked for, so they are
-  // only fetched once the leader opens that section.
-  const [codes, setCodes] = useState<InviteCodes | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [removing, setRemoving] = useState<Person | null>(null);
+  const [removeError, setRemoveError] = useState('');
+  const [added, setAdded] = useState<string[]>([]);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState('');
-  const [copied, setCopied] = useState('');
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     const c = new AbortController();
     setError('');
-    Promise.all([
-      request<People>(`${base}/members`, { signal: c.signal }),
-      canAdd ? request<string[]>(`${base}/members/candidates`, { signal: c.signal }) : [],
-    ])
-      .then(([members, names]) => {
-        setPeople(members);
-        setCandidates(names);
-      })
+    request<People>(`${base}/members`, { signal: c.signal })
+      .then(setPeople)
       .catch((e) => {
         if (!c.signal.aborted) setError(e.message);
       });
     return () => c.abort();
-  }, [base, canAdd, attempt]);
-  // Runs one write; `key` marks which control is busy.
+  }, [base, attempt]);
   async function run(key: string, action: () => Promise<void>) {
     setBusy(key);
     setError('');
-    setAdded('');
+    setAdded([]);
     try {
       await action();
     } catch (e) {
@@ -78,8 +57,6 @@ export function ProjectPeople({
       setBusy('');
     }
   }
-  const reloadCandidates = async () =>
-    setCandidates(await request<string[]>(`${base}/members/candidates`));
   const member = (person: Person, current: MemberRole) => (
     <li key={person.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
       <span className="break-all font-medium">{person.username}</span>
@@ -105,14 +82,8 @@ export function ProjectPeople({
             className="sr-button min-h-8 border-rose-300 py-1 text-xs text-rose-700"
             disabled={Boolean(busy)}
             onClick={() => {
-              if (!window.confirm(`${ui('Xóa thành viên này khỏi project?')}\n${person.username}`))
-                return;
-              run(person.id, async () => {
-                setPeople(
-                  await request<People>(`${base}/members/${person.id}`, { method: 'DELETE' }),
-                );
-                await reloadCandidates();
-              });
+              setRemoveError('');
+              setRemoving(person);
             }}
           >
             Xóa
@@ -123,9 +94,29 @@ export function ProjectPeople({
   );
   return (
     <section className="panel mb-6 p-6" aria-labelledby="project-people">
-      <h2 id="project-people" className="mb-5 text-lg font-semibold">
-        Thành viên project
-      </h2>
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+        <h2 id="project-people" className="text-lg font-semibold">
+          Thành viên project
+        </h2>
+        {canAdd && people && (
+          <button
+            className="sr-button border-accent/40 text-accent"
+            data-testid="open-add-members"
+            disabled={Boolean(busy)}
+            onClick={() => {
+              setAdded([]);
+              setAdding(true);
+            }}
+          >
+            Xem thành viên
+          </button>
+        )}
+      </div>
+      {added.length > 0 && (
+        <p role="status" className="mb-4 text-sm text-accent">
+          Đã thêm: {added.join(', ')}
+        </p>
+      )}
       {error && (
         <p role="alert" className="mb-4 text-sm text-rose-700">
           {error}
@@ -143,81 +134,6 @@ export function ProjectPeople({
         )
       ) : (
         <>
-          {canAdd && (
-            <form
-              className="mb-6 flex flex-wrap items-end gap-3"
-              data-testid="add-member"
-              onSubmit={(e) => {
-                e.preventDefault();
-                const name = username.trim();
-                run('add', async () => {
-                  setPeople(
-                    await request<People>(
-                      `${base}/members`,
-                      json('POST', { username: name, role }),
-                    ),
-                  );
-                  setUsername('');
-                  setAdded(name);
-                  setCandidates((names) => names.filter((n) => n !== name.toLowerCase()));
-                });
-              }}
-            >
-              <label className="flex min-w-56 flex-1 flex-col gap-2 text-sm">
-                <span className="font-medium">
-                  {leader
-                    ? 'Thêm thành viên theo tên đăng nhập'
-                    : 'Thêm Annotator theo tên đăng nhập'}
-                </span>
-                <input
-                  className="rounded-lg border border-line bg-transparent px-3 py-2"
-                  list="member-candidates"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  maxLength={64}
-                  placeholder="Tên đăng nhập"
-                  autoComplete="off"
-                  spellCheck={false}
-                  required
-                  disabled={busy === 'add'}
-                />
-                <datalist id="member-candidates">
-                  {candidates.map((name) => (
-                    <option key={name} value={name} />
-                  ))}
-                </datalist>
-              </label>
-              {leader && (
-                <label className="flex flex-col gap-2 text-sm">
-                  <span className="font-medium">Vai trò</span>
-                  <select
-                    className="rounded-lg border border-line bg-transparent px-3 py-2"
-                    value={role}
-                    onChange={(e) => setRole(e.target.value as MemberRole)}
-                    disabled={busy === 'add'}
-                  >
-                    {GROUPS.map(([value]) => (
-                      <option key={value} value={value}>
-                        {roleLabel[value]}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              )}
-              <button
-                className="sr-button border-accent/40 text-accent"
-                disabled={Boolean(busy) || !username.trim()}
-              >
-                {busy === 'add' && <Spinner />}
-                Thêm vào project
-              </button>
-              {added && (
-                <p role="status" className="w-full text-sm text-accent">
-                  Đã thêm: {added}
-                </p>
-              )}
-            </form>
-          )}
           <div className="grid gap-6 lg:grid-cols-3">
             <div>
               <h3 className="eyebrow mb-3 text-muted">Người tạo (Leader)</h3>
@@ -240,80 +156,207 @@ export function ProjectPeople({
               </div>
             ))}
           </div>
-          {leader && (
-            <details
-              className="mt-6 border-t border-line pt-4"
-              data-testid="invite-codes"
-              onToggle={(e) => {
-                if (e.currentTarget.open && !codes)
-                  run('codes', async () => setCodes(await request<InviteCodes>(`${base}/invites`)));
-              }}
-            >
-              <summary className="cursor-pointer text-sm font-medium">
-                Cách khác: mời bằng mã
-              </summary>
-              <p className="mt-3 text-sm text-muted">
-                Gửi mã cho người cần tham gia; họ tự nhập mã ở trang Projects. Mã dùng được nhiều
-                lần và quyết định vai trò.
-              </p>
-              {!codes ? (
-                busy === 'codes' && (
-                  <p role="status" className="mt-3 text-sm text-muted">
-                    <Spinner />
-                    Đang tải mã mời…
-                  </p>
-                )
-              ) : (
-                <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                  {GROUPS.map(([group]) => (
-                    <div key={group} className="rounded-lg border border-line p-3">
-                      <p className="text-xs text-muted">Mã mời {roleLabel[group]}</p>
-                      <p
-                        className="mt-1 font-mono text-lg tracking-widest"
-                        data-testid={`invite-${group}`}
-                      >
-                        {codes[group]}
-                      </p>
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        <button
-                          className="sr-button min-h-8 py-1 text-xs"
-                          onClick={() =>
-                            run('', async () => {
-                              await navigator.clipboard.writeText(codes[group]);
-                              setCopied(group);
-                            })
-                          }
-                        >
-                          {copied === group ? 'Đã sao chép' : 'Sao chép'}
-                        </button>
-                        <button
-                          className="sr-button min-h-8 py-1 text-xs"
-                          disabled={Boolean(busy)}
-                          onClick={() => {
-                            if (!window.confirm(ui('Tạo mã mới? Mã cũ sẽ không dùng được nữa.')))
-                              return;
-                            run('code-' + group, async () => {
-                              setCodes(
-                                await request<InviteCodes>(
-                                  `${base}/invites`,
-                                  json('POST', { role: group }),
-                                ),
-                              );
-                              setCopied('');
-                            });
-                          }}
-                        >
-                          Tạo mã mới
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </details>
-          )}
         </>
       )}
+      {adding && (
+        <AddMembersDialog
+          base={base}
+          leader={leader}
+          onClose={() => setAdding(false)}
+          onAdded={(next, names) => {
+            setPeople(next);
+            setAdded(names);
+            setAdding(false);
+          }}
+        />
+      )}
+      <ConfirmDialog
+        open={Boolean(removing)}
+        title="Xóa thành viên khỏi project?"
+        confirmLabel="Xóa thành viên"
+        cancelLabel="Hủy"
+        busy={busy === 'remove'}
+        error={removeError}
+        onCancel={() => setRemoving(null)}
+        onConfirm={async () => {
+          if (!removing) return;
+          setBusy('remove');
+          setRemoveError('');
+          setAdded([]);
+          try {
+            setPeople(
+              await request<People>(`${base}/members/${removing.id}`, { method: 'DELETE' }),
+            );
+            setRemoving(null);
+          } catch (e) {
+            setRemoveError((e as Error).message);
+          } finally {
+            setBusy('');
+          }
+        }}
+      >
+        <strong className="break-all">{removing?.username}</strong> sẽ không vào được project này
+        nữa. Bạn thêm lại được bất cứ lúc nào.
+      </ConfirmDialog>
     </section>
+  );
+}
+
+function AddMembersDialog({
+  base,
+  leader,
+  onClose,
+  onAdded,
+}: {
+  base: string;
+  leader: boolean;
+  onClose: () => void;
+  onAdded: (people: People, names: string[]) => void;
+}) {
+  const [candidates, setCandidates] = useState<string[] | null>(null);
+  const [chosen, setChosen] = useState<Set<string>>(new Set());
+  const [filter, setFilter] = useState('');
+  const [role, setRole] = useState<MemberRole>(leader ? 'reviewer' : 'annotator');
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState('');
+  useEffect(() => {
+    const c = new AbortController();
+    request<string[]>(`${base}/members/candidates`, { signal: c.signal })
+      .then(setCandidates)
+      .catch((e) => {
+        if (!c.signal.aborted) setError(e.message);
+      });
+    return () => c.abort();
+  }, [base]);
+  const needle = filter.trim().toLowerCase();
+  const shown = candidates?.filter((name) => name.includes(needle)) ?? [];
+  const allShown = shown.length > 0 && shown.every((name) => chosen.has(name));
+  const toggle = (names: string[], on: boolean) => {
+    const next = new Set(chosen);
+    for (const name of names) on ? next.add(name) : next.delete(name);
+    setChosen(next);
+  };
+  async function add() {
+    setSending(true);
+    setError('');
+    try {
+      const names = [...chosen];
+      onAdded(
+        await request<People>(`${base}/members`, json('POST', { usernames: names, role })),
+        names,
+      );
+    } catch (e) {
+      setError((e as Error).message);
+      setSending(false);
+    }
+  }
+  return (
+    <Modal isOpen onOpenChange={(open) => !open && !sending && onClose()}>
+      <Modal.Backdrop>
+        <Modal.Container>
+          <Modal.Dialog aria-label="Thêm thành viên" data-testid="add-members">
+            <Modal.CloseTrigger />
+            <Modal.Header>
+              <Modal.Heading>{leader ? 'Thêm thành viên' : 'Thêm Annotator'}</Modal.Heading>
+            </Modal.Header>
+            <Modal.Body>
+              <fieldset disabled={sending}>
+                <div className="flex flex-wrap items-end gap-3">
+                  <label className="flex min-w-40 flex-1 flex-col gap-2 text-sm">
+                    <span className="font-medium">Tìm tài khoản</span>
+                    <input
+                      className="rounded-lg border border-line bg-transparent px-3 py-2"
+                      type="search"
+                      value={filter}
+                      onChange={(e) => setFilter(e.target.value)}
+                      placeholder="Tên đăng nhập"
+                      autoComplete="off"
+                      spellCheck={false}
+                    />
+                  </label>
+                  {leader && (
+                    <label className="flex flex-col gap-2 text-sm">
+                      <span className="font-medium">Vai trò</span>
+                      <select
+                        className="rounded-lg border border-line bg-transparent px-3 py-2"
+                        value={role}
+                        onChange={(e) => setRole(e.target.value as MemberRole)}
+                      >
+                        {GROUPS.map(([value]) => (
+                          <option key={value} value={value}>
+                            {roleLabel[value]}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  )}
+                </div>
+                {!candidates ? (
+                  !error && (
+                    <p role="status" className="mt-4 text-sm text-muted">
+                      <Spinner />
+                      Đang tải danh sách tài khoản…
+                    </p>
+                  )
+                ) : !candidates.length ? (
+                  <p className="mt-4 text-sm text-muted">
+                    Mọi tài khoản thành viên đều đã ở trong project.
+                  </p>
+                ) : (
+                  <>
+                    <div className="mt-4 flex items-center justify-between gap-3 text-sm">
+                      <label className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={allShown}
+                          disabled={!shown.length}
+                          onChange={(e) => toggle(shown, e.target.checked)}
+                        />
+                        {needle ? 'Chọn tất cả kết quả' : 'Chọn tất cả'}
+                      </label>
+                      <span className="text-muted">Đã chọn {chosen.size}</span>
+                    </div>
+                    <ul
+                      className="mt-2 max-h-72 space-y-1 overflow-y-auto rounded-lg border border-line p-2"
+                      data-testid="member-candidates"
+                    >
+                      {shown.map((name) => (
+                        <li key={name}>
+                          <label className="flex items-center gap-2 rounded px-2 py-1 text-sm hover:bg-accent/5">
+                            <input
+                              type="checkbox"
+                              checked={chosen.has(name)}
+                              onChange={(e) => toggle([name], e.target.checked)}
+                            />
+                            <span className="break-all">{name}</span>
+                          </label>
+                        </li>
+                      ))}
+                      {!shown.length && (
+                        <li className="px-2 py-1 text-sm text-muted">Không có tài khoản khớp.</li>
+                      )}
+                    </ul>
+                  </>
+                )}
+              </fieldset>
+              {error && (
+                <p role="alert" className="mt-3 text-sm text-rose-700">
+                  {error}
+                </p>
+              )}
+            </Modal.Body>
+            <Modal.Footer>
+              <Button variant="secondary" isDisabled={sending} onPress={onClose}>
+                Hủy
+              </Button>
+              <Button variant="primary" isDisabled={sending || !chosen.size} onPress={add}>
+                {sending && <Spinner />}
+                {chosen.size > 1 ? `Thêm ${chosen.size} thành viên` : 'Thêm thành viên'}
+              </Button>
+            </Modal.Footer>
+          </Modal.Dialog>
+        </Modal.Container>
+      </Modal.Backdrop>
+    </Modal>
   );
 }

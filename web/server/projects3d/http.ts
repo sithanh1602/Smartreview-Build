@@ -26,12 +26,6 @@ export async function handleProjects3D(
       } else throw new ReviewError(405, 'Use GET or POST.');
       return true;
     }
-    if (url.pathname === '/api/projects3d/join') {
-      if (req.method !== 'POST') throw new ReviewError(405, 'Use POST.');
-      sameOrigin(req);
-      json(res, 200, await projects.members.join(await readJson(req), user));
-      return true;
-    }
     const match = url.pathname.match(/^\/api\/projects3d\/([^/]+)(\/.*)?$/);
     if (!match) throw new ReviewError(404, 'Unknown project route.');
     const [, id, route = ''] = match;
@@ -166,13 +160,6 @@ export async function handleProjects3D(
           ? await projects.members.remove(id, member[1])
           : await projects.members.setRole(id, member[1], await readJson(req)),
       );
-    } else if (route === '/invites') {
-      leaderOnly();
-      if (req.method === 'GET') json(res, 200, await projects.members.invites(id));
-      else if (req.method === 'POST') {
-        sameOrigin(req);
-        json(res, 200, await projects.members.regenerate(id, await readJson(req)));
-      } else throw new ReviewError(405, 'Use GET or POST.');
     } else if (!route || route === '/import-status') {
       if (req.method !== 'GET') throw new ReviewError(405, 'Use GET.');
       json(res, 200, { ...(await projects.get(id)), my_role: role });

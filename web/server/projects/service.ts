@@ -3,7 +3,7 @@ import { rescoreDataset } from '../ai/rescore.ts';
 import { VerifyService } from '../verify/service.ts';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { imageResolver, importDataset, isFormat, namesImages } from '../../core/importers/index.ts';
 import { applyEnvRisk, parseImageTable } from '../../core/importers/signals.ts';
 import { normalizeDataset } from '../../core/schema/normalize.ts';
@@ -16,6 +16,7 @@ import { ReviewError } from '../../shared/review.ts';
 import { receiveUpload, safePath } from './upload.ts';
 import { ProjectMembers } from './members.ts';
 import { ProjectHandoffs, compareReturn, sameShape } from './handoff.ts';
+import type { HandoffResult } from './handoff.ts';
 import { returnedDataset } from './return.ts';
 import { FrameReviewStore } from '../frames/store.ts';
 import type { SourceFile } from '../../core/importers/index.ts';
@@ -523,6 +524,111 @@ export class ProjectService {
       });
     }
     await this.handoffs.returned(id, user, result);
+    return result;
+  }
+  // A reviewer's answer to one item of a returned round. Accept saves the label there now as
+  // Correct. Reject marks the item again for the next round: the label there now becomes an
+  // Error as it was sent, or, with no label there (removed, never drawn), the region is marked
+  // as missing on its image. Answering again replaces the first answer.
+  async judge(id: string, input: Untrusted, user: User, role: ProjectRole) {
+    if (role === 'annotator')
+      throw new ReviewError(403, 'Chỉ Leader hoặc Reviewer được kiểm tra bản sửa.');
+    const value = input?.verdict,
+      itemId = input?.item_id,
+      note = input?.note ?? null;
+    if (value !== 'accept' && value !== 'reject')
+      throw new ReviewError(400, 'verdict phải là accept hoặc reject.');
+    if (typeof itemId !== 'string') throw new ReviewError(400, 'Thiếu item_id.');
+    if (note !== null && (typeof note !== 'string' || note.length > 1000))
+      throw new ReviewError(400, 'Ghi chú tối đa 1000 ký tự.');
+    const result = await this.handoffs.returnedResult(id);
+    const found = (
+      [
+        ['error', result.errors],
+        ['missing', result.missing],
+        ['review', result.review ?? []],
+      ] as const
+    ).flatMap(([kind, list]) =>
+      list.filter((i) => i.id === itemId).map((item) => ({ kind, item })),
+    )[0];
+    if (!found) throw new ReviewError(404, 'Không tìm thấy mục này trong bản sửa.');
+    const { kind, item } = found;
+    const text = note?.trim() || null;
+    const { dataset, reviews } = await this.context(id);
+    if (item.now) {
+      const label = dataset.allCases.find((c) => c.id === item.now!.id);
+      if (!label) throw new ReviewError(409, 'Nhãn hiện tại không còn trong dataset.');
+      const existing = (await reviews.list())[label.id];
+      const sent = kind === 'error' ? (item as HandoffResult['errors'][number]) : null;
+      await reviews.save(
+        label,
+        {
+          ...(value === 'accept'
+            ? { decision: 'CORRECT', error_type: null, corrected_value: null, note: text }
+            : {
+                decision: 'ERROR',
+                error_type: sent?.error_type ?? 'OTHER',
+                corrected_value: sent?.corrected_value ?? null,
+                note: text ?? item.note ?? null,
+              }),
+          version: existing?.version,
+        },
+        existing ? 'update' : 'create',
+        user.id,
+      );
+    } else {
+      // The region of an item without a label, kept under an id of its own so a second
+      // answer replaces it.
+      const regionId = 'recheck-' + createHash('sha256').update(item.id).digest('hex').slice(0, 16);
+      const frames = new FrameReviewStore(this.pool, reviews.datasetId);
+      const current = await frames.read(item.frame_ref);
+      const others = (current?.missing_regions ?? []).filter((r) => r.id !== regionId);
+      const g = item.geometry;
+      const box =
+        g.type === 'bbox'
+          ? g
+          : g.type === 'polygon' || g.type === 'polyline'
+            ? (() => {
+                const xs = g.points.map((p) => p[0]),
+                  ys = g.points.map((p) => p[1]);
+                const x = Math.min(...xs),
+                  y = Math.min(...ys);
+                return { x, y, width: Math.max(...xs) - x, height: Math.max(...ys) - y };
+              })()
+            : null;
+      if (value === 'reject' && !box)
+        throw new ReviewError(422, 'Mục này không có khung để đánh dấu lại.');
+      const regions =
+        value === 'reject'
+          ? [
+              ...others,
+              {
+                id: regionId,
+                label:
+                  (kind === 'error' && (item as HandoffResult['errors'][number]).corrected_value) ||
+                  item.class_name ||
+                  'object',
+                note: text ?? item.note ?? 'Reviewer từ chối bản sửa.',
+                geometry: {
+                  type: 'bbox' as const,
+                  x: box!.x,
+                  y: box!.y,
+                  width: box!.width,
+                  height: box!.height,
+                },
+              },
+            ]
+          : others;
+      if (current || regions.length)
+        await frames.save(item.frame_ref, {
+          status: current?.status ?? 'IN_PROGRESS',
+          missing_regions: regions,
+          note: current?.note ?? '',
+          version: current?.version ?? 0,
+        });
+    }
+    item.verdict = { value, note: text, by: user.username, at: new Date().toISOString() };
+    await this.handoffs.saveResult(id, result);
     return result;
   }
   async context(id: string): Promise<ProjectContext> {

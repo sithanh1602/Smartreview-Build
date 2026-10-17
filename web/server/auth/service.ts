@@ -1,4 +1,4 @@
-import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { ReviewError } from '../../shared/review.ts';
 import { hashPassword, usernameValue, verifyPassword } from './password.ts';
 import type { Untrusted } from '../../shared/review.ts';
@@ -20,13 +20,9 @@ const unauthorized = () => new ReviewError(401, 'Phiên đăng nhập không h�
 export class AuthService {
   pool: Db;
   passwordChecks: number;
-  // SHA-256 of the code that lets someone register as a leader (LEADER_SIGNUP_CODE); without
-  // one, leaders are created only with the CLI.
-  leaderCode: Buffer | null;
-  constructor(pool: Db, { leaderCode = '' }: { leaderCode?: string } = {}) {
+  constructor(pool: Db) {
     this.pool = pool;
     this.passwordChecks = 0;
-    this.leaderCode = leaderCode ? createHash('sha256').update(leaderCode).digest() : null;
   }
   async cleanup() {
     await this.pool.execute<Rows>(
@@ -61,11 +57,8 @@ export class AuthService {
       !input ||
       typeof input !== 'object' ||
       Array.isArray(input) ||
-      Object.keys(input).some(
-        (k) => !['username', 'password', 'role', 'leaderCode', 'website'].includes(k),
-      ) ||
+      Object.keys(input).some((k) => !['username', 'password', 'website'].includes(k)) ||
       typeof input.password !== 'string' ||
-      (input.leaderCode !== undefined && typeof input.leaderCode !== 'string') ||
       (input.website !== undefined && typeof input.website !== 'string') ||
       input.password.length < 12 ||
       input.password.length > 128
@@ -74,9 +67,7 @@ export class AuthService {
         400,
         'Tên đăng nhập hợp lệ và mật khẩu từ 12 đến 128 ký tự là bắt buộc.',
       );
-    const role: Role = input.role ?? 'member';
-    if (!ROLES.includes(role))
-      throw new ReviewError(400, 'Loại tài khoản phải là Leader hoặc Thành viên.');
+    const role: Role = 'member';
     let username;
     try {
       username = usernameValue(input.username);
@@ -87,8 +78,6 @@ export class AuthService {
     // `website` is a field people never see: a bot that fills it is told it succeeded, and
     // nothing is created.
     if (input.website) return { id: randomUUID(), username, role: 'member' as Role };
-    if (role === 'leader' && !this.leaderCodeMatches(input.leaderCode))
-      throw new ReviewError(403, 'Mã Leader không đúng.');
     if (this.passwordChecks >= 2)
       throw new ReviewError(429, 'Hệ thống đang bận. Vui lòng thử lại.');
     this.passwordChecks++;
@@ -101,10 +90,6 @@ export class AuthService {
     } finally {
       this.passwordChecks--;
     }
-  }
-  leaderCodeMatches(code: unknown) {
-    if (!this.leaderCode || typeof code !== 'string' || !code) return false;
-    return timingSafeEqual(createHash('sha256').update(code).digest(), this.leaderCode);
   }
   async throttle(username: string, ip: string, action = 'login') {
     for (const [key, limit] of [

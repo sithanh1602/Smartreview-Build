@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Button, Modal } from '@heroui/react';
 import { Spinner } from '../../components/Spinner';
 import { request } from '../../lib/api';
+import type { UsableModels } from '../../types.ts';
 
 // Shown once the files of a new project are uploaded: the person chooses what scans the
 // labels, and only then goes on to the project. The Risk Engine runs at import whatever is
@@ -16,19 +17,41 @@ export function ScanChoice({
   ready: boolean;
   onDone: () => void;
 }) {
-  const [first, setFirst] = useState(true),
+  const [models, setModels] = useState<UsableModels | null>(null),
+    [first, setFirst] = useState(false),
     [second, setSecond] = useState(false),
+    [model, setModel] = useState(''),
+    [secondModel, setSecondModel] = useState(''),
     [busy, setBusy] = useState(false),
     [error, setError] = useState('');
+  useEffect(() => {
+    const c = new AbortController();
+    request<UsableModels>(`/projects/${projectId}/label-verify/models`, { signal: c.signal })
+      .then((found) => {
+        setModels(found);
+        setModel(found.first[0]?.name ?? '');
+        setSecondModel(found.second[0]?.name ?? '');
+        setFirst(found.first.length > 0);
+      })
+      .catch((e) => {
+        if (!c.signal.aborted) setError(e.message);
+      });
+    return () => c.abort();
+  }, [projectId]);
+  const noFirst = models !== null && !models.first.length;
+  const noSecond = models !== null && !models.second.length;
   async function go() {
-    if (!first) return onDone();
+    if (!first || !model) return onDone();
     setBusy(true);
     setError('');
     try {
       await request(`/projects/${projectId}/label-verify`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ second }),
+        body: JSON.stringify({
+          model,
+          ...(second && secondModel && { second_model: secondModel }),
+        }),
       });
       onDone();
     } catch (e) {
@@ -60,39 +83,62 @@ export function ScanChoice({
                     </span>
                   </span>
                 </label>
-                <label className="flex items-start gap-3 text-sm">
+                <div className="flex items-start gap-3 text-sm">
                   <input
+                    id="scan-first"
                     type="checkbox"
                     className="mt-1"
                     checked={first}
+                    disabled={!models || noFirst}
                     onChange={(e) => {
                       setFirst(e.target.checked);
                       if (!e.target.checked) setSecond(false);
                     }}
                   />
-                  <span>
-                    <strong>SigLIP 2</strong>
+                  <div className="min-w-0 flex-1">
+                    <label htmlFor="scan-first" className="font-semibold">
+                      Quét bằng model ảnh
+                    </label>
                     <span className="block text-muted">
-                      Cắt phần ảnh trong từng khung để so với nhãn. Chỉ cắt ảnh và chạy khi được
-                      chọn; khung bị phát hiện sai vào hàng đợi kiểm tra.
+                      Cắt phần ảnh trong từng khung để so với nhãn. Khung bị phát hiện sai vào hàng
+                      đợi kiểm tra.
                     </span>
-                  </span>
-                </label>
-                <label className="flex items-start gap-3 text-sm">
+                    <ModelPicker
+                      label="Model quét"
+                      models={models?.first}
+                      value={model}
+                      onChange={setModel}
+                      disabled={!first}
+                      empty="Chưa có model loại SigLIP trong thư mục model-usage."
+                    />
+                  </div>
+                </div>
+                <div className="flex items-start gap-3 text-sm">
                   <input
+                    id="scan-second"
                     type="checkbox"
                     className="mt-1"
                     checked={second}
-                    disabled={!first}
+                    disabled={!first || noSecond}
                     onChange={(e) => setSecond(e.target.checked)}
                   />
-                  <span>
-                    <strong>Qwen2.5-VL</strong>
+                  <div className="min-w-0 flex-1">
+                    <label htmlFor="scan-second" className="font-semibold">
+                      Xem lại bằng model thứ hai
+                    </label>
                     <span className="block text-muted">
-                      Xem lại các khung SigLIP 2 đã nghi và xác nhận. Chậm hơn nhiều.
+                      Xem lại các khung model quét đã nghi và xác nhận. Chậm hơn nhiều.
                     </span>
-                  </span>
-                </label>
+                    <ModelPicker
+                      label="Model xem lại"
+                      models={models?.second}
+                      value={secondModel}
+                      onChange={setSecondModel}
+                      disabled={!second}
+                      empty="Chưa có model loại Qwen2.5-VL trong thư mục model-usage."
+                    />
+                  </div>
+                </div>
               </fieldset>
               <p className="mt-4 text-sm text-muted">
                 {ready
@@ -115,5 +161,45 @@ export function ScanChoice({
         </Modal.Container>
       </Modal.Backdrop>
     </Modal>
+  );
+}
+
+function ModelPicker({
+  label,
+  models,
+  value,
+  onChange,
+  disabled,
+  empty,
+}: {
+  label: string;
+  models: UsableModels['first'] | undefined;
+  value: string;
+  onChange: (name: string) => void;
+  disabled: boolean;
+  empty: string;
+}) {
+  if (!models)
+    return (
+      <p role="status" className="mt-2 text-muted">
+        <Spinner />
+        Đang đọc thư mục model-usage…
+      </p>
+    );
+  if (!models.length) return <p className="mt-2 text-amber-700">{empty}</p>;
+  return (
+    <select
+      aria-label={label}
+      className="mt-2 w-full rounded-lg border border-line bg-transparent px-3 py-2"
+      value={value}
+      disabled={disabled}
+      onChange={(e) => onChange(e.target.value)}
+    >
+      {models.map((m) => (
+        <option key={m.name} value={m.name}>
+          {m.name}
+        </option>
+      ))}
+    </select>
   );
 }

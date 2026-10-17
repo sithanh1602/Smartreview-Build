@@ -1,7 +1,7 @@
 {
   "scene_policy": {
     "schema_version": "1.0.0",
-    "policy_version": "1.11.0",
+    "policy_version": "1.13.0",
     "purpose": "Chấm rủi ro cho cuboid 3D của một segment LiDAR. Mọi quy tắc chỉ đọc scene.json (cuboid, pose của xe, số điểm và độ khít đã đo lúc import); không quy tắc nào đọc point cloud. File này quy định ngưỡng, điểm và loại lỗi; code trong core/risk3d chỉ thực hiện.",
     "sources": [
       {
@@ -85,13 +85,16 @@
     "rules": [
       {
         "id": "box.below_ground",
-        "score": 70,
+        "score": 40,
         "error_type": "BBOX",
-        "description": "Kiểm tra từng object: đáy chìm dưới mặt đường cục bộ vượt dung sai. Không dùng z=0, không cần track hoặc điểm nằm trong box. Thiếu lift thì không kết luận.",
+        "text": "Đáy cuboid chìm dưới mặt đường cục bộ (lift) quá below_m, khi cuboid cách xe không quá max_distance_m. Các frame liền nhau của cùng một đối tượng là một case, đặt ở frame chìm sâu nhất. Chìm quá deep_m thì case mang deep_score thay cho score. Không dùng center.z, không cần điểm trong cuboid; thiếu lift thì không kết luận.",
         "params": {
           "below_m": 0.25,
-          "max_distance_m": 50
-        }
+          "max_distance_m": 25,
+          "deep_m": 0.5,
+          "deep_score": 70
+        },
+        "measured": "Segment 10359308928573410754_720_000_740_000 (San Francisco, đường dốc), nhãn Waymo coi là đúng: trong 20 m 0/226 cuboid VEHICLE, PEDESTRIAN chìm quá 0,25 m; 20–30 m 21/114; 30–40 m 28/92; 40–50 m 35/40 (trung vị lift −0,42 m). Mặt đường đo ở xa trên dốc lệch xuống, nên max_distance_m hạ từ 50 xuống 25 m; xa hơn để fit.sunk (trung vị 5 frame, 0,5 m) xét."
       },
       {
         "id": "track.type_change",
@@ -199,6 +202,72 @@
         "text": "Đối tượng chỉ có mặt ở đúng một frame, không phải frame đầu hay frame cuối của segment.",
         "params": {},
         "measured": "Segment mẫu: 1 trong 137 đối tượng."
+      },
+      {
+        "id": "points.sparse_run",
+        "score": 30,
+        "error_type": "BBOX",
+        "text": "Cùng một đối tượng có từ min_frames frame liền nhau mà cuboid đều dưới below điểm LiDAR, trong khi ở trong max_distance_m: ở gần xe mà nhiều frame liền vẫn gần như không có điểm thì cuboid có thể đặt lệch khỏi vật, hoặc chỗ đó không có vật. Một case cho cả chuỗi, đặt ở cuboid ít điểm nhất. Chỉ xét loại trong types: biển báo nhỏ, ít điểm là bình thường. Đối tượng đã có track.never_observed thì không xét.",
+        "params": {
+          "below": 15,
+          "min_frames": 4,
+          "max_distance_m": 40,
+          "types": ["VEHICLE", "PEDESTRIAN", "CYCLIST"]
+        },
+        "measured": "Chưa đo. Mức 15 điểm và 4 frame (0,4 s) lấy theo yêu cầu; segment mẫu có 293 cuboid dưới 10 điểm trong 40 m, chưa đếm thành chuỗi. Segment 10359308928573410754_720_000_740_000: 5 case, 4 là SIGN có 0–4 điểm suốt 16–20 frame, nên SIGN bị bỏ khỏi types."
+      },
+      {
+        "id": "track.short",
+        "score": 20,
+        "error_type": "EXTRA_OBJECT",
+        "text": "Đối tượng chỉ có từ 2 tới max_frames frame, không chạm frame đầu hay frame cuối của segment, và có lúc ở trong within_m: vật thật ở gần xe không xuất hiện rồi biến mất nhanh như vậy. Case đặt ở cuboid đầu tiên. Đối tượng một frame thuộc track.single_frame.",
+        "params": {
+          "max_frames": 3,
+          "within_m": 40
+        },
+        "measured": "Chưa đo."
+      },
+      {
+        "id": "track.speed",
+        "score": 50,
+        "error_type": "TRACKING",
+        "text": "Giữa hai frame liền nhau, tâm cuboid (hệ toàn cục) đi nhanh hơn max_speed_mps của loại, tính với frame_s giây mỗi frame: vật không thể đi nhanh như vậy, thường là ID bị gán sang vật khác. Nếu cả bước tới lẫn bước đi khỏi một cuboid đều quá nhanh, chỉ cuboid đó bị gắn cờ (nó là cuboid lệch); nếu không, cờ đặt ở cuboid sau bước nhảy.",
+        "params": {
+          "frame_s": 0.1,
+          "max_speed_mps": {
+            "VEHICLE": 45,
+            "PEDESTRIAN": 6,
+            "CYCLIST": 15,
+            "SIGN": 3
+          }
+        },
+        "measured": "Chưa đo. Giới hạn theo vật lý: xe 45 m/s (162 km/h), người chạy 6 m/s, xe đạp 15 m/s; biển báo đứng yên, 3 m/s chỉ để chừa sai số nhãn 0,3 m một frame."
+      },
+      {
+        "id": "track.size_spread",
+        "score": 30,
+        "error_type": "BBOX",
+        "text": "Với loại trong types, đối tượng có từ min_frames cuboid đủ min_points điểm: một cạnh của cuboid khác trung vị của cả track quá relative_change. Bắt kích thước trôi dần qua nhiều frame, mà track.size_change (so hai frame kề) không thấy. Một case cho cả đối tượng, ở cuboid khác nhất.",
+        "params": {
+          "types": ["VEHICLE", "CYCLIST"],
+          "min_frames": 5,
+          "min_points": 20,
+          "relative_change": 0.15
+        },
+        "measured": "Chưa đo. Nhãn Waymo giữ nguyên kích thước của một đối tượng qua mọi frame (open_questions), nên mọi độ lệch đều là lỗi trên dữ liệu đó."
+      },
+      {
+        "id": "track.heading_motion",
+        "score": 40,
+        "error_type": "BBOX",
+        "text": "Xe (loại trong types) đi được từ min_move_m trong window frame liền nhau mà hướng cuboid ở frame giữa lệch quá min_angle_rad so với hướng đi, không phân biệt đầu và đuôi (xe lùi vẫn hợp lệ): xe không đi ngang được. Một case cho mỗi chuỗi frame lệch, ở cuboid lệch nhiều nhất.",
+        "params": {
+          "types": ["VEHICLE"],
+          "window": 5,
+          "min_move_m": 2,
+          "min_angle_rad": 0.5
+        },
+        "measured": "Chưa đo. 2 m trong 0,4 s là 5 m/s, đủ để sai số tâm cỡ 0,2 m chỉ làm lệch hướng đi khoảng 0,1 rad."
       },
       {
         "id": "fit.moved",
@@ -357,7 +426,8 @@
       "Nhãn Waymo rất mượt (kích thước của một đối tượng không đổi, hướng lệch dưới 0,02 rad). Bộ dữ liệu gán từng frame riêng sẽ dao động nhiều hơn và cần ngưỡng riêng.",
       "CYCLIST chưa có số đo.",
       "Mức của fit.* đặt sát trên trung vị lớn nhất của một segment; với VEHICLE, vật lớn đứng sát xe làm nhãn đúng cũng thiếu tới 47% điểm so với chỗ tốt nhất.",
-      "fit.floating, fit.sunk, fit.lowered và fit.raised đo mặt đường từ điểm quanh chân cuboid; xa quá 50 m, hay ở chỗ không thấy mặt đường (bụi cây, bị che), không xét."
+      "fit.floating, fit.sunk, fit.lowered và fit.raised đo mặt đường từ điểm quanh chân cuboid; xa quá 50 m, hay ở chỗ không thấy mặt đường (bụi cây, bị che), không xét.",
+      "points.sparse_run, track.short, track.speed, track.size_spread và track.heading_motion (1.12.0) chưa đo trên segment nào; ngưỡng là giá trị khởi điểm, cần chạy trên nhãn đúng trước khi tin vào số case."
     ]
   }
 }

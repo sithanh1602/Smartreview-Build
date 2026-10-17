@@ -11,7 +11,7 @@ npm run user:create -- --username thanh-lead --role leader
 npm run user:create -- --username thanh-anno --role member
 ```
 
-Người dùng có thể tự đăng ký tại `/register` (liên kết từ trang đăng nhập). Nhập tên đăng nhập, mật khẩu và xác nhận mật khẩu; đăng ký thành công chuyển về `/login`. Khi đăng ký, người dùng chọn loại tài khoản `member` (mặc định) hoặc `leader`. Chọn `leader` phải nhập **mã Leader** (biến `LEADER_SIGNUP_CODE` trong `.env` của backend); chưa đặt biến này thì chỉ tạo leader được bằng CLI. Không có tài khoản/mật khẩu mặc định. Tên đăng nhập 3–64 ký tự chữ, số, `_`, `.` và `-`, không phân biệt hoa thường.
+Người dùng có thể tự đăng ký tại `/register` (liên kết từ trang đăng nhập). Nhập tên đăng nhập, mật khẩu và xác nhận mật khẩu; đăng ký thành công chuyển về `/login`. Đăng ký luôn tạo tài khoản `member`; trang đăng ký không có ô chọn loại tài khoản. Tài khoản `leader` chỉ tạo bằng CLI (`npm run user:update -- --username <tên> --role leader`). Biến `LEADER_SIGNUP_CODE` đã bỏ. Không có tài khoản/mật khẩu mặc định. Tên đăng nhập 3–64 ký tự chữ, số, `_`, `.` và `-`, không phân biệt hoa thường.
 
 ```bash
 npm run user:update -- --username thanh-review --reset-password
@@ -24,13 +24,13 @@ Mỗi lần cập nhật thu hồi toàn bộ phiên của tài khoản đó. M�
 
 ## Quyền truy cập
 
-Từ migration 006, quyền gắn với từng project. Chi tiết về vai trò, mã mời và API: [project-roles.md](project-roles.md).
+Từ migration 006, quyền gắn với từng project. Chi tiết về vai trò, thành viên và API: [project-roles.md](project-roles.md).
 
-| Loại tài khoản | Trang sau đăng nhập                            | Được phép                                                             |
-| -------------- | ---------------------------------------------- | --------------------------------------------------------------------- |
-| leader         | /projects                                      | Tạo và quản lý project của mình, mã mời, thành viên, import, AI Check |
-| member         | /role (chọn Reviewer/Annotator), rồi /projects | Xem và sửa trong các project đã tham gia bằng mã mời                  |
-| Chưa đăng nhập | /login                                         | POST /api/auth/register, POST /api/auth/login, GET /api/health        |
+| Loại tài khoản | Trang sau đăng nhập                            | Được phép                                                      |
+| -------------- | ---------------------------------------------- | -------------------------------------------------------------- |
+| leader         | /projects                                      | Tạo và quản lý project của mình, thành viên, import, AI Check  |
+| member         | /role (chọn Reviewer/Annotator), rồi /projects | Xem và sửa trong các project Leader đã thêm vào                |
+| Chưa đăng nhập | /login                                         | POST /api/auth/register, POST /api/auth/login, GET /api/health |
 
 Backend kiểm tra vai trò trong project trước khi đọc dữ liệu hoặc xử lý tác vụ. Thiếu/không hợp lệ/hết hạn access token nhận 401; member gọi chức năng của leader nhận 403; project mình không thuộc về nhận 404.
 
@@ -50,4 +50,4 @@ Chạy `npm test` và `npm run test:ui` trên database test riêng. Các tài kh
 
 ## API đăng ký
 
-`POST /api/auth/register` nhận JSON `{ username, password, role?, leaderCode?, website? }` (`role` là `leader` hoặc `member`, mặc định `member`), trả 201 với thông tin tài khoản, không tạo phiên đăng nhập. `role: leader` mà thiếu `leaderCode` hoặc sai mã (so khớp bằng SHA-256 và timingSafeEqual) thì trả 403. `website` là trường bẫy bot, bị ẩn khỏi người dùng: có giá trị thì API vẫn trả 201 nhưng không tạo tài khoản. Tên trùng (không phân biệt hoa thường) trả 409; dữ liệu không hợp lệ, `role` khác hai giá trị trên hoặc trường lạ trả 400. Mật khẩu 12–128 ký tự được lưu bằng scrypt. API kiểm tra cùng origin và giới hạn 10 lần/tài khoản, 10 lần/IP trong 15 phút (bộ đếm riêng với đăng nhập), trả 429 khi vượt giới hạn. Đăng ký và đăng nhập dùng chung giới hạn tối đa hai phép xử lý mật khẩu đồng thời.
+`POST /api/auth/register` nhận JSON `{ username, password, website? }`, luôn tạo tài khoản `member`, trả 201 với thông tin tài khoản, không tạo phiên đăng nhập. Gửi kèm `role`, `leaderCode` hay trường lạ khác đều trả 400. `website` là trường bẫy bot, bị ẩn khỏi người dùng: có giá trị thì API vẫn trả 201 nhưng không tạo tài khoản. Tên trùng (không phân biệt hoa thường) trả 409; dữ liệu không hợp lệ hoặc trường lạ trả 400. Mật khẩu 12–128 ký tự được lưu bằng scrypt. API kiểm tra cùng origin và giới hạn 10 lần/tài khoản, 10 lần/IP trong 15 phút (bộ đếm riêng với đăng nhập), trả 429 khi vượt giới hạn. Đăng ký và đăng nhập dùng chung giới hạn tối đa hai phép xử lý mật khẩu đồng thời.

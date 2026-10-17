@@ -6,7 +6,6 @@ import { request } from '../lib/api';
 import { ProjectStatus } from '../features/projects/ProjectLayout';
 import { DeleteProjectButton } from '../features/projects/DeleteProjectButton';
 import { HideProjectButton } from '../features/projects/HideProjectButton';
-import { JoinProjectForm } from '../features/projects/JoinProjectForm';
 import { CvatScanPanel } from '../features/handoff/CvatScanPanel';
 import { Projects3DList } from '../features/projects3d/Projects3DList';
 import { roleLabel } from '../features/auth/AuthGate';
@@ -16,9 +15,8 @@ import type { Project } from '../types.ts';
 export function ProjectsPage() {
   const [rows, setRows] = useState<Project[] | null>(null),
     [error, setError] = useState(''),
-    [attempt, setAttempt] = useState(0),
-    [joined, setJoined] = useState('');
-  const { user, workRole, chooseWorkRole } = useAuth();
+    [attempt, setAttempt] = useState(0);
+  const { user, workRole } = useAuth();
   const leader = user?.role === 'leader';
   // A member works in one role at a time and sees the projects joined in that role.
   const shown = rows && (leader ? rows : rows.filter((p) => p.my_role === workRole));
@@ -52,7 +50,7 @@ export function ProjectsPage() {
           <p className="mt-3 text-sm text-muted">
             {leader
               ? hint('Import dữ liệu đã gán nhãn, kiểm tra chất lượng và lưu quyết định review.')
-              : 'Các project bạn đã tham gia bằng mã mời của Leader.'}
+              : 'Các project Leader đã thêm bạn vào.'}
           </p>
         </div>
         {leader && (
@@ -71,21 +69,6 @@ export function ProjectsPage() {
           <CvatScanPanel />
         </div>
       )}
-      {!leader && (
-        <JoinProjectForm
-          onJoined={(result) => {
-            // The code may belong to the other role: follow it so the project is listed.
-            chooseWorkRole(result.role);
-            setJoined(result.name);
-            setAttempt((a) => a + 1);
-          }}
-        />
-      )}
-      {joined && (
-        <p role="status" className="panel mb-6 p-4 text-sm text-accent">
-          Đã tham gia project: {joined}
-        </p>
-      )}
       {error ? (
         <div role="alert" className="panel p-6">
           {error}
@@ -102,7 +85,7 @@ export function ProjectsPage() {
         <div className="panel p-10 text-muted">
           {leader
             ? hint('Chưa có project. Chọn + New Project để bắt đầu.')
-            : 'Bạn chưa tham gia project nào với vai trò này. Nhập mã mời ở trên để bắt đầu.'}
+            : 'Bạn chưa được thêm vào project nào với vai trò này. Nhờ Leader thêm bạn vào project.'}
         </div>
       ) : (
         groups.map((group) => (

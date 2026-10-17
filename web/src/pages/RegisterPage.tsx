@@ -1,32 +1,16 @@
 import React, { useState } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
-import {
-  Alert,
-  Button,
-  Description,
-  FieldError,
-  Form,
-  Input,
-  Label,
-  Radio,
-  RadioGroup,
-  Spinner,
-  TextField,
-} from '@heroui/react';
+import { Alert, Button, FieldError, Form, Input, Label, Spinner, TextField } from '@heroui/react';
 import { homeFor, useAuth } from '../features/auth/AuthProvider';
 import { AuthLayout, AuthLoading, PasswordField, fieldError } from '../features/auth/AuthLayout';
 import { authRequest } from '../lib/api';
-import type { ApiError, User } from '../types.ts';
+import type { ApiError } from '../types.ts';
 
 // Cùng quy tắc với backend (docs/auth.md): tên 3–64 ký tự chữ, số, _ . -; mật khẩu 12–128 ký tự.
 const checkUsername = (value: string) =>
   value && !/^[A-Za-z0-9_.-]{3,64}$/.test(value)
     ? 'Tên đăng nhập gồm 3–64 ký tự: chữ, số, dấu _ . hoặc -'
     : null;
-const ACCOUNTS: [User['role'], string, string][] = [
-  ['member', 'Thành viên', 'Tham gia project bằng mã mời, làm Reviewer hoặc Annotator.'],
-  ['leader', 'Leader', 'Tạo project, mời và quản lý thành viên. Cần mã Leader.'],
-];
 const checkPassword = (value: string) =>
   value && value.length < 12 ? 'Mật khẩu cần ít nhất 12 ký tự.' : null;
 
@@ -36,8 +20,6 @@ export function RegisterPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
-  const [role, setRole] = useState<User['role']>('member');
-  const [leaderCode, setLeaderCode] = useState('');
   // Never shown to people: only a bot fills it, and the server then creates nothing.
   const [website, setWebsite] = useState('');
   const [error, setError] = useState('');
@@ -75,8 +57,6 @@ export function RegisterPage() {
             await authRequest('register', {
               username,
               password,
-              role,
-              ...(role === 'leader' && { leaderCode }),
               ...(website && { website }),
             });
             navigate('/login', { replace: true, state: { registered: username } });
@@ -127,37 +107,6 @@ export function RegisterPage() {
           }
           isDisabled={busy}
         />
-        <RadioGroup
-          name="role"
-          value={role}
-          onChange={(value) => setRole(value as User['role'])}
-          isDisabled={busy}
-        >
-          <Label>Loại tài khoản</Label>
-          {ACCOUNTS.map(([value, label, description]) => (
-            <Radio key={value} value={value} className="w-full">
-              <Radio.Content className="min-h-9 w-full">
-                <Radio.Control>
-                  <Radio.Indicator />
-                </Radio.Control>
-                <Label>{label}</Label>
-              </Radio.Content>
-              <Description>{description}</Description>
-            </Radio>
-          ))}
-        </RadioGroup>
-        {role === 'leader' && (
-          <PasswordField
-            label="Mã Leader"
-            missing="Nhập mã Leader được cấp."
-            name="leaderCode"
-            autoComplete="off"
-            maxLength={200}
-            value={leaderCode}
-            onChange={setLeaderCode}
-            isDisabled={busy}
-          />
-        )}
         <input
           type="text"
           name="website"

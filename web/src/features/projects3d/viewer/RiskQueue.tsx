@@ -51,6 +51,11 @@ function groupWarnings(warnings: Risk3DCase[]): WarningGroup[] {
     .map((g) => ({ ...g, frames: [...new Set(g.frames)].sort((a, b) => a - b) }))
     .sort((a, b) => a.frames[0] - b.frames[0] || a.objectId.localeCompare(b.objectId));
 }
+// The reason of the finding that scores most, the one the case's error type comes from; a
+// warning found first must not speak for the case.
+const leadingReason = (c: Risk3DCase) =>
+  c.findings.reduce((top, f) => (f.score > top.score ? f : top), c.findings[0])?.reason ??
+  c.reasons[0];
 const WARNING_NAMES: Record<string, string> = {
   'points.sparse': 'Ít điểm LiDAR',
   'track.single_frame': 'Chỉ có ở một frame',
@@ -184,7 +189,7 @@ export function RiskQueue({
                               {issue.kind !== 'review' && (
                                 <span className="line-clamp-2 text-[11px] text-muted">
                                   {issue.case
-                                    ? issue.case.reasons[0]
+                                    ? leadingReason(issue.case)
                                     : issue.gap?.likely_missing
                                       ? `Mất cuboid ở frame này, nhưng chỗ đó vẫn có ${Math.max(...issue.gap.points!)} điểm của vật: gần như chắc thiếu cuboid.`
                                       : issue.gap?.points

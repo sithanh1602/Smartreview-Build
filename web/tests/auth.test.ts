@@ -9,7 +9,6 @@ import { migrate } from '../server/db/migrate.ts';
 import { testPool } from './db-helpers.ts';
 let pool, auth, server, base, reviewer, annotator;
 const password = randomUUID();
-const LEADER_CODE = 'leader-' + randomUUID();
 const jar = (r) =>
   r.headers
     .getSetCookie()
@@ -35,7 +34,7 @@ const login = (user) => call('/api/auth/login', 'POST', '', { username: user.use
 before(async () => {
   pool = testPool();
   await migrate(pool);
-  auth = new AuthService(pool, { leaderCode: LEADER_CODE });
+  auth = new AuthService(pool);
   reviewer = await auth.createUser({
     username: 'review_' + randomUUID(),
     password,
@@ -189,6 +188,8 @@ test('registration validates input and account type, hashes password and support
       { username, password: 'short' },
       { username: 'bad name', password },
       { username, password, role: 'reviewer' },
+      { username, password, role: 'leader' },
+      { username, password, leaderCode: 'x' },
       { username, password, admin: true },
     ]) {
       assert.equal((await call('/api/auth/register', 'POST', '', data)).status, 400);
@@ -243,33 +244,19 @@ test('registration validates input and account type, hashes password and support
     ]);
   }
 });
-test('a leader account needs the leader code; the hidden field makes registration a no-op', async () => {
+test('registration only creates members; the hidden field makes registration a no-op', async () => {
   const username = 'lead_' + randomUUID(),
     bot = 'bot_' + randomUUID();
   const ipBucket = tokenHash('register:ip:127.0.0.1');
   const register = (data) => call('/api/auth/register', 'POST', '', data);
   try {
-    assert.equal((await register({ username, password, role: 'leader' })).status, 403);
-    assert.equal(
-      (await register({ username, password, role: 'leader', leaderCode: 'wrong' })).status,
-      403,
-    );
-    assert.equal((await register({ username, password, leaderCode: 1 })).status, 400);
-    const res = await register({ username, password, role: 'leader', leaderCode: LEADER_CODE });
+    const res = await register({ username, password });
     assert.equal(res.status, 201);
-    assert.equal((await res.json()).user.role, 'leader');
+    assert.equal((await res.json()).user.role, 'member');
     const caught = await register({ username: bot, password, website: 'https://spam.invalid' });
     assert.equal(caught.status, 201);
     const [rows] = await pool.execute('SELECT id FROM users WHERE username=?', [bot]);
     assert.equal(rows.length, 0);
-    // Without a configured code nobody registers as a leader.
-    await assert.rejects(
-      new AuthService(pool).register(
-        { username: 'x' + username.slice(1), password, role: 'leader', leaderCode: '' },
-        randomUUID(),
-      ),
-      { status: 403 },
-    );
   } finally {
     await pool.execute('DELETE FROM users WHERE username IN (?,?)', [username, bot]);
     await pool.execute('DELETE FROM auth_login_limits WHERE bucket IN (?,?,?)', [

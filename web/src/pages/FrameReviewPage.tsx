@@ -1,9 +1,9 @@
 import { hint } from '../lib/englishHints';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import { Spinner } from '../components/Spinner';
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, Navigate, useBlocker, useNavigate, useParams } from 'react-router-dom';
 import { request } from '../lib/api';
-import { ui } from '../lib/i18n';
 import { WholeFrameViewer } from '../features/frames/WholeFrameViewer';
 import { useAiCheck } from '../features/ai/useAiCheck';
 import { LabelCheckButton } from '../features/ai/LabelCheckButton';
@@ -287,6 +287,7 @@ function FrameEditor({
     [ready, setReady] = useState(false),
     [selected, setSelected] = useState<string | null>(null),
     [attempt, setAttempt] = useState(0),
+    [askReload, setAskReload] = useState(false),
     [handled, setHandled] = useState(() => new Set<string>());
   const dirtyRef = useRef(false);
   dirtyRef.current = dirty;
@@ -406,29 +407,34 @@ function FrameEditor({
   const doubts = findings.filter((f) => f.annotation_id);
   return (
     <section className="panel min-w-0 p-5">
-      {blocker.state === 'blocked' && (
-        <div
-          role="alertdialog"
-          aria-label="Thay đổi chưa lưu"
-          className="mb-5 rounded-xl border border-amber-500 bg-amber-50 p-4"
-        >
-          <p>Có thay đổi chưa lưu. Rời ảnh sẽ bỏ các thay đổi này.</p>
-          <div className="mt-3 flex gap-3">
-            <button className="sr-button" onClick={() => blocker.reset()}>
-              Ở lại để lưu
-            </button>
-            <button
-              className="sr-button"
-              onClick={() => {
-                dirtyRef.current = false;
-                blocker.proceed();
-              }}
-            >
-              Bỏ thay đổi và rời ảnh
-            </button>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog
+        open={blocker.state === 'blocked'}
+        title="Thay đổi chưa lưu"
+        status="warning"
+        confirmLabel="Bỏ thay đổi và rời ảnh"
+        cancelLabel="Ở lại để lưu"
+        onCancel={() => blocker.reset?.()}
+        onConfirm={() => {
+          dirtyRef.current = false;
+          blocker.proceed?.();
+        }}
+      >
+        Có thay đổi chưa lưu. Rời ảnh sẽ bỏ các thay đổi này.
+      </ConfirmDialog>
+      <ConfirmDialog
+        open={askReload}
+        title="Tải lại bản đã lưu?"
+        status="warning"
+        confirmLabel="Bỏ thay đổi và tải lại"
+        cancelLabel="Hủy"
+        onCancel={() => setAskReload(false)}
+        onConfirm={() => {
+          setAskReload(false);
+          setAttempt((a) => a + 1);
+        }}
+      >
+        Các thay đổi chưa lưu trên ảnh này sẽ mất.
+      </ConfirmDialog>
       <div className="mb-4 flex flex-wrap justify-between gap-3">
         <h2 className="break-all font-semibold">
           {data.frame.media_name} · Frame {data.frame.index}
@@ -708,8 +714,8 @@ function FrameEditor({
             className="sr-button mt-3"
             disabled={saving}
             onClick={() => {
-              if (!dirty || window.confirm(ui('Bỏ thay đổi chưa lưu và tải lại bản đã lưu?')))
-                setAttempt((a) => a + 1);
+              if (dirty) setAskReload(true);
+              else setAttempt((a) => a + 1);
             }}
           >
             Tải lại bản đã lưu

@@ -6,7 +6,7 @@
 import policyFile from '../../policy3d/_scene.json' with { type: 'json' };
 
 const policy = policyFile.scene_policy;
-export const ENGINE_3D_VERSION = '3d-1.11.0';
+export const ENGINE_3D_VERSION = '3d-1.13.0';
 export const POLICY_3D_VERSION = policy.policy_version;
 
 export interface SceneBox {
@@ -329,15 +329,16 @@ export function analyzeScene(scene: Scene): Risk3DReport {
     reason: string,
     evidence: Record<string, unknown>,
     suggested?: string,
-    certain?: { score: number },
+    // A score other than the rule's; `certain` too when the cuboid cannot be right.
+    override?: { score: number; certain?: boolean },
   ) => {
     const from = rule(id)!;
     const list = found.get(key(seen)) ?? [];
     found.set(key(seen), list);
     list.push({
       check_id: id,
-      score: certain ? certain.score : 'score' in from ? (from.score as number) : 0,
-      ...(certain && { certain: true }),
+      score: override ? override.score : 'score' in from ? (from.score as number) : 0,
+      ...(override?.certain && { certain: true }),
       ...('level' in from && from.level === 'warning' && { level: 'warning' as const }),
       error_type: from.error_type,
       reason,
@@ -437,23 +438,6 @@ export function analyzeScene(scene: Scene): Risk3DReport {
           `Trục cuboid lệch ${round((delta * 180) / Math.PI, 1)}° so với trục cụm điểm LiDAR; cần kiểm tra hướng và điểm của vật lân cận.`,
           { ...axis, angle_rad: round(delta), undirected: true, reference: 'lidar_pca' },
         );
-    }
-    const ground = rule('box.below_ground');
-    if (ground && isBelowLocalGround(box)) {
-      const depth = -box.lift!;
-      flag(
-        seen,
-        'box.below_ground',
-        `Đáy cuboid chìm ${round(depth, 2)} m dưới mặt đường cục bộ; vượt dung sai ${ground.params.below_m} m. Cần kiểm tra vị trí trục Z.`,
-        {
-          depth_m: round(depth),
-          lift_m: box.lift,
-          tolerance_m: ground.params.below_m,
-          submerged_height_ratio: round(Math.min(1, depth / box.size[2])),
-          frame_indexes: [seen.frame, seen.frame],
-          reference: 'local_road',
-        },
-      );
     }
     const limits = limitsOf(box.type);
     if (!limits) continue;
@@ -562,6 +546,131 @@ export function analyzeScene(scene: Scene): Risk3DReport {
         `Đối tượng có mặt ở ${track.length} frame mà không frame nào có điểm LiDAR trong cuboid.`,
         { frames: track.length, nearest_m: round(Math.min(...track.map((s) => s.distance)), 1) },
       );
+    const short = rule('track.short');
+    if (
+      short &&
+      track.length > 1 &&
+      track.length <= short.params.max_frames! &&
+      first.frame > 0 &&
+      track[track.length - 1].frame < last &&
+      track.some((seen) => seen.distance <= short.params.within_m!)
+    )
+      flag(
+        first,
+        'track.short',
+        `Đối tượng chỉ có mặt ở ${track.length} frame (${first.frame + 1}–${track[track.length - 1].frame + 1}) rồi biến mất, khi ở gần xe.`,
+        { frames: track.length, frame_indexes: [first.frame, track[track.length - 1].frame] },
+      );
+
+    // A run of frames in a row whose cuboids, near the vehicle, hold almost no points: one case,
+    // on the cuboid with fewest. An object with no points at all is track.never_observed.
+    const sparseRun = rule('points.sparse_run');
+    if (
+      sparseRun &&
+      sparseRun.params.types!.includes(majority) &&
+      !found.get(key(first))?.some((f) => f.check_id === 'track.never_observed')
+    ) {
+      let run: Seen[] = [];
+      const close = () => {
+        if (run.length >= sparseRun.params.min_frames!) {
+          const fewest = run.reduce((top, seen) =>
+            pointsIn(seen.box)! < pointsIn(top.box)! ? seen : top,
+          );
+          flag(
+            fewest,
+            'points.sparse_run',
+            `${run.length} frame liền nhau (${run[0].frame + 1}–${run[run.length - 1].frame + 1}) cuboid đều dưới ${sparseRun.params.below} điểm LiDAR dù cách xe không quá ${sparseRun.params.max_distance_m} m; frame này ${pointsIn(fewest.box)} điểm.`,
+            {
+              frame_indexes: [run[0].frame, run[run.length - 1].frame],
+              points: run.map((seen) => pointsIn(seen.box)),
+              below: sparseRun.params.below,
+            },
+          );
+        }
+        run = [];
+      };
+      for (const seen of track) {
+        const inside = pointsIn(seen.box);
+        if (
+          inside === undefined ||
+          inside >= sparseRun.params.below! ||
+          seen.distance > sparseRun.params.max_distance_m!
+        ) {
+          close();
+          continue;
+        }
+        if (run.length && run[run.length - 1].frame !== seen.frame - 1) close();
+        run.push(seen);
+      }
+      close();
+    }
+
+    // Faster between two frames in a row than the type can move: the id taken over by another
+    // object. A cuboid both stepped into and out of too fast is the one off.
+    const speedRule = rule('track.speed');
+    const maxSpeed = (speedRule?.params.max_speed_mps as Record<string, number> | undefined)?.[
+      majority
+    ];
+    if (speedRule && maxSpeed !== undefined) {
+      const speed = (i: number) =>
+        track[i - 1]?.frame === track[i].frame - 1
+          ? Math.hypot(
+              track[i].world[0] - track[i - 1].world[0],
+              track[i].world[1] - track[i - 1].world[1],
+            ) / speedRule.params.frame_s!
+          : 0;
+      for (let i = 1; i < track.length; i++) {
+        const into = speed(i);
+        if (into <= maxSpeed) continue;
+        const out = i + 1 < track.length ? speed(i + 1) : 0;
+        flag(
+          track[i],
+          'track.speed',
+          `Tâm cuboid đi ${round(into * speedRule.params.frame_s!, 2)} m trong một frame (${round(into, 1)} m/s), quá ${maxSpeed} m/s của ${majority}${out > maxSpeed ? ' rồi quay lại ở frame sau' : ''}: có thể ID bị gán sang vật khác.`,
+          { speed_mps: round(into, 2), max_speed_mps: maxSpeed, against_frame: track[i - 1].frame },
+        );
+        if (out > maxSpeed) i++;
+      }
+    }
+
+    // A vehicle on the move points where it goes, either way round: over `window` frames in a
+    // row, the heading of the middle cuboid against the direction of travel.
+    const motion = rule('track.heading_motion');
+    if (motion && motion.params.types!.includes(majority)) {
+      const half = motion.params.window! >> 1;
+      let run: { seen: Seen; angle: number }[] = [];
+      const close = () => {
+        if (!run.length) return;
+        const worst = run.reduce((top, at) => (at.angle > top.angle ? at : top));
+        flag(
+          worst.seen,
+          'track.heading_motion',
+          `Xe đang chạy nhưng hướng cuboid lệch ${Math.round((worst.angle * 180) / Math.PI)}° so với hướng đi (frame ${run[0].seen.frame + 1}–${run[run.length - 1].seen.frame + 1}).`,
+          {
+            angle_rad: round(worst.angle),
+            allowed_rad: motion.params.min_angle_rad,
+            frame_indexes: [run[0].seen.frame, run[run.length - 1].seen.frame],
+          },
+        );
+        run = [];
+      };
+      for (let i = half; i < track.length - half; i++) {
+        const from = track[i - half],
+          to = track[i + half],
+          seen = track[i];
+        const dx = to.world[0] - from.world[0],
+          dy = to.world[1] - from.world[1];
+        if (to.frame - from.frame !== 2 * half || Math.hypot(dx, dy) < motion.params.min_move_m!) {
+          close();
+          continue;
+        }
+        const angle = Math.acos(Math.min(1, Math.abs(Math.cos(seen.yaw - Math.atan2(dy, dx)))));
+        if (angle > motion.params.min_angle_rad!) run.push({ seen, angle });
+        else close();
+      }
+      close();
+    }
+
     for (let i = 1; i < track.length; i++) {
       const missing = track[i].frame - track[i - 1].frame - 1;
       if (missing > 0 && missing <= policy.gaps.max_frames) {
@@ -614,7 +723,10 @@ export function analyzeScene(scene: Scene): Risk3DReport {
         const certainM = (fitRule.params as { certain_m?: number }).certain_m;
         const certain =
           certainM !== undefined && worst.median > certainM
-            ? { score: (fitRule.params as { certain_score?: number }).certain_score ?? 70 }
+            ? {
+                score: (fitRule.params as { certain_score?: number }).certain_score ?? 70,
+                certain: true,
+              }
             : undefined;
         const reason =
           fit.reason(worst.median, from, to, usable[worst.i].box) +
@@ -647,6 +759,59 @@ export function analyzeScene(scene: Scene): Risk3DReport {
         if (limits && middle > fit.limit(limits))
           run.push({ i, median: middle, limit: fit.limit(limits) });
         else close();
+      }
+      close();
+    }
+
+    // Sunk below the local road, frame by frame, for any type and even with no points in the
+    // cuboid. Frames in a row are one case, on the deepest cuboid; deeper than deep_m it scores
+    // deep_score. After the fit rules, so that it can join their case.
+    const ground = rule('box.below_ground');
+    if (ground) {
+      let run: Seen[] = [];
+      const close = () => {
+        if (!run.length) return;
+        // A fit.sunk or fit.lowered case over the same frames keeps the object to one case.
+        const sinking = track.find(
+          (seen) =>
+            seen.frame >= run[0].frame &&
+            seen.frame <= run[run.length - 1].frame &&
+            found
+              .get(key(seen))
+              ?.some((f) => f.check_id === 'fit.sunk' || f.check_id === 'fit.lowered'),
+        );
+        const deepest =
+          sinking ?? run.reduce((top, seen) => (seen.box.lift! < top.box.lift! ? seen : top));
+        const depth = -Math.min(...run.map((seen) => seen.box.lift!));
+        const deep = depth > ground.params.deep_m!;
+        flag(
+          deepest,
+          'box.below_ground',
+          `Đáy cuboid chìm ${round(depth, 2)} m dưới mặt đường cục bộ; vượt dung sai ${ground.params.below_m} m` +
+            (run.length > 1
+              ? ` (${run.length} frame liền nhau, ${run[0].frame + 1}–${run[run.length - 1].frame + 1}).`
+              : '.') +
+            ' Cần kiểm tra vị trí trục Z.',
+          {
+            depth_m: round(depth),
+            lift_m: deepest.box.lift,
+            tolerance_m: ground.params.below_m,
+            submerged_height_ratio: round(Math.min(1, depth / deepest.box.size[2])),
+            frame_indexes: [run[0].frame, run[run.length - 1].frame],
+            reference: 'local_road',
+          },
+          undefined,
+          deep ? { score: ground.params.deep_score! } : undefined,
+        );
+        run = [];
+      };
+      for (const seen of track) {
+        if (!isBelowLocalGround(seen.box)) {
+          close();
+          continue;
+        }
+        if (run.length && run[run.length - 1].frame !== seen.frame - 1) close();
+        run.push(seen);
       }
       close();
     }
@@ -850,6 +1015,37 @@ export function analyzeScene(scene: Scene): Risk3DReport {
           { points: inside, before: pointsIn(o.before.box), after: pointsIn(o.after.box) },
         );
     });
+
+    // A rigid object's size against its own median over the track, among cuboids with enough
+    // points to have been sized from the object: drift that frames side by side do not show.
+    const spread = rule('track.size_spread');
+    if (spread && spread.params.types!.includes(majority)) {
+      const sized = track.filter(
+        (seen) =>
+          seen.box.type === majority && (pointsIn(seen.box) ?? 0) >= spread.params.min_points!,
+      );
+      if (sized.length >= spread.params.min_frames!) {
+        const middle = [0, 1, 2].map((axis) => median(sized.map((seen) => seen.box.size[axis])));
+        const apart = (seen: Seen) =>
+          Math.max(...seen.box.size.map((s, axis) => Math.abs(s - middle[axis]) / middle[axis]));
+        const worst = sized.reduce((top, seen) => (apart(seen) > apart(top) ? seen : top));
+        // A cuboid off its neighbours by size is track.size_change's already.
+        if (
+          apart(worst) > spread.params.relative_change! &&
+          !found.get(key(worst))?.some((f) => f.check_id === 'track.size_change')
+        )
+          flag(
+            worst,
+            'track.size_spread',
+            `Kích thước ${worst.box.size.map((s) => round(s, 2)).join(' × ')} m khác ${Math.round(apart(worst) * 100)}% so với trung vị của cả track (${middle.map((s) => round(s, 2)).join(' × ')} m).`,
+            {
+              size: worst.box.size,
+              track_median: middle.map((s) => round(s)),
+              frames: sized.length,
+            },
+          );
+      }
+    }
   }
 
   const checks = Object.fromEntries(policy.rules.map((r) => [r.id, { flagged: 0 }]));

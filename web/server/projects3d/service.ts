@@ -71,7 +71,7 @@ export class Project3DService {
   pool: Db;
   storageRoot: string;
   remote: RemoteStorage | null;
-  // Reviewers, annotators and invite codes, as the 2D projects keep them.
+  // Reviewers and annotators, as the 2D projects keep them.
   members: ProjectMembers;
   python: string;
   script: string;

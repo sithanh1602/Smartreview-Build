@@ -141,8 +141,7 @@ export function CvatScanPanel() {
               Job {scan.job_id} · {scan.risk_count} cảnh báo / {scan.annotation_count} annotation
             </h2>
             <p className="mt-1 text-sm text-muted">
-              {scan.scanned_by_name} quét lúc {when(scan.scanned_at)} · {scan.duration_ms} ms ·
-              engine {scan.engine_version}
+              {scan.scanned_by_name} quét lúc {when(scan.scanned_at)} · {scan.duration_ms} ms
               {latest?.changed === true && ' · Annotation đã thay đổi so với lần quét trước'}
               {latest?.changed === false && ' · Annotation không đổi so với lần quét trước'}
             </p>

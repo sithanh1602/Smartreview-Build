@@ -42,7 +42,7 @@ export function labelVerifier() {
       timeoutMs?: number,
     ): Promise<VerifierResponse> {
       // Without a folder for the engine the model comes from the Hugging Face cache.
-      const model_dir = modelDir(request.engine);
+      const model_dir = request.model_dir ?? modelDir(request.engine);
       return new Promise((resolve, reject) => {
         const child = spawn(python, [worker], { stdio: ['pipe', 'pipe', 'pipe'] });
         const out: Buffer[] = [];

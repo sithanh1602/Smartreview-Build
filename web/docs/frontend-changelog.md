@@ -2,6 +2,212 @@
 
 Ghi lại mỗi lần sửa xong một chức năng hoặc thay đổi lớn ở frontend. Mục mới nhất ở trên cùng.
 
+## 2026-10-16 · Đăng ký luôn tạo tài khoản Thành viên
+
+### Đã làm
+
+- `RegisterPage`: bỏ nhóm chọn "Loại tài khoản" (Thành viên / Leader) và ô "Mã Leader". Form chỉ còn tên đăng nhập, mật khẩu, xác nhận mật khẩu.
+- Backend `AuthService.register`: luôn tạo `member`; gửi `role` hoặc `leaderCode` trả 400. Bỏ `LEADER_SIGNUP_CODE` (`server/index.ts`, `.env.example`). Leader chỉ tạo bằng CLI `user:update --role leader`.
+- Test: `tests/auth.test.ts` đổi test đăng ký Leader thành test "chỉ tạo member"; `tests/browser/auth.spec.ts` bỏ kiểm ô mã mời đã xoá ở lần trước.
+
+### Đã kiểm tra
+
+- `npm run typecheck`, `npm run build`, Chromium chụp trang `/register`. Test đăng ký cần DB nên chưa chạy được (`Access denied`).
+
+## 2026-10-16 · Popup "Chọn cách quét nhãn" đọc model từ `model-usage/`
+
+### Đã làm
+
+- Thư mục `model-usage/` ngang hàng với `web/`, để trống, thêm `/model-usage/` vào `.gitignore` ở gốc repo. Đổi chỗ được bằng `LABEL_VERIFIER_MODELS_DIR` (ghi trong `.env.example`).
+- `server/verify/models.ts`: liệt kê thư mục con có `config.json` và file trọng số, nhận loại theo `model_type` (SigLIP cho bước quét, Qwen2-VL / Qwen2.5-VL cho bước xem lại). Route mới `GET /api/projects/:id/label-verify/models` (Leader).
+- `POST /label-verify` nhận `{ model, second_model? }` thay cho `{ second }`; tên được kiểm lại với thư mục (không nhận đường dẫn, sai loại thì 400). Lựa chọn được lưu trong `latest.json` (`models`) để nút "Thử lại" gửi lại đúng model. Worker nạp model từ thư mục đã chọn.
+- `ScanChoice`: hai ô "Quét bằng model ảnh" và "Xem lại bằng model thứ hai", mỗi ô có danh sách chọn model. Thư mục trống thì ô bị khoá kèm dòng báo. `ScanStatus` hiện tên model đã dùng thay cho tên engine cố định.
+
+### Đã kiểm tra
+
+- Chromium, API giả: popup có model (chọn cả hai, request gửi `{"model":"siglip2-base-patch16-224","second_model":"Qwen2.5-VL-3B-Instruct"}`) và popup khi `model-usage/` trống.
+- `listModels` trên hai model thật ở máy (`siglip2-base-patch16-224`, `Qwen2.5-VL-3B-Instruct`) nhận đúng loại; `model-usage/` trống trả danh sách rỗng.
+- `tests/label-verify.test.ts` 14/14 (thêm test cho thư mục model). Toàn bộ: 213 pass, 44 fail (đều là test cần DB, `Access denied`). Chưa chạy lượt quét thật bằng GPU.
+
+## 2026-10-16 · Bỏ các dòng phiên bản dư thừa
+
+### Đã làm
+
+- `ProjectDashboardPage`: bỏ dòng cuối trang "Cấu trúc dữ liệu 1.0.0 · Bộ xử lý 7.1.0 · Quyết định được lưu riêng cho dự án này."
+- `OverviewPage`: bỏ hai nhãn SCHEMA / ENGINE ở khung dataset (khung `dl` đổi `my-6` thành `mt-6` để không dư khoảng trống dưới).
+- `CvatScanPanel`: bỏ "· engine x.y.z" khỏi dòng người quét / thời gian.
+- Bỏ chuỗi dịch không còn dùng. Số phiên bản vẫn có trong API, chỉ không hiện ra giao diện.
+
+### Đã kiểm tra
+
+- `tsc`, `npm run build`.
+
+## 2026-10-16 · Hộp thoại xác nhận riêng thay cho confirm/alert của trình duyệt
+
+### Đã làm
+
+- Component mới `src/components/ConfirmDialog.tsx` (HeroUI `AlertDialog`): biểu tượng theo mức độ (`danger`, `warning`…), tiêu đề, nội dung, nút Hủy và nút xác nhận. Không truyền `cancelLabel` thì thành hộp thông báo một nút. Khi đang chạy (`busy`) không đóng được, lỗi hiện ngay trong hộp để thử lại.
+- Thay hết `window.confirm` / `window.alert` trong app:
+  - **Xóa thành viên** (`ProjectPeople`): "Xóa thành viên khỏi project?", nêu tên tài khoản.
+  - **Xóa project** (`DeleteProjectButton`): hỏi "Xóa project?" kèm tên project và nút **Xóa vĩnh viễn**; nếu còn file chờ dọn trong `storage/.trash` thì hiện hộp **Đã xóa project** (mức cảnh báo, nút **Đã hiểu**) trước khi rời trang. Lỗi xóa giờ hiện trong hộp thay vì dưới nút.
+  - **Tải lại bản đã lưu** (`FrameReviewPage`): hỏi khi còn thay đổi chưa lưu.
+- Khung vàng "Có thay đổi chưa lưu" khi rời ảnh frame review (trước là `div` tự dựng) cũng chuyển sang `ConfirmDialog`, cùng nhãn nút, vẫn có `role="alertdialog"` nên test trình duyệt cũ vẫn tìm thấy.
+- i18n: thêm chuỗi tiếng Anh mới, bỏ chuỗi cũ của các hộp mặc định.
+
+### Đã kiểm tra
+
+- Chromium, API giả, 1440×900: xóa thành viên (hộp hiện, bấm Xóa thành viên thì danh sách cập nhật), xóa project (hộp xác nhận, rồi hộp Đã xóa project khi `cleanupPending`, bấm Đã hiểu thì về /projects). Không có hộp mặc định nào của trình duyệt bật lên. `tsc`, `npm run build`. Hộp tải lại bản đã lưu ở frame review chưa thử trên trình duyệt.
+
+## 2026-10-16 · Bỏ mã mời, thêm thành viên qua popup chọn nhiều
+
+### Đã làm
+
+- **Bỏ mời bằng mã**: xoá mục "Cách khác: mời bằng mã" trong `ProjectPeople`, xoá `JoinProjectForm` (ô "Mã mời từ Leader" ở trang Projects). Câu chữ nhắc tới mã mời ở trang Projects, chọn vai trò và đăng ký đổi thành "Nhờ Leader thêm bạn vào project".
+- **Nút Xem thành viên**: nằm ở góc phải tiêu đề khung "Thành viên project" (Leader và Reviewer). Bấm mở popup HeroUI `Modal`: ô tìm tài khoản, chọn vai trò (chỉ Leader; Reviewer luôn thêm Annotator), danh sách tài khoản chưa ở project có checkbox, "Chọn tất cả", đếm số đã chọn. Nút **Thêm thành viên** (hoặc "Thêm N thành viên") thêm hết trong một lần, đóng popup, và hiện dòng "Đã thêm: …". Lỗi hiện ngay trong popup. Form gõ tên đăng nhập cũ đã bỏ.
+- **Backend**: `POST …/members` nhận `{ usernames[], role }` (vẫn nhận `username`), thêm tất cả hoặc không thêm ai. Gỡ `invites()`, `regenerate()`, `join()` trong `ProjectMembers` và các route `/invites`, `/join` của 2D lẫn 3D. Bảng `project_invites*` để nguyên trong DB, không viết migration xoá.
+- i18n: thêm chuỗi tiếng Anh mới, xoá chuỗi của mã mời.
+
+### Đã kiểm tra
+
+- Chromium, API giả, 1440×900 và 390×800: mở popup, tích 2 tài khoản, đổi vai trò, bấm thêm. Request gửi `{"usernames":["annotator.binh","annotator.chi"],"role":"annotator"}`, danh sách Annotator cập nhật.
+- `npm run typecheck`. Test đơn vị: 212 pass, 44 fail; cả 44 đều là test cần DB và hỏng vì `Access denied ... smartreview_test`, nên phần `add()` nhiều tài khoản chưa được chạy với MySQL thật.
+
+## 2026-10-16 · Trang kiểm tra bản sửa bỏ thanh tiêu đề
+
+### Đã làm
+
+- `FixesPage`: bỏ dòng "← Kiểm tra lại · tên project", dòng người gửi và nút **Tải danh sách lỗi (.json)**; tiêu đề chỉ còn cho trình đọc màn hình (`sr-only`). Khi bản gửi chưa được trả lại (không có khung tóm tắt) còn một dòng chữ nhỏ: ai gửi, lúc nào, cho ai, ghi chú. Về dự án qua "Dự án" trên header hoặc liên kết ở khung tóm tắt khi đã kiểm tra hết.
+
+### Đã kiểm tra
+
+- Chromium, API giả, 1440×900: trang vẫn vừa một màn hình (Reviewer khi đã trả lại và khi đang gửi). `tsc`, `npm run build`.
+
+## 2026-10-16 · Trang kiểm tra bản sửa dùng hết màn hình, ảnh to hơn
+
+### Đã làm
+
+- `ProjectLayout` bỏ giới hạn `max-w-[1400px]` cho trang fixes; lề còn 20px.
+- Ảnh lấy toàn bộ chiều cao còn lại (`FrameViewer` ở chế độ `fill` trong một khung `flex-1`) thay cho chiều cao cố định `calc(100dvh - 300px)`; cũng vậy trong toàn màn hình. Danh sách 240px, cột Đồng ý / Từ chối 260–280px.
+- Dòng phím tắt rút còn một dòng (lần trước chưa áp dụng được vì chuỗi bị ngắt dòng).
+
+### Đã kiểm tra
+
+- Chromium, API giả: ảnh hiển thị 814×458 ở 1440×900 (trước ~710 rộng), 1184×666 ở 1920×1080, 1416×797 khi toàn màn hình; trang vẫn vừa một màn hình, cột phải không tràn. `tsc`, `npm run build`; danh sách test hỏng trùng HEAD.
+
+## 2026-10-16 · Thanh công cụ xem ảnh trên trang lỗi cần sửa / kiểm tra bản sửa
+
+### Đã làm
+
+- **Thanh công cụ trên ảnh** (`FixList`, `src/features/handoff/fixes.tsx`; trang fixes và trang dự án của Annotator):
+  - Thu phóng − / % / + / 1:1 (dùng điều khiển sẵn có của `FrameViewer` qua `controlsSlot`), **lăn chuột để phóng to**, kéo để di chuyển khi đã phóng (`FrameViewer` thêm prop `wheel`).
+  - **Phóng vào chỗ lỗi** (Z): cắt cận quanh khung của mục, bấm lại xem toàn ảnh.
+  - **Khung hiển thị** (B): Cả hai / Lúc gửi / Hiện tại / Không khung để so bản sửa hoặc nhìn ảnh không bị khung che; mục không có nhãn hiện tại chỉ còn Lúc gửi (hoặc Hiện khung) / Không khung.
+  - **Toàn màn hình** (F, Esc thoát): ảnh và thanh công cụ chiếm cả màn hình, ←/→ và A/R vẫn dùng được.
+  - **Mở ảnh gốc** trong tab mới.
+- `Icon`: thêm `expand`, `shrink`, `external`, `target`.
+
+### Đã kiểm tra
+
+- Chromium, API giả: trang vẫn vừa một màn hình ở 1440×900 và 1024×768; Z + phóng to cắt đúng vào khung; các lựa chọn khung đúng theo từng trường hợp (Reviewer có/không nhãn hiện tại, Annotator); F vào toàn màn hình. `tsc`, `npm run build`.
+
+## 2026-10-16 · Trang kiểm tra bản sửa nằm trong một màn hình
+
+### Đã làm
+
+- Từ 1024px trở lên, `/projects/:id/fixes` vừa đúng một màn hình như Review: `ProjectLayout` giữ trang ở `h-dvh` không cuộn (header thấp hơn), `FixList` có `fill` cho lưới chiếm phần còn lại; **chỉ danh sách đối tượng cuộn**. Ảnh co theo chiều cao (`calc(100dvh - 300px)`), cột Đồng ý / Từ chối và chi tiết nằm cạnh ảnh từ 1024px.
+- Để vừa màn hình thấp: tiêu đề một dòng với nút ← về dự án; khung tóm tắt một hàng, thanh tiến độ mảnh; bỏ dòng đếm lỗi (các tab đã có số); chi tiết chữ nhỏ, bỏ dòng Vị trí (px); dưới 860px chiều cao ẩn câu giải thích và gợi ý phím tắt.
+- Điện thoại vẫn cuộn cả trang như trước.
+
+### Đã kiểm tra
+
+- Chromium, API giả, 18 mục: ở 1440×900, 1280×800, 1024×768 chiều cao trang bằng màn hình, cột phải không tràn, danh sách cuộn trong khung; `tsc`, `npm run build`; danh sách test hỏng trùng HEAD.
+
+## 2026-10-16 · Làm gọn trang lỗi cần sửa / kiểm tra bản sửa; sửa màu chế độ tối
+
+### Đã làm
+
+- **`FixList`** (`src/features/handoff/fixes.tsx`, dùng ở trang dự án của Annotator và trang fixes của Leader/Reviewer):
+  - Một khung đầu trang gộp "x gửi lại lúc…" với tiến độ kiểm tra: thanh xanh/đỏ, đếm ✓ đồng ý · ✗ từ chối · ○ chờ.
+  - Bộ lọc thành hàng tab có số đếm (Tất cả, Chờ kiểm tra, Nhãn sai, Thiếu nhãn, Cần xem lại, Chưa đổi; chỉ hiện tab có nghĩa), cùng hàng với dòng đếm, thay ô chọn "Lọc".
+  - Danh sách: viền trái theo loại (đỏ nhãn sai, tím thiếu nhãn, vàng cần xem lại), dấu ✓/✗/○ cố định bên phải, kết quả (Đã sửa / Chưa đổi…) không còn xuống dòng giữa chữ.
+  - Màn hình rộng (≥1280px): ảnh bên trái, cột phải 300px có khung **Đồng ý / Từ chối** (nút đặc, to) ngay trên cùng, rồi chi tiết và lý do cảnh báo; không phải cuộn xuống dưới ảnh mới thấy nút. Màn hình hẹp xếp dọc.
+  - Ghi chú khi từ chối thu gọn sau "+ Thêm ghi chú"; phím tắt A đồng ý, R từ chối, ←/→ chuyển mục (không chạy khi đang gõ).
+- **Gửi lại cho Reviewer**: ô chọn file của trình duyệt thay bằng nút "Chọn file…" và tên file đã chọn.
+- **Chế độ tối** (`src/styles.css`): thêm màu tối cho các nền nhạt `teal/emerald/rose/amber/violet-50` và chữ đặt trên chúng (`emerald-700/800`, `rose-800`, `violet-700`, `amber-700/900`). Trước đó dòng đang chọn, khung kết quả và các thông báo vàng giữ nền sáng, chữ sáng không đọc được (cả ở các trang khác dùng những lớp này).
+
+### Đã kiểm tra
+
+- Chụp màn hình bằng Chromium với API giả (desktop 1440px, điện thoại 390px, sáng và tối) cho trang kiểm tra bản sửa và trang dự án của Annotator; `tsc`, `npm run build`; danh sách test hỏng trùng với HEAD.
+
+## 2026-10-16 · Reviewer kiểm tra bản sửa bằng Đồng ý / Từ chối
+
+### Đã làm
+
+- **Một nút trên dashboard** (Leader/Reviewer, sau khi Annotator gửi lại): **Kiểm tra bản sửa · k/N →** mở trang fixes; k là số mục đã trả lời.
+- **Đồng ý / Từ chối từng mục** (`FixList` trong `src/features/handoff/fixes.tsx`, có `onJudged`): khung dưới ảnh với ghi chú và hai nút; danh sách có nhãn ✓ Đồng ý / ✗ Từ chối / Chờ kiểm tra; lọc "Chờ kiểm tra"; đầu trang đếm tiến độ; trả lời xong tự sang mục chưa kiểm tra kế tiếp. Từ chối đánh lỗi lại mục (quyết định Lỗi, hoặc vùng thiếu nhãn khi không còn nhãn) để lần Hoàn thành sau gửi lại kèm issue CVAT. Backend `POST …/handoff/verdict`.
+- Bỏ bộ lọc "Vòng sửa" trong Review làm trước đó trong ngày; việc kiểm tra bản sửa chỉ còn ở trang fixes.
+- **Giờ gửi**: backend ghi `sent_at` bằng UTC; migration 012 sửa các dòng cũ (lệch 7 tiếng).
+
+### Còn mở
+
+- Chưa xem bằng mắt trong trình duyệt; đã kiểm tra bằng `tsc`, `npm run build`, test `judge`.
+- Mỗi project vẫn chỉ giữ một vòng gửi; lịch sử nhiều vòng cần bảng mới.
+- Các cột thời gian khác cũng lấy `CURRENT_TIMESTAMP` (review_decisions.reviewed_at, frame_reviews.updated_at, cvat_scans.scanned_at) và có thể lệch giống vậy nếu được đọc như UTC; chưa kiểm tra.
+
+## 2026-10-16 · Annotator thấy cả mục "Cần xem lại"; issue CVAT đánh dấu chỗ cần sửa
+
+### Đã làm
+
+- **Mục "Cần xem lại"** trong danh sách lỗi (`src/features/handoff/fixes.tsx`): case Reviewer chọn "Chưa chắc" và case rủi ro chưa ai kiểm tra, màu vàng, ghi rõ "Reviewer chưa chắc" / "Chưa ai kiểm tra", điểm rủi ro, lý do cảnh báo; bộ lọc có thêm "Cần xem lại"; dòng đếm có thêm "n cần xem lại". Backend thêm `review` vào file gửi (`buildReport`) và vào kết quả khi gửi lại (`compareReturn`).
+- **Pop-up Hoàn thành** có ô **Gửi kèm mục "Cần xem lại"** (mặc định tắt) với số case Chưa chắc và chưa kiểm tra; không chọn thì file chỉ có lỗi đã xác nhận như trước. API nhận `include_review`.
+- **Issue CVAT**: "Đưa vào CVAT" tạo một issue cho mỗi lỗi, vùng thiếu nhãn và mục cần xem lại, đúng frame và vùng; dòng trạng thái báo số issue và cách đọc trong CVAT. Đã chạy thật trên CVAT 2.74.1 local (task thử đã xoá).
+
+### Còn mở
+
+- Chưa xem bằng mắt trong trình duyệt. Task tạo trước thay đổi này (đã có trong CVAT) chỉ được thêm issue nếu job chưa có issue nào.
+- SmartReview chưa đọc lại trạng thái Resolve của issue khi Annotator gửi lại.
+
+## 2026-10-16 · Trang dự án của Annotator chỉ còn việc của họ, làm hết trên một trang
+
+### Đã làm
+
+- **Ẩn phần của Leader/Reviewer với Annotator** (`ProjectDashboardPage`): không còn khung Dataset / QA Analysis / Review, trạng thái quét, nút Bắt đầu review, Kiểm tra toàn bộ ảnh, AI Checking, dòng Schema/Engine; trang cũng không gọi `/dashboard` nữa. Annotator chỉ thấy tên project, thành viên và việc của mình; chưa được gửi gì thì "Chưa có lỗi nào được gửi cho bạn".
+- **Ba bước trên cùng trang** (`AnnotatorWork`): (1) Lấy dữ liệu để sửa: "Đưa vào công cụ" (CVAT local) và "Hoặc tải về (.zip)" đặt cạnh nhau; (2) Xem ảnh cần sửa: danh sách lỗi và ảnh hiện ngay trên trang, không còn chuyển sang trang có nút tải lần nữa; (3) Gửi lại cho Reviewer. Sau khi gửi lại, trang hiện kết quả từng lỗi.
+- **Trang `/fixes` chỉ cho Leader/Reviewer** ("File đã gửi" / "Kiểm tra lại"); bỏ nút tải `.zip` ở đó; Leader vẫn gửi lại được thay Annotator. Annotator mở link cũ thì về trang dự án. Danh sách lỗi và form gửi lại tách thành `src/features/handoff/fixes.tsx`, hai trang dùng chung.
+
+### Còn mở
+
+- Chỉ ẩn trên giao diện: Annotator gõ URL `/review`, `/frames`, `/ai-check` vẫn vào được và API vẫn cho lưu quyết định review (`docs/project-roles.md`).
+- Chưa xem bằng mắt trong trình duyệt; đã kiểm tra bằng `tsc` và `npm run build`.
+
+## 2026-10-16 · Trang dự án của Annotator: tải .zip theo định dạng, đưa vào CVAT local, xem ảnh cần sửa
+
+### Đã làm
+
+- **Ba dòng việc cho Annotator được gửi** (`src/features/handoff/AnnotatorSteps.tsx`), trong khung "Review đã hoàn thành" ở trang dự án, thay cho nút "Xem lỗi cần sửa →" khi review đang chờ:
+  1. **Tải dataset (.zip)**: chọn một trong 8 định dạng ảnh (CVAT for images, COCO, Datumaro, PASCAL VOC, Ultralytics YOLO, LabelMe, KITTI, SmartReview JSON), dòng phụ nói định dạng giữ gì (vd. "polygon thành khung bao").
+  2. **Gán vào công cụ**: chọn công cụ (hiện chỉ "CVAT local"), **Đưa vào CVAT** tạo task trong CVAT với đủ ảnh và nhãn; xong hiện **Mở task #n trong CVAT ↗** (tab mới). Trong lúc chờ có spinner và câu "có thể mất vài phút"; lỗi hiện ngay dưới dòng.
+  3. **Xem ảnh cần sửa**: mở trang lỗi cần sửa.
+- Backend: `core/exporters/formats.ts`, `GET …/handoff/dataset.zip?format=`, `POST …/handoff/cvat` (`server/cvat/tasks.ts`), chi tiết ở `docs/review-handoff.md`.
+- **Sửa lỗi import KITTI khi gửi lại**: `sizeOf` (`core/importers/shared.ts`) trả cả media cũ, KITTI rải nó vào media mới nên mất id ("Unknown media reference"); giờ chỉ trả width/height.
+
+### Còn mở
+
+- Chưa xem bằng mắt trong trình duyệt (máy không có Chrome cho DevTools); đã kiểm tra bằng `tsc`, `npm run build`, test round-trip 8 định dạng, và chạy tạo task thật trên CVAT 2.74.1 local (task thử đã xoá).
+- Task CVAT chưa gán assignee; chưa kéo bản sửa thẳng từ CVAT về.
+
+## 2026-10-16 · Mở lại review: pop-up thay hộp thoại của trình duyệt, Reviewer cũng mở được
+
+### Đã làm
+
+- **Pop-up HeroUI** (`src/features/handoff/ReopenReviewButton.tsx`) thay cho `window.confirm` ở trang dự án: nêu tên các Annotator sẽ bị thu hồi file, nói quyết định review sẽ mở khoá; nút **Hủy** và **Thu hồi và mở lại** (màu danger). Trong lúc gửi, hai nút bị khoá và có spinner, không bấm được hai lần.
+- **Lỗi hiện trong pop-up**. Trước đây lỗi khi mở lại ghi vào lỗi tải dashboard, nên cả phần số liệu bị thay bằng dòng lỗi và nút "Thử lại".
+- **Reviewer mở lại được**: nút hiện cho mọi vai trò trừ Annotator khi review đang chờ Annotator (`SENT`). Backend `DELETE /api/projects/:id/handoff` nhận Leader và Reviewer, Annotator nhận 403 (`server/projects/http.ts`); test route trong `tests/handoff.test.ts`. Các câu "chỉ Leader mở lại" trong pop-up Hoàn thành, thông báo khoá (423) và docs đã đổi thành "Leader hoặc Reviewer".
+
+### Còn mở
+
+- Chưa xem bằng mắt trong trình duyệt.
+
 ## 2026-10-15 · Viewer 3D: phần cuboid chìm dưới mặt đường tô đỏ
 
 ### Đã làm

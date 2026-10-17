@@ -8,7 +8,9 @@ import path from 'node:path';
 async function skipScan(page) {
   const popup = page.getByRole('dialog');
   await expect(popup.getByTestId('import-accepted')).toBeVisible();
-  await popup.getByRole('checkbox').nth(1).uncheck();
+  const scan = popup.locator('#scan-first');
+  await expect(popup.getByText(ui('Đang đọc thư mục model-usage…'))).toHaveCount(0);
+  if (await scan.isChecked()) await scan.uncheck();
   await popup.getByRole('button', { name: ui('Vào project') }).click();
 }
 const fixture = path.resolve('fixtures/upload');

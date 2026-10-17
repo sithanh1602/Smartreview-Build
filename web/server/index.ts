@@ -17,7 +17,7 @@ try {
   await projects.recover();
   const projects3d = new Project3DService(pool, storageRoot, remote);
   await projects3d.recover();
-  const auth = new AuthService(pool, { leaderCode: process.env.LEADER_SIGNUP_CODE });
+  const auth = new AuthService(pool);
   await auth.cleanup();
   const sessionCleanup = setInterval(
     () => auth.cleanup().catch(() => console.error('Session cleanup failed.')),

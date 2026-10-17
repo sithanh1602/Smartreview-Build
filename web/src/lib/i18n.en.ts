@@ -41,8 +41,14 @@ export const en: Record<string, string> = {
     '· Dotted purple box: AI suggests a missing label',
 
   // Projects and import
-  'Project đã xóa. Một số file chờ dọn trong storage/.trash; kiểm tra quyền thư mục trên máy chủ.':
-    'Project deleted. Some files are waiting for cleanup in storage/.trash; check folder permissions on the server.',
+  'Xóa project?': 'Delete project?',
+  'Xóa vĩnh viễn': 'Delete permanently',
+  'Toàn bộ ảnh upload, annotation, kết quả AI và đánh giá của project sẽ bị xóa vĩnh viễn. Không hoàn tác được.':
+    'All its uploaded images, annotations, AI results and reviews will be permanently deleted. This cannot be undone.',
+  'Đã xóa project': 'Project deleted',
+  'Một số file chưa dọn được và đang chờ trong storage/.trash. Kiểm tra quyền thư mục trên máy chủ.':
+    'Some files could not be cleaned up and are waiting in storage/.trash. Check folder permissions on the server.',
+  'Đã hiểu': 'Got it',
   'Đang xóa…': 'Deleting…',
   'Xóa project': 'Delete project',
   'Chọn annotation file và các ảnh tương ứng.': 'Choose the annotation file and its images.',
@@ -88,7 +94,6 @@ export const en: Record<string, string> = {
   'Kiểm tra toàn bộ ảnh →': 'Review every image →',
   'Không có cảnh báo. Trong Review, chọn Tất cả annotations để kiểm tra thủ công.':
     'No warnings. In Review, choose All annotations to check manually.',
-  '· Quyết định được lưu riêng cho project này.': '· Decisions are stored for this project only.',
   'Import dữ liệu đã gán nhãn, kiểm tra chất lượng và lưu quyết định review.':
     'Import labelled data, check its quality and store review decisions.',
   'Đang tải projects…': 'Loading projects…',
@@ -281,15 +286,24 @@ export const en: Record<string, string> = {
     'The dataset was uploaded and checked. Choose what scans the labels, then open the project.',
   'Luôn chạy khi import, như trước giờ. Kết quả của nó không đổi dù bạn chọn gì bên dưới.':
     'Always runs at import, as before. Its results do not change whatever you choose below.',
-  'Cắt phần ảnh trong từng khung để so với nhãn. Chỉ cắt ảnh và chạy khi được chọn; khung bị phát hiện sai vào hàng đợi kiểm tra.':
-    'Crops the pixels inside each box and compares them with the label. Crops and runs only when chosen; boxes found wrong join the review queue.',
-  'Xem lại các khung SigLIP 2 đã nghi và xác nhận. Chậm hơn nhiều.':
-    'Looks again at the boxes SigLIP 2 doubted and confirms them. Much slower.',
   'Lượt quét chỉ chạy một lần, ngay lúc này. Hệ thống còn đang đưa ảnh lên kho lưu trữ và lưu kết quả ở chế độ nền; lượt quét tự bắt đầu khi project sang Ready.':
     'The scan runs once, now. The system is still moving images to storage and saving results in the background; the scan starts by itself when the project turns Ready.',
   'Lượt quét chỉ chạy một lần, ngay lúc này.': 'The scan runs once, now.',
   'Đang gửi lựa chọn…': 'Sending your choice…',
   'Quét và vào project': 'Scan and open project',
+  'Quét bằng model ảnh': 'Scan with an image model',
+  'Cắt phần ảnh trong từng khung để so với nhãn. Khung bị phát hiện sai vào hàng đợi kiểm tra.':
+    'Crops each box and compares it with its label. Boxes found wrong join the review queue.',
+  'Model quét': 'Scan model',
+  'Chưa có model loại SigLIP trong thư mục model-usage.':
+    'There is no SigLIP-type model in the model-usage folder yet.',
+  'Xem lại bằng model thứ hai': 'Look again with a second model',
+  'Xem lại các khung model quét đã nghi và xác nhận. Chậm hơn nhiều.':
+    'Looks again at the boxes the scan model doubted and confirms them. Much slower.',
+  'Model xem lại': 'Second-look model',
+  'Chưa có model loại Qwen2.5-VL trong thư mục model-usage.':
+    'There is no Qwen2.5-VL-type model in the model-usage folder yet.',
+  'Đang đọc thư mục model-usage…': 'Reading the model-usage folder…',
   'Vào project': 'Open project',
   'Lượt quét nhãn bằng ảnh đã chọn đang chờ tới lượt.':
     'The image label scan you chose is waiting for its turn.',
@@ -369,12 +383,11 @@ export const en: Record<string, string> = {
     'Only datasets of separate images can be exported to CVAT for images.',
   'Hoàn thành': 'Complete',
   'Hoàn thành review': 'Complete review',
-  'Gửi file kết quả review cho Annotator để sửa nhãn. Sau khi gửi, các quyết định review bị khoá; chỉ Leader mở lại được.':
-    'Send the review result file to the Annotators so they can fix the labels. After sending, review decisions are locked; only the Leader can reopen them.',
+  'Gửi file kết quả review cho Annotator để sửa nhãn. Sau khi gửi, các quyết định review bị khoá; chỉ Leader hoặc Reviewer mở lại được.':
+    'Send the review result file to the Annotators so they can fix the labels. After sending, review decisions are locked; only the Leader or a Reviewer can reopen them.',
   'lỗi đã xác nhận trong các case rủi ro': 'confirmed errors among the risk cases',
   Còn: 'There are still',
-  'case rủi ro chưa kiểm tra. Chúng sẽ không có trong file.':
-    'unreviewed risk cases. They will not be in the file.',
+  'case rủi ro chưa kiểm tra.': 'risk cases are not checked yet.',
   'Gửi cho Annotator': 'Send to Annotators',
   'Đang tải danh sách Annotator…': 'Loading Annotators…',
   'Project chưa có Annotator. Thêm Annotator ở trang dự án rồi quay lại.':
@@ -395,16 +408,173 @@ export const en: Record<string, string> = {
   'Dataset đã thay đổi sau khi gửi; danh sách này là của bản dataset trước.':
     'The dataset changed after sending; this list belongs to the previous dataset.',
   'Xem lỗi cần sửa →': 'See what to fix →',
+  'Cả hai': 'Both',
+  'Lúc gửi': 'When sent',
+  'Không khung': 'No boxes',
+  'Hiện khung': 'Show box',
+  'Khung hiển thị': 'Boxes shown',
+  'Công cụ xem ảnh': 'Image tools',
+  'Khung liền: nhãn lúc gửi': 'Solid box: the label when sent',
+  'Khung xanh nét đứt: nhãn hiện tại': 'Blue dashed box: the label now',
+  'Xem toàn ảnh (Z)': 'Whole image (Z)',
+  'Phóng vào chỗ lỗi (Z)': 'Zoom to the error (Z)',
+  'Xem toàn ảnh': 'Whole image',
+  'Phóng vào chỗ lỗi': 'Zoom to the error',
+  'Thoát toàn màn hình (F)': 'Exit full screen (F)',
+  'Toàn màn hình (F)': 'Full screen (F)',
+  'Thoát toàn màn hình': 'Exit full screen',
+  'Toàn màn hình': 'Full screen',
+  'Mở ảnh gốc trong tab mới': 'Open the original image in a new tab',
+  '←/→ chuyển mục · Esc thoát': '←/→ next item · Esc to exit',
+  'Phím tắt: A đồng ý · R từ chối · ←/→ mục · Z · B · F':
+    'Shortcuts: A accept · R reject · ←/→ items · Z · B · F',
+  'Nhãn lúc gửi': 'Label when sent',
+  'Lý do cảnh báo': 'Why flagged',
+  '; chưa xác nhận là lỗi.': '; not confirmed as an error.',
+  '✓ Đã đồng ý': '✓ Accepted',
+  '✗ Đã từ chối': '✗ Rejected',
+  '. Chọn lại để đổi.': '. Choose again to change it.',
+  'Từ chối thì mục được đánh lỗi lại, vào lần gửi tiếp và thành issue CVAT.':
+    'Rejected, the item is marked again, goes into the next round and becomes a CVAT issue.',
+  '+ Thêm ghi chú': '+ Add a note',
+  'Ghi chú gửi kèm': 'Note to send along',
+  'Phím tắt: A đồng ý · R từ chối · ←/→': 'Shortcuts: A accept · R reject · ←/→',
+  'đồng ý': 'accepted',
+  'từ chối': 'rejected',
+  chờ: 'to check',
+  'mục đã sửa,': 'items fixed,',
+  'Chọn file…': 'Choose a file…',
+  'Chưa chọn file': 'No file chosen',
+  'Kiểm tra bản sửa': 'Check the fixes',
+  'mục ·': 'items ·',
+  'đồng ý ·': 'accepted ·',
+  'từ chối.': 'rejected.',
+  'Đã kiểm tra hết.': 'All checked.',
+  'mục bị từ chối đã được đánh lỗi lại; về': 'rejected items were marked again; go to the',
+  'trang dự án': 'project page',
+  'bấm Hoàn thành để gửi vòng mới (kèm issue CVAT).':
+    'and press Complete to send a new round (with CVAT issues).',
+  'Mọi bản sửa đều được đồng ý.': 'Every fix was accepted.',
+  'Chờ kiểm tra': 'To check',
+  '✓ Đồng ý': '✓ Accepted',
+  '✗ Từ chối': '✗ Rejected',
+  '· Chờ kiểm tra': '· To check',
+  'Bản sửa này được không?': 'Is this fix right?',
+  'Đồng ý': 'Accept',
+  'Từ chối': 'Reject',
+  'lưu nhãn hiện tại là đúng.': 'saves the current label as correct.',
+  'đánh lỗi lại mục này: nó vào lần gửi tiếp và thành issue trong CVAT.':
+    'marks this item again: it goes into the next round and becomes a CVAT issue.',
+  'Đã đồng ý': 'Accepted',
+  'Đã từ chối': 'Rejected',
+  'Ghi chú (không bắt buộc, gửi kèm khi từ chối)': 'Note (optional, sent with a rejection)',
+  'Chỉ Leader hoặc Reviewer được kiểm tra bản sửa.':
+    'Only the Leader or a Reviewer can check the fixes.',
+  'verdict phải là accept hoặc reject.': 'verdict must be accept or reject.',
+  'Thiếu item_id.': 'item_id is missing.',
+  'Không tìm thấy mục này trong bản sửa.': 'This item is not in the returned round.',
+  'Nhãn hiện tại không còn trong dataset.': 'The current label is no longer in the dataset.',
+  'Mục này không có khung để đánh dấu lại.': 'This item has no box to mark again.',
+  'Project không có bản sửa nào đang chờ kiểm tra.':
+    'The project has no returned round waiting to be checked.',
+  'Gửi kèm mục “Cần xem lại”:': 'Also send “To look at again”:',
+  'case Chưa chắc và': 'Unsure cases and',
+  'case chưa kiểm tra, tách khỏi lỗi đã xác nhận. Không chọn thì Annotator chỉ nhận lỗi đã xác nhận.':
+    'unchecked cases, apart from the confirmed errors. Unticked, the Annotators get the confirmed errors only.',
+  'include_review phải là true hoặc false.': 'include_review must be true or false.',
+  'Reviewer chưa chắc': 'Reviewer unsure',
+  'Chưa ai kiểm tra': 'Not checked yet',
+  'Cần xem lại': 'To look at again',
+  'Có thể thiếu': 'Possibly missing',
+  'Điểm rủi ro': 'Risk score',
+  '; chưa xác nhận là lỗi. Kiểm tra rồi sửa nếu sai.':
+    '; not confirmed as an error. Check it and fix it if it is wrong.',
+  'issue trên ảnh: [Lỗi], [Thiếu nhãn], [Cần xem lại]. Trong CVAT bấm vào vùng đỏ để đọc, sửa xong bấm Resolve.':
+    'issues on the images: [Lỗi] (error), [Thiếu nhãn] (missing label), [Cần xem lại] (look again). In CVAT click a red region to read it, and press Resolve once fixed.',
+  'Dataset không có ảnh nào.': 'The dataset has no images.',
+  'Lấy dữ liệu để sửa': 'Get the data to fix',
+  'Đưa vào công cụ': 'Put into a tool',
+  'Tạo task với toàn bộ ảnh và nhãn hiện tại, mỗi lần gửi một task.':
+    'Creates a task with every image and the current labels, one task per round sent.',
+  'Hoặc tải về (.zip)': 'Or download (.zip)',
+  'Toàn bộ ảnh và nhãn, để nhập vào công cụ khác. Giữ:':
+    'Every image and label, to import into another tool. Keeps:',
+  'Đang tải lỗi cần sửa…': 'Loading what to fix…',
+  'Bạn có lỗi cần sửa': 'You have labels to fix',
+  'Bạn đã gửi lại bản đã sửa': 'You returned the fixed file',
+  '. Làm theo ba bước dưới đây.': '. Follow the three steps below.',
+  '. Reviewer đang kiểm tra; bên dưới là kết quả từng lỗi.':
+    '. The Reviewers are checking it; below is what became of each error.',
+  'Dataset đã thay đổi sau khi gửi; danh sách lỗi là của bản dataset trước.':
+    'The dataset changed after sending; the error list belongs to the previous dataset.',
+  'Xem ảnh cần sửa': 'See the images to fix',
+  'Sửa xong thì xuất nhãn từ công cụ (không cần kèm ảnh, định dạng nào ở bước 1 cũng được) rồi chọn file ở đây: .zip, .xml, .json hoặc .txt.':
+    'When done, export the labels from the tool (no images needed, any format of step 1) and pick the file here: .zip, .xml, .json or .txt.',
+  'Leader đang import dataset. Trạng thái tự cập nhật.':
+    'The Leader is importing the dataset. The status updates by itself.',
+  'Chưa có lỗi nào được gửi cho bạn': 'Nothing has been sent to you to fix yet',
+  'Khi Reviewer hoàn thành review và chọn bạn, lỗi cần sửa và ảnh sẽ hiện ở đây.':
+    'When a Reviewer completes the review and picks you, the labels to fix and their images show here.',
+  'File đã gửi': 'Sent file',
+  'Gửi lại bản đã sửa thay Annotator': 'Return the fixed file for the Annotators',
+  'Chọn file nhãn đã sửa (.zip, .xml, .json hoặc .txt, ở bất kỳ định dạng nào SmartReview import được).':
+    'Pick the fixed label file (.zip, .xml, .json or .txt, in any format SmartReview imports).',
+  '1. Tải dataset (.zip)': '1. Download the dataset (.zip)',
+  'Tải .zip': 'Download .zip',
+  'Toàn bộ ảnh và nhãn. Giữ:': 'Every image and label. Keeps:',
+  'Ultralytics YOLO · TXT mỗi ảnh': 'Ultralytics YOLO · one TXT per image',
+  'Box, polygon, polyline': 'Boxes, polygons, polylines',
+  'Box; polygon và polyline thành khung bao (polygon giữ thêm segmentation)':
+    'Boxes; polygons and polylines become their bounding box (polygons also keep a segmentation)',
+  'Box; polygon và polyline thành khung bao':
+    'Boxes; polygons and polylines become their bounding box',
+  'Box, polygon; polyline thành khung bao': 'Boxes, polygons; polylines become their bounding box',
+  'Box, polygon; polyline nhiều điểm đọc lại thành polygon':
+    'Boxes, polygons; polylines of many points read back as polygons',
+  'Box; polygon và polyline thành khung bao; dấu cách trong tên nhãn thành “_”':
+    'Boxes; polygons and polylines become their bounding box; spaces in label names become “_”',
+  'Mọi nhãn và thuộc tính': 'Every label and attribute',
+  '2. Gán vào công cụ': '2. Assign to a tool',
+  'Công cụ': 'Tool',
+  'Đang đưa vào CVAT…': 'Putting it into CVAT…',
+  'Đưa vào CVAT': 'Put into CVAT',
+  'Mở task #': 'Open task #',
+  'trong CVAT ↗': 'in CVAT ↗',
+  'Đang tải ảnh lên CVAT; dataset lớn có thể mất vài phút.':
+    'Uploading the images to CVAT; a large dataset can take a few minutes.',
+  'Đã tạo task với đủ ảnh và nhãn hiện tại.':
+    'Created a task with every image and the current labels.',
+  'Task của lần gửi này đã có trong CVAT; mở lại task đó.':
+    'The task of this round is already in CVAT; it is opened again.',
+  'Tạo một task trong CVAT với toàn bộ ảnh và nhãn, mỗi lần gửi một task.':
+    'Creates a task in CVAT with every image and label, one task per round sent.',
+  '3. Xem ảnh cần sửa': '3. See the images to fix',
+  'Từng lỗi trên ảnh: khung, loại lỗi, nhãn cần sửa thành, ghi chú của Reviewer. Sửa xong thì gửi lại ở trang này.':
+    "Each error on its image: the box, the error type, the label to fix it to, the Reviewer's note. Send the fixed file back on that page.",
+  'Chỉ xuất được dataset ảnh rời.': 'Only datasets of separate images can be exported.',
+  'Project không ở trạng thái chờ Annotator sửa.':
+    'The project is not waiting for the Annotators to fix it.',
+  'Chỉ đưa được dataset ảnh rời vào CVAT.':
+    'Only datasets of separate images can be put into CVAT.',
+  'CVAT không tạo job cho task.': 'CVAT made no job for the task.',
+  'CVAT xử lý ảnh quá 10 phút.': 'CVAT took more than 10 minutes on the images.',
   'Xem file đã gửi →': 'See the sent file →',
   'Mở lại review': 'Reopen review',
-  'Mở lại review? File đã gửi cho Annotator sẽ bị thu hồi và Reviewer sửa lại được.':
-    'Reopen the review? The file sent to the Annotators is withdrawn and Reviewers can edit again.',
+  'File kết quả đã gửi cho': 'The result file sent to',
+  'sẽ bị thu hồi. Annotator không xem được lỗi cần sửa nữa.':
+    'will be withdrawn. The Annotators can no longer see what to fix.',
+  'Quyết định review được mở khoá để sửa tiếp; sau đó bấm Hoàn thành để gửi lại.':
+    'Review decisions are unlocked for editing; press Complete afterwards to send again.',
+  'Thu hồi và mở lại': 'Withdraw and reopen',
+  'Đang mở lại…': 'Reopening…',
+  'Chỉ Leader hoặc Reviewer được mở lại review.':
+    'Only the Leader or a Reviewer can reopen the review.',
   'Đã khoá: review đã hoàn thành và đã gửi cho Annotator.':
     'Locked: the review was completed and sent to the Annotators.',
   'Review đã hoàn thành và đã gửi cho Annotator.':
     'The review was completed and sent to the Annotators.',
-  'Review đã hoàn thành và đã gửi cho Annotator. Leader mở lại review thì mới sửa được.':
-    'The review was completed and sent to the Annotators. It can be edited only after the Leader reopens it.',
+  'Review đã hoàn thành và đã gửi cho Annotator. Leader hoặc Reviewer mở lại review thì mới sửa được.':
+    'The review was completed and sent to the Annotators. It can be edited only after the Leader or a Reviewer reopens it.',
   'Đang tải kết quả review…': 'Loading the review result…',
   'Lỗi cần sửa ·': 'Labels to fix ·',
   'gửi lúc': 'sent at',
@@ -415,6 +585,8 @@ export const en: Record<string, string> = {
   'Mở trong CVAT (sắp có)': 'Open in CVAT (coming soon)',
   'nhãn sai ·': 'wrong labels ·',
   'đối tượng thiếu nhãn': 'objects without a label',
+  'đối tượng thiếu nhãn ·': 'objects without a label ·',
+  'cần xem lại': 'to look at again',
   Lọc: 'Filter',
   'Nhãn sai': 'Wrong label',
   'Thiếu nhãn': 'Missing label',
@@ -536,8 +708,9 @@ export const en: Record<string, string> = {
   'Đã kiểm tra xong ảnh': 'Image fully checked',
   'Lưu đánh giá ảnh': 'Save image review',
   'Có thay đổi chưa lưu': 'Unsaved changes',
-  'Bỏ thay đổi chưa lưu và tải lại bản đã lưu?':
-    'Discard unsaved changes and reload the saved version?',
+  'Tải lại bản đã lưu?': 'Reload the saved version?',
+  'Bỏ thay đổi và tải lại': 'Discard changes and reload',
+  'Các thay đổi chưa lưu trên ảnh này sẽ mất.': 'Unsaved changes on this image will be lost.',
   'Tải lại bản đã lưu': 'Reload saved version',
 
   // Sign in and registration
@@ -729,55 +902,35 @@ export const en: Record<string, string> = {
     'This is a draft for a person to review. Scoring does not change with these choices yet.',
   // Roles and project members. Leader, Reviewer and Annotator are written the same in both
   // languages, so they have no entry here or in i18n.vi.ts.
-  'Loại tài khoản': 'Account type',
   'Thành viên': 'Member',
-  'Tham gia project bằng mã mời, làm Reviewer hoặc Annotator.':
-    'Join projects with an invite code, as a Reviewer or an Annotator.',
   'Tạo project, mời và quản lý thành viên.': 'Create projects, invite and manage members.',
   'Chọn vai trò làm việc': 'Choose your working role',
-  'Bạn đổi được vai trò bất cứ lúc nào. Chưa tham gia project? Chọn vai trò rồi nhập mã mời Leader gửi cho bạn.':
-    'You can switch roles at any time. Not in a project yet? Choose a role, then enter the invite code your Leader sent you.',
   'Kiểm tra và đánh giá nhãn trong các project bạn tham gia.':
     'Check and review labels in the projects you joined.',
   'Xem và sửa nhãn trong các project bạn tham gia.':
     'View and edit labels in the projects you joined.',
   project: 'project(s)',
   'Đổi vai trò': 'Switch role',
-  'Mã mời từ Leader': 'Invite code from your Leader',
-  'VD: K7M2QX9RTB': 'e.g. K7M2QX9RTB',
-  'Tham gia project': 'Join project',
-  'Các project bạn đã tham gia bằng mã mời của Leader.':
-    'The projects you joined with your Leader’s invite code.',
-  'Đã tham gia project:': 'Joined project:',
-  'Bạn chưa tham gia project nào với vai trò này. Nhập mã mời ở trên để bắt đầu.':
-    'You have not joined any project in this role. Enter an invite code above to start.',
   'Vai trò của bạn:': 'Your role:',
   'Thành viên project': 'Project members',
   'Đang tải thành viên…': 'Loading members…',
   'Người tạo (Leader)': 'Created by (Leader)',
   'Chưa gán — mọi Leader cùng quản lý': 'Unassigned — managed by every Leader',
   'Chưa có ai tham gia.': 'Nobody has joined yet.',
-  'Mã mời': 'Invite code',
   'Chuyển sang': 'Move to',
   Xóa: 'Remove',
-  'Xóa thành viên này khỏi project?': 'Remove this member from the project?',
-  'Sao chép': 'Copy',
-  'Đã sao chép': 'Copied',
-  'Tạo mã mới': 'New code',
-  'Tạo mã mới? Mã cũ sẽ không dùng được nữa.': 'Create a new code? The old one will stop working.',
+  'Xóa thành viên khỏi project?': 'Remove member from the project?',
+  'Xóa thành viên': 'Remove member',
+  'sẽ không vào được project này nữa. Bạn thêm lại được bất cứ lúc nào.':
+    'will no longer be able to open this project. You can add them back at any time.',
   'Project chưa có dữ liệu. Leader cần import dataset trước khi bạn làm việc.':
     'This project has no data yet. The Leader needs to import a dataset before you can work.',
   // Messages from the API
-  'Mã mời không đúng hoặc đã bị thay.': 'That invite code is wrong or has been replaced.',
-  'Mã mời gồm 10 ký tự chữ và số.': 'Invite codes have 10 letters and digits.',
-  'Tài khoản Leader không tham gia project bằng mã mời.':
-    'Leader accounts do not join projects with an invite code.',
   'Chỉ Leader được tạo project.': 'Only a Leader can create projects.',
   'Chỉ Leader của project được thực hiện thao tác này.': 'Only the project’s Leader can do this.',
   'Chức năng này chỉ dành cho Leader.': 'This is for Leaders only.',
   'Thành viên không thuộc project này.': 'That member is not part of this project.',
   'Vai trò phải là Reviewer hoặc Annotator.': 'The role must be Reviewer or Annotator.',
-  'Loại tài khoản phải là Leader hoặc Thành viên.': 'The account type must be Leader or Member.',
   'Project không tồn tại.': 'This project does not exist.',
   // Added by the full audit: dialogs, API error messages and policy check descriptions.
   'check sẽ tắt khi chấm': 'check(s) will be switched off when scoring',
@@ -982,18 +1135,27 @@ export const en: Record<string, string> = {
   'Khung xe tải không cao hơn 1,3 lần các khung ô tô đứng cùng tầm xa thì bị gắn cờ.':
     'A truck box no more than 1.3 times taller than car boxes at the same distance is flagged.',
   // Adding members directly
-  'Thêm thành viên theo tên đăng nhập': 'Add a member by username',
+  'Bạn đổi được vai trò bất cứ lúc nào. Chưa có project? Nhờ Leader thêm bạn vào project.':
+    'You can switch roles at any time. No project yet? Ask a Leader to add you to one.',
+  'Các project Leader đã thêm bạn vào.': 'The projects a Leader added you to.',
+  'Bạn chưa được thêm vào project nào với vai trò này. Nhờ Leader thêm bạn vào project.':
+    'You have not been added to any project in this role. Ask a Leader to add you to one.',
+  'Xem thành viên': 'View members',
+  'Thêm thành viên': 'Add members',
+  'Thêm Annotator': 'Add Annotators',
+  'Tìm tài khoản': 'Find accounts',
+  'Đang tải danh sách tài khoản…': 'Loading accounts…',
+  'Mọi tài khoản thành viên đều đã ở trong project.':
+    'Every member account is already in this project.',
+  'Chọn tất cả': 'Select all',
+  'Chọn tất cả kết quả': 'Select all results',
+  'Không có tài khoản khớp.': 'No matching accounts.',
+  'Chọn từ 1 đến 200 tài khoản.': 'Choose between 1 and 200 accounts.',
   'Vai trò': 'Role',
-  'Thêm vào project': 'Add to project',
   'Đã thêm:': 'Added:',
-  'Cách khác: mời bằng mã': 'Alternative: invite with a code',
-  'Gửi mã cho người cần tham gia; họ tự nhập mã ở trang Projects. Mã dùng được nhiều lần và quyết định vai trò.':
-    'Send the code to the people who should join; they enter it on the Projects page. A code can be used many times and decides the role.',
-  'Đang tải mã mời…': 'Loading invite codes…',
   'Không tìm thấy tài khoản này.': 'That account was not found.',
   'Tài khoản Leader không thể làm thành viên project.':
     'A Leader account cannot be a project member.',
-  'Thêm Annotator theo tên đăng nhập': 'Add an Annotator by username',
   'Đang lấy ảnh…': 'Fetching images…',
   'Xem giải thích': 'Show explanation',
   ảnh: 'image(s)',
@@ -1286,6 +1448,7 @@ export const en: Record<string, string> = {
 
 // Strings built with values in them. Tried only when there is no exact entry above.
 export const enRules: [RegExp, string][] = [
+  [/^Xoá \/ chưa thêm nhãn · (\d+) ·$/, 'Removed / not added · $1 ·'],
   [
     /^Phần ảnh trong box giống (.+) hoặc (.+) \((\d+%)\) hơn (.+) \((\d+%)\)\.$/,
     'The pixels in the box look more like $1 or $2 ($3) than $4 ($5).',
@@ -1337,15 +1500,18 @@ export const enRules: [RegExp, string][] = [
     /^Dịch vụ trả về dữ liệu không hợp lệ \(HTTP (\d+)\)\. Hãy thử lại\.$/,
     'The service returned invalid data (HTTP $1). Try again.',
   ],
+  [/^Thêm (\d+) thành viên$/, 'Add $1 members'],
   [
-    /^Bạn đã là (Reviewer|Annotator) của project này\. Leader có thể đổi vai trò cho bạn\.$/,
-    'You are already a $1 in this project. The Leader can change your role.',
+    /^Không có model "(.+)" trong thư mục model-usage\.$/,
+    'There is no model "$1" in the model-usage folder.',
+  ],
+  [/^Model "(.+)" không dùng được cho bước này\.$/, 'Model "$1" cannot be used for this step.'],
+  [/^Không tìm thấy tài khoản: (.+)$/, 'Accounts not found: $1'],
+  [
+    /^Đã ở project với vai trò khác: (.+)\. Đổi vai trò trong danh sách thành viên\.$/,
+    'Already in the project in another role: $1. Change their role in the member list.',
   ],
   [/^Thiếu (\d+)(: .+)?$/, 'Missing $1$2'],
-  [
-    /^Xóa project “(.+)”\? Toàn bộ ảnh upload, annotation, kết quả AI và đánh giá của project sẽ bị xóa vĩnh viễn\.$/,
-    'Delete project “$1”? All its uploaded images, annotations, AI results and reviews will be permanently deleted.',
-  ],
   [/^· (\d+) lần gọi mô hình bị lỗi$/, '· $1 model call(s) failed'],
   [/^Tệp nén có mật khẩu: (.+)$/, 'The archive is password-protected: $1'],
   [/^Kiểu nén chưa được hỗ trợ \((.+)\): (.+)$/, 'Unsupported compression method ($1): $2'],

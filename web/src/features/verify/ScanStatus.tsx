@@ -38,22 +38,27 @@ export function ScanStatus({
         <>
           <p role="status">
             <Spinner />
-            Đang quét nhãn bằng ảnh · <strong>{ENGINE_NAMES[report.stage]}</strong> đã xem{' '}
-            {report.completed}/{report.total} khung. Khung bị phát hiện sai sẽ vào hàng đợi kiểm tra
-            khi quét xong.
+            Đang quét nhãn bằng ảnh ·{' '}
+            <strong>
+              {(report.stage === report.engine
+                ? report.models?.model
+                : report.models?.second_model) ?? ENGINE_NAMES[report.stage]}
+            </strong>{' '}
+            đã xem {report.completed}/{report.total} khung. Khung bị phát hiện sai sẽ vào hàng đợi
+            kiểm tra khi quét xong.
           </p>
           <progress className="mt-3 w-full" value={report.completed} max={report.total || 1} />
         </>
       )}
       {report.status === 'READY' && (
         <p>
-          Đã quét nhãn bằng ảnh ({ENGINE_NAMES[report.engine]}
-          {report.second_model && <> + {ENGINE_NAMES[report.second_engine]}</>}):{' '}
-          <strong>{report.flagged}</strong> khung nghi sai nhãn nằm trong hàng đợi kiểm tra, trong
-          đó <strong>{report.added_to_queue}</strong> khung Risk Engine chưa bắt được
+          Đã quét nhãn bằng ảnh ({report.model}
+          {report.second_model && <> + {report.second_model}</>}): <strong>{report.flagged}</strong>{' '}
+          khung nghi sai nhãn nằm trong hàng đợi kiểm tra, trong đó{' '}
+          <strong>{report.added_to_queue}</strong> khung Risk Engine chưa bắt được
           {report.confirmed !== undefined && (
             <>
-              ; {ENGINE_NAMES[report.second_engine]} xác nhận {report.confirmed} khung
+              ; {report.second_model} xác nhận {report.confirmed} khung
             </>
           )}
           .
@@ -62,8 +67,12 @@ export function ScanStatus({
       {report.status === 'FAILED' && (
         <p role="alert" className="text-rose-700">
           Quét nhãn bằng ảnh chưa xong: {report.error}
-          {leader && (
-            <button className="sr-button ml-3" disabled={busy} onClick={() => start(report.second)}>
+          {leader && report.models && (
+            <button
+              className="sr-button ml-3"
+              disabled={busy}
+              onClick={() => start(report.models!)}
+            >
               Thử lại
             </button>
           )}
