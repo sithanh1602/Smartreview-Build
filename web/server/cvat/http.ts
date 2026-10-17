@@ -3,9 +3,11 @@ import { readJson, sameOrigin } from '../projects/upload.ts';
 import type { Db, Json, Req, Res } from '../types.ts';
 import { getCvatAnnotations, getCvatJob } from './client.ts';
 import { CvatScans } from './scans.ts';
+import { getScanProgress } from './progress.ts';
 
 // Scan QA, for any signed-in user (annotators run it; results are their own):
 //  POST /api/cvat/scan           { job_id } -> run the Risk Engine on the CVAT job, store, return
+//  GET  /api/cvat/scan/status    ?job_id=N -> return current scan progress (%) and status message
 //  GET  /api/cvat/scans          history of the caller
 //  GET  /api/cvat/scans/:id      one stored scan
 // Leader only (app.ts):
@@ -19,6 +21,16 @@ export async function handleCvat(
   if (!pathname.startsWith('/api/cvat/')) return false;
   const user = req.user;
   if (!user) throw new ReviewError(401, 'Phiên đăng nhập không hợp lệ hoặc đã hết hạn.');
+
+  if (pathname === '/api/cvat/scan/status' || pathname === '/api/cvat/scan/progress') {
+    if (req.method !== 'GET') throw new ReviewError(405, 'Use GET.');
+    const url = new URL(req.url, 'http://localhost');
+    const jobId = Number(url.searchParams.get('job_id'));
+    const prog = jobId ? getScanProgress(jobId) : null;
+    json(res, 200, prog || { jobId, active: false, percent: 0, message: '', stage: 'done' });
+    return true;
+  }
+
   if (pathname === '/api/cvat/scan' || pathname.startsWith('/api/cvat/scans')) {
     if (!pool) throw new ReviewError(503, 'Dịch vụ dữ liệu chưa sẵn sàng.');
     const scans = new CvatScans(pool);

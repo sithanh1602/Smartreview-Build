@@ -44,6 +44,19 @@ export async function getCvatFrameImage(jobId: number, frameNumber: number): Pro
   return Buffer.from(await response.arrayBuffer());
 }
 
+export async function createCvatShapes(jobId: number, shapes: Record<string, unknown>[]) {
+  const base = process.env.CVAT_BASE_URL,
+    token = process.env.CVAT_TOKEN;
+  if (!base || !token) throw new ReviewError(503, 'Thiếu cấu hình CVAT_BASE_URL / CVAT_TOKEN.');
+  const response = await fetch(new URL(`/api/jobs/${jobId}/annotations?action=create`, base), {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ version: 0, tags: [], tracks: [], shapes }),
+    signal: AbortSignal.timeout(60_000),
+  });
+  if (!response.ok)
+    throw new ReviewError(502, `CVAT ghi annotation HTTP ${response.status}: ${await response.text()}`);
+}
 export const getCvatJob = (id: number) => cvatGet(`/api/jobs/${id}`);
 export const getCvatAnnotations = (id: number) => cvatGet(`/api/jobs/${id}/annotations`);
 export const getCvatMeta = (id: number) => cvatGet(`/api/jobs/${id}/data/meta`);

@@ -451,6 +451,7 @@ def main():
     parser.add_argument("-o", "--output", type=Path, required=True)
     parser.add_argument("--segment", help="tên segment (mặc định: segment đầu tiên tìm thấy)")
     parser.add_argument("--frames", type=int, default=0, help="số frame cần xuất (0 = tất cả)")
+    parser.add_argument("--no-cameras", action="store_true", help="không xuất camera")
     args = parser.parse_args()
 
     vehicle_rows = read_rows(args.root, "vehicle_pose")
@@ -537,7 +538,7 @@ def main():
 
     timestamps = sorted(laser_counts)
     images = 0
-    if (args.root / "camera_image").is_dir():
+    if not args.no_cameras and (args.root / "camera_image").is_dir():
         images = export_cameras(args.root, args.output, segment, set(timestamps))
     # Toạ độ toàn cục rất lớn nên trừ đi vị trí xe ở frame đầu để giữ độ chính xác float32.
     origin = frame_poses[timestamps[0]][:3, 3].copy()
