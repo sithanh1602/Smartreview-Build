@@ -12,7 +12,7 @@ export interface UsableModel {
 const WEIGHTS = /\.(safetensors|bin)$/;
 
 export function modelsRoot() {
-  return path.resolve(webRoot, process.env.LABEL_VERIFIER_MODELS_DIR || '../model-usage');
+  return path.resolve(webRoot, process.env.LABEL_VERIFIER_MODELS_DIR || '../model/Model_bbox');
 }
 
 function engineOf(config: Record<string, unknown>): VerifierEngine | null {
@@ -50,7 +50,7 @@ export async function listModels(root = modelsRoot()): Promise<UsableModel[]> {
 export async function findModel(name: unknown, engine: VerifierEngine, root = modelsRoot()) {
   const model = (await listModels(root)).find((m) => m.name === name);
   if (!model)
-    throw new ReviewError(400, `Không có model "${String(name)}" trong thư mục model-usage.`);
+    throw new ReviewError(400, `Không có model "${String(name)}" trong thư mục model/Model_bbox.`);
   if (model.engine !== engine)
     throw new ReviewError(400, `Model "${model.name}" không dùng được cho bước này.`);
   return { name: model.name, dir: path.join(root, model.name) };

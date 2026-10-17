@@ -26,8 +26,10 @@ REQ_3D="$WEB/server/projects3d/requirements.txt"
 REQ_AI="$ROOT/ai-service/requirements.txt"
 REQ_VERIFIER="$WEB/server/verify/requirements.txt"
 MODEL="$ROOT/ai-service/yolo11n.pt"
-# Model mặc định của bước chấm điểm khi import (web/server/ai/rescore.ts).
-SCORE_MODEL="$ROOT/ai-service/yolo11s.pt"
+# Model mặc định của bước chấm điểm khi import (web/server/ai/rescore.ts); popup import chỉ
+# liệt kê các file .pt trong model/Model_rescore/.
+SCORE_DIR="$ROOT/model/Model_rescore"
+SCORE_MODEL="$SCORE_DIR/yolo11s.pt"
 
 with_ai=true
 with_browser=false
@@ -153,13 +155,15 @@ else
     [ -f "$MODEL" ] || fail "Không tải được yolo11n.pt. Đặt file vào ai-service/ rồi chạy lại."
     ok "Đã tải model ai-service/yolo11n.pt"
   fi
-  # YOLO11n và YOLO11m server tự tải khi người dùng chọn; YOLO11s là mặc định nên tải sẵn.
+  # Popup import chỉ hiện model có file trong model/Model_rescore/; YOLO11s là mặc định nên tải sẵn.
+  # Model khác (yolo11n.pt, yolo11m.pt, bản fine-tune) thì copy tay vào cùng thư mục.
   if [ -f "$SCORE_MODEL" ]; then
-    ok "Model chấm điểm ai-service/yolo11s.pt đã có"
+    ok "Model chấm điểm model/Model_rescore/yolo11s.pt đã có"
   elif $check_only; then
-    warn "Chưa có ai-service/yolo11s.pt: lần import có chấm điểm đầu tiên sẽ tự tải (19 MB)"
+    warn "Chưa có model/Model_rescore/yolo11s.pt: popup import sẽ không có model chấm điểm"
   else
-    (cd "$ROOT/ai-service" && "$PY" -c "from ultralytics import YOLO; YOLO('yolo11s.pt')" >/dev/null)       && ok "Đã tải model chấm điểm ai-service/yolo11s.pt"       || warn "Không tải được yolo11s.pt; lần import có chấm điểm đầu tiên sẽ thử tải lại"
+    mkdir -p "$SCORE_DIR"
+    (cd "$SCORE_DIR" && "$PY" -c "from ultralytics import YOLO; YOLO('yolo11s.pt')" >/dev/null)       && ok "Đã tải model chấm điểm model/Model_rescore/yolo11s.pt"       || warn "Không tải được yolo11s.pt; đặt file tay vào model/Model_rescore/"
   fi
   python_ai="$(env_value SMARTREVIEW_AI_PYTHON)"
   if [ -n "$python_ai" ] && [ "$python_ai" != "$PY" ]; then

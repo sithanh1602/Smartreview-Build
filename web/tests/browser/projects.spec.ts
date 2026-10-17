@@ -3,15 +3,19 @@ import { loginContext } from './fixtures.ts';
 import { hint } from '../../src/lib/englishHints.ts';
 import { test, expect } from './fixtures.ts';
 import path from 'node:path';
-// After an upload a popup asks how the labels are scanned. These tests are about the import,
-// so they leave the image models unticked and go on to the project.
+// Before anything is uploaded a popup asks which models run: step 1 the score model (only
+// when model/Model_rescore has one), step 2 the label scan. These tests are about the import,
+// so they keep the default score choice, leave the image models unticked and import.
 async function skipScan(page) {
   const popup = page.getByRole('dialog');
-  await expect(popup.getByTestId('import-accepted')).toBeVisible();
+  await expect(popup.getByTestId('scan-choice')).toBeVisible();
+  await expect(popup.getByText(ui('Đang đọc thư mục model…'))).toHaveCount(0);
+  const next = popup.getByRole('button', { name: ui('Tiếp →') });
+  if (await next.isVisible()) await next.click();
   const scan = popup.locator('#scan-first');
-  await expect(popup.getByText(ui('Đang đọc thư mục model-usage…'))).toHaveCount(0);
+  await expect(popup.getByText(ui('Đang đọc thư mục model/Model_bbox…'))).toHaveCount(0);
   if (await scan.isChecked()) await scan.uncheck();
-  await popup.getByRole('button', { name: ui('Vào project') }).click();
+  await popup.getByRole('button', { name: ui('Nhập dữ liệu'), exact: true }).click();
 }
 const fixture = path.resolve('fixtures/upload');
 async function importProject(page, name, format = 'cvat-images') {

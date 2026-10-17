@@ -2,6 +2,110 @@
 
 Ghi lại mỗi lần sửa xong một chức năng hoặc thay đổi lớn ở frontend. Mục mới nhất ở trên cùng.
 
+## 2026-10-18 · Popup tạo project hai bước: model chấm điểm, rồi model xét box
+
+### Đã làm
+
+- `ScanChoice`: popup hai bước sau nút "Tạo và nhập dữ liệu". Bước 1 "Model chấm điểm box" (radio các model + "Không chấm điểm"; mặc định chọn model mặc định khi tệp nhãn chưa có confidence). Bước 2 "Model đọc và xét box" (SigLIP quét, Qwen xem lại như trước). Nút Huỷ / Tiếp → / ← Bước trước / Nhập dữ liệu. Thư mục chấm điểm trống thì bỏ qua bước 1. Dữ liệu chỉ được tạo, tải lên và xử lý sau nút cuối.
+- `ImportForm`: bỏ ô "Chấm điểm box bằng model" và lưới chọn model khỏi form; `start({ rescore, scan })` nhận cả hai lựa chọn từ popup.
+- Model đọc từ hai thư mục ở gốc repo (git-ignore cả `/model/`): `model/Model_rescore/` (file `.pt`, đổi bằng `SMARTREVIEW_RESCORE_MODELS_DIR`) và `model/Model_bbox/` (thay `model-usage/`, vẫn đổi bằng `LABEL_VERIFIER_MODELS_DIR`).
+- Backend `server/ai/rescore.ts`: `listScoreModels` liệt kê `.pt` trong thư mục; tên có trong danh mục (yolo11n/s/m, yolo26s) mang số đo và ngưỡng của nó, file khác dùng ngưỡng chung. `findScoreModel` kiểm tra id có file (import trả 400 nếu không). Bỏ việc tự tải model và biến `SMARTREVIEW_SCORE_MODEL`; bỏ bước tiến độ `download`.
+- `setup.sh` tải `yolo11s.pt` vào `model/Model_rescore/`. Docs: `confidence-checks.md`, `label-verifier.md`, `.env.example`.
+- Trên máy này đã tạo `model/Model_rescore/` (symlink tới `ai-service/yolo11n.pt`, `yolo11s.pt`, `yolo26s.pt` = bản fine-tune BDD100K, cùng sha với `results/checkpoints/selected.pt`; copy thêm `yolo26n.pt` và `yolo26s-coco.pt` = YOLO26 gốc COCO từ `build-phase/results`, có tên trong danh mục nhưng chưa đo ngưỡng) và `model/Model_bbox/` (symlink tới `../siglip2-base-patch16-224`, `../Qwen2.5-VL-3B-Instruct`).
+
+### Đã kiểm tra
+
+- `tsc` (app và tests), `vite build`, `tests/score-models.test.ts` (viết lại theo thư mục) và `tests/label-verify.test.ts`: 17/17. Server liệt kê đúng 3 model chấm điểm và 2 model xét box từ hai thư mục. Chưa chạy test trình duyệt (cần DB), chưa chụp màn hình (không có Chrome).
+
+## 2026-10-18 · Tạo project: chọn cách quét nhãn trước khi dữ liệu được xử lý
+
+### Đã làm
+
+- Trước đây bấm "Tạo và nhập dữ liệu" là tạo project, tải lên, kiểm tra và chạy Risk Engine (cả rescore nếu chọn) ngay; popup "Chọn cách quét nhãn" chỉ hiện sau đó. Nay thứ tự đảo lại: nút chỉ kiểm tra form trên trình duyệt rồi mở popup. Chưa tạo project, chưa tải gì lên.
+- `ScanChoice`: thành bước chọn thuần (`onConfirm(pick | null)`, `onCancel`), thêm nút "Quay lại"; nút chính là "Nhập dữ liệu" hoặc "Nhập dữ liệu và quét". Lời dẫn nói rõ dữ liệu chưa được tải lên.
+- `ImportForm`: `submit` chỉ kiểm tra và mở popup; `start(pick)` tạo project, tải lên, rồi nếu có chọn model thì gửi `POST /projects/:id/label-verify` (server giữ tới khi project Ready) và sang trang project. Gửi lựa chọn quét lỗi thì báo lỗi, dữ liệu đã nhập vẫn giữ.
+- Backend `server/projects/http.ts`: route mới `GET /api/projects/label-verify/models` (tài khoản Leader), vì lúc chọn chưa có project. Route theo project giữ nguyên, cùng dùng hàm `usableModels`.
+- `tests/browser/projects.spec.ts`: helper `skipScan` dùng `scan-choice` và nút "Nhập dữ liệu". `docs/label-verifier.md` cập nhật luồng.
+
+### Đã kiểm tra
+
+- `tsc` (app và tests), `tests/label-verify.test.ts` 14/14. Chưa chạy test trình duyệt (cần DB) và chưa chụp màn hình (máy không có Chrome).
+
+## 2026-10-18 · Viewer 3D: bảng bằng chứng không còn bẻ số xuống dòng
+
+### Đã làm
+
+- `components/EvidenceTable.tsx` (dùng chung cho 2D `CaseDetail` và 3D `ObjectPanel`): trước đây cột tên chiếm tới 176px nên trong panel hẹp cột giá trị chỉ còn khoảng 50px và giá trị như "0.81 rad (46°)" bị bẻ dòng. Nay cột giá trị co theo nội dung: giá trị ngắn (tối đa 24 ký tự) nằm một dòng, căn phải, không bao giờ bẻ; tên tự xuống dòng nếu cần. Giá trị dài (danh sách, câu chữ) nằm riêng một dòng đủ bề ngang dưới tên.
+- `pages/Viewer3DPage.tsx`: panel bên phải của viewer 3D rộng 320px → 384px (416px từ màn 2xl).
+
+### Đã kiểm tra
+
+- `npm run typecheck`, `vite build`. Chưa chụp màn hình (máy không có Chrome cho DevTools).
+
+## 2026-10-18 · Kiểm tra bản sửa: cột rộng hơn, chữ không bị cắt
+
+### Đã làm
+
+- `features/handoff/fixes.tsx` (`FixList`, trang Kiểm tra bản sửa dạng một màn hình):
+  - Cột danh sách 240px → 260px (300px từ màn 2xl). Tên lỗi không còn bị cắt; tên ảnh xuống tối đa 2 dòng thay vì cắt bằng "…", rê chuột hiện tên đầy đủ.
+  - Tiêu đề "n/N · ảnh · Frame" xuống dòng thay vì cắt cụt.
+  - Cột thông tin bên phải 260/280px → 300/340px. Chữ 12px → 14px. Mỗi tên mục (Loại lỗi, Nhãn lúc gửi, Ghi chú của Reviewer…) nằm trên giá trị của nó, nên giá trị dùng hết bề ngang thay vì bị nhãn dài chiếm chỗ. "Lý do cảnh báo" cũng lên 14px, giãn dòng hơn.
+- Trang của Annotator (không dùng chế độ một màn hình) chỉ đổi phần chữ: tên ảnh xuống dòng, lý do 14px.
+
+### Đã kiểm tra
+
+- `npm run typecheck`, `vite build`. Chưa chụp màn hình (máy không có Chrome cho DevTools).
+
+## 2026-10-18 · Kiểm tra bản sửa: mục đã sửa lên trước, chia nhóm rõ
+
+### Đã làm
+
+- `features/handoff/fixes.tsx` (`FixList`, trang Kiểm tra bản sửa sau khi Annotator gửi lại): các mục Annotator đã xử lý (đã sửa, đã xoá nhãn, đã thêm nhãn) xếp lên đầu danh sách, các mục chưa đổi xếp sau; trong mỗi nhóm giữ thứ tự lúc gửi.
+- Danh sách có tiêu đề nhóm dính trên cùng khi cuộn: "Đã sửa · n" (nền xanh) và "Chưa đổi · n" (nền đỏ).
+- Trạng thái của từng mục thành nhãn có nền và dấu: "✓ Đã sửa", "✓ Đã xoá nhãn", "✓ Đã thêm nhãn", "✗ Chưa đổi", "✗ Chưa thêm nhãn".
+- Thêm bộ lọc "Đã sửa" cạnh "Chưa đổi".
+- Màn hình của Annotator trước khi gửi lại không đổi (chưa có trạng thái nên không chia nhóm).
+
+### Đã kiểm tra
+
+- `npm run typecheck`, `vite build`. Chưa chạy test trình duyệt và chưa chụp màn hình.
+
+## 2026-10-17 · Bấm vào thông tin case thì ảnh phóng tới đúng box
+
+### Đã làm
+
+- 2D `CaseDetail`: bấm vào nội dung tab "Vì sao bị cảnh báo" (AI Check, độ tin cậy, lý do, bảng bằng chứng) thì ảnh bật "Phóng to vật thể" vào box đang review. Bấm vào tab "Chi tiết" (nhãn, độ tin cậy, nguồn) thì phóng vào annotation đang xem ở đó. Bấm một dòng trong tab "Annotations" thì vừa chọn vừa phóng vào box đó.
+- Nút "Phóng to vật thể" / "Toàn cảnh" vẫn như cũ và luôn phóng về box đang review. Ảnh so sánh bên cạnh phóng cùng chỗ.
+- `FrameViewer`: thêm prop `focus` (hình cần cắt khi `zoom`, mặc định là box của observation); đổi box thì mức zoom tay và pan về lại 100%.
+
+### Đã kiểm tra
+
+- `npm run typecheck`, `vite build`. Chưa chạy test trình duyệt và chưa chụp màn hình.
+
+## 2026-10-17 · Nút quyết định: số phím tắt đứng trước tên
+
+### Đã làm
+
+- 2D `ReviewDecisionForm`: số phím tắt (1, 2, 3) chuyển từ cuối dòng phụ lên đầu tên nút, dạng "1. Nhãn đúng / cảnh báo nhầm", "2. Lỗi gán nhãn", "3. Chưa chắc chắn". Áp dụng cả form bên phải lẫn dock nổi trên ảnh. Phím 1–3 vẫn chọn như cũ; số chỉ để nhìn (`aria-hidden`), tên đọc cho trình đọc màn hình không đổi.
+
+### Đã kiểm tra
+
+- `npm run typecheck`. Chưa chụp màn hình.
+
+## 2026-10-17 · Review 2D/3D: bằng chứng số liệu dạng bảng, chữ to hơn, lý do che khuất ghi rõ
+
+### Đã làm
+
+- `src/lib/evidence.ts` + `src/components/EvidenceTable.tsx` (mới): đổi `evidence` của từng tín hiệu (engine 2D và 3D) thành bảng "tên tiếng Việt · giá trị có đơn vị" (%, m, rad kèm độ, px, "lần"); giá trị mã như `estimated`, `low_confidence`, `local_road` được dịch ra lời. JSON gốc vẫn còn trong mục "JSON gốc" thu gọn.
+- 2D `CaseDetail` (tab "Vì sao bị cảnh báo"): bảng bằng chứng hiện sẵn, không phải bấm mở; lý do 15px, điểm ghi "+N điểm", tiêu đề 16px; khối AI Check 13px.
+- 2D `ReviewDecisionForm` và 3D `ObjectPanel` (form Quyết định): tiêu đề 16px, nút quyết định cao 56px chữ 14px, ô chọn/ghi chú 14px. Dock nổi trên ảnh (compact) giữ cỡ cũ.
+- 3D `ObjectPanel`: thẻ Lỗi/Cảnh báo của cuboid liệt kê từng tín hiệu (mã check, điểm, lý do 15px, bảng bằng chứng) thay cho danh sách lý do chữ nhỏ. Bảng "Chi tiết cuboid" 13px. `Risk` trong `flags.ts` mang thêm `findings` (tuỳ chọn).
+- Engine 2D `core/risk`: `visibilityOf` trả thêm `in_frame`, `covered` khi ước tính từ box; lý do `visibility.mostly_hidden` / `visibility.barely_visible` nay ghi nguồn số (đo từ dataset hay ước tính), phần còn trong khung, phần bị box gần camera che, ngưỡng, và tên các dấu hiệu khó xác nhận. Số lớn hơn 0 nhưng làm tròn ra 0% ghi "dưới 1%". Evidence thêm `in_frame`, `covered`. Kết quả cũ trong DB giữ câu cũ cho tới khi chạy lại engine; bảng bằng chứng vẫn hiện nguồn số và ngưỡng cho dữ liệu cũ.
+
+### Đã kiểm tra
+
+- `npm run typecheck`, `vite build`, `tests/risk.test.ts`, `guideline-waivers.test.ts`, `gestures.test.ts` (34/34). Chạy thử bộ định dạng trên evidence mẫu. Chưa chụp màn hình (máy không có Chrome).
+
 ## 2026-10-16 · Đăng ký luôn tạo tài khoản Thành viên
 
 ### Đã làm

@@ -5,7 +5,7 @@ import { exportDataset, isExportFormat } from '../../core/exporters/formats.ts';
 import { ZipWriter, ZIP_MAX_FILES } from './zip.ts';
 import { handoffIssues, pushToCvat } from '../cvat/tasks.ts';
 import { ReviewError } from '../../shared/review.ts';
-import { listScoreModels, SCORE_MODELS } from '../ai/rescore.ts';
+import { findScoreModel, listScoreModels } from '../ai/rescore.ts';
 import { SECOND_ENGINE, VERIFIER_ENGINE } from '../../core/risk/label-verify.ts';
 import { listModels } from '../verify/models.ts';
 import { readJson, sameOrigin } from './upload.ts';
@@ -14,6 +14,14 @@ import type { SourceFile } from '../../core/importers/index.ts';
 import type { Json, ProjectContext, Req, Res } from '../types.ts';
 
 const MAX_RETURN_BYTES = 12 * 1024 * 1024;
+// The models in model/Model_bbox/ a label scan can run, by step.
+async function usableModels() {
+  const models = await listModels();
+  return {
+    first: models.filter((m) => m.engine === VERIFIER_ENGINE),
+    second: models.filter((m) => m.engine === SECOND_ENGINE),
+  };
+}
 // The annotation files of a returned dataset, as text: { files: [{ name, text }] }.
 async function readFiles(req: Req): Promise<SourceFile[]> {
   if (!req.headers['content-type']?.startsWith('application/json'))
@@ -73,6 +81,13 @@ export async function handleProjects(
     json(res, 200, await listScoreModels());
     return true;
   }
+  // Asked before a new project exists: the scan is chosen before anything is uploaded.
+  if (url.pathname === '/api/projects/label-verify/models') {
+    if (req.method !== 'GET') throw new ReviewError(405, 'Use GET.');
+    if (user.role !== 'leader') throw new ReviewError(403, 'Chỉ Leader được tạo project.');
+    json(res, 200, await usableModels());
+    return true;
+  }
   const match = url.pathname.match(/^\/api\/projects\/([^/]+)(\/.*)?$/);
   if (!match) throw new ReviewError(404, 'Unknown project route.');
   const [, id, route = ''] = match;
@@ -108,11 +123,7 @@ export async function handleProjects(
   if (route === '/label-verify/models') {
     if (req.method !== 'GET') throw new ReviewError(405, 'Use GET.');
     leaderOnly();
-    const models = await listModels();
-    json(res, 200, {
-      first: models.filter((m) => m.engine === VERIFIER_ENGINE),
-      second: models.filter((m) => m.engine === SECOND_ENGINE),
-    });
+    json(res, 200, await usableModels());
     return true;
   }
   if (route === '/label-verify') {
@@ -131,8 +142,7 @@ export async function handleProjects(
     leaderOnly();
     const rescoreModel = url.searchParams.get('model') || undefined;
     // Checked before the upload is read, not after it is stored.
-    if (rescoreModel && !SCORE_MODELS.some((m) => m.id === rescoreModel))
-      throw new ReviewError(400, `Không có model chấm điểm “${rescoreModel}”.`);
+    if (rescoreModel) await findScoreModel(rescoreModel);
     const imported = await projects.import(id, req, {
       rescore: url.searchParams.get('rescore') === '1',
       rescoreModel,

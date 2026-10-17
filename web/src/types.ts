@@ -198,7 +198,7 @@ export interface Project {
   // Present while the backend finishes an import: files sent to the shared storage, then risk
   // cases saved.
   progress?: {
-    step: 'download' | 'score' | 'publish' | 'save';
+    step: 'score' | 'publish' | 'save';
     done: number;
     total: number;
   } | null;

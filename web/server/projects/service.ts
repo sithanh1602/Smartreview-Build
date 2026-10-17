@@ -39,7 +39,7 @@ import type {
 type ProjectRow = Rows[number];
 // How far the second half of an import is: files sent to the remote, then risk cases saved.
 export interface ImportProgress {
-  step: 'download' | 'score' | 'publish' | 'save';
+  step: 'score' | 'publish' | 'save';
   done: number;
   total: number;
 }
@@ -780,8 +780,7 @@ export class ProjectService {
             data,
             images,
             directory,
-            (done, total, downloading) =>
-              this.progress.set(id, { step: downloading ? 'download' : 'score', done, total }),
+            (done, total) => this.progress.set(id, { step: 'score', done, total }),
             rescoreModel,
           );
         } finally {

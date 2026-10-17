@@ -153,7 +153,9 @@ export const en: Record<string, string> = {
   'Khung xanh nét đứt là đề xuất AI. Risk bên dưới là điểm kiểm tra bằng quy tắc riêng.':
     'The dashed blue box is the AI proposal. The Risk below is a separate rule-based score.',
   'tín hiệu · điểm cộng dồn, tối đa 100': 'signals · scores add up, capped at 100',
-  'Evidence · số liệu': 'Evidence · figures',
+  'Bằng chứng số liệu': 'Evidence figures',
+  'JSON gốc': 'Raw JSON',
+  điểm: 'points',
   'Chưa phát hiện bất thường trong các check hiện có.': 'No anomaly found by the current checks.',
   'Check coverage · đã chạy / bỏ qua': 'Check coverage · ran / skipped',
   'Đang tải annotation của frame…': 'Loading the frame’s annotations…',
@@ -282,29 +284,45 @@ export const en: Record<string, string> = {
 
   // Label scan
   'Chọn cách quét nhãn': 'Choose how labels are scanned',
-  'Dataset đã được tải lên và kiểm tra xong. Chọn những gì dùng để quét nhãn rồi vào project.':
-    'The dataset was uploaded and checked. Choose what scans the labels, then open the project.',
-  'Luôn chạy khi import, như trước giờ. Kết quả của nó không đổi dù bạn chọn gì bên dưới.':
-    'Always runs at import, as before. Its results do not change whatever you choose below.',
-  'Lượt quét chỉ chạy một lần, ngay lúc này. Hệ thống còn đang đưa ảnh lên kho lưu trữ và lưu kết quả ở chế độ nền; lượt quét tự bắt đầu khi project sang Ready.':
-    'The scan runs once, now. The system is still moving images to storage and saving results in the background; the scan starts by itself when the project turns Ready.',
-  'Lượt quét chỉ chạy một lần, ngay lúc này.': 'The scan runs once, now.',
-  'Đang gửi lựa chọn…': 'Sending your choice…',
-  'Quét và vào project': 'Scan and open project',
+  'Chọn model cho dữ liệu': 'Choose models for the data',
+  'Model chấm điểm box': 'Box score model',
+  'Model đọc và xét box': 'Models that read and check boxes',
+  Bước: 'Step',
+  'Dữ liệu chưa được tải lên: project chỉ được tạo và xử lý sau khi bạn chọn xong và bấm “Nhập dữ liệu”. Risk Engine luôn chạy khi nhập.':
+    'Nothing is uploaded yet: the project is created and processed only after you finish choosing and press “Import”. The Risk Engine always runs at import.',
+  'Đang đọc thư mục model…': 'Reading the model folders…',
+  'Model chạy một lần trên mỗi ảnh: mỗi box người vẽ được chấm điểm cho đúng nhãn của nó, vật model thấy mà chưa có box thành gợi ý. Không thêm, không sửa nhãn. Nên chọn khi tệp nhãn chưa có confidence. Đọc từ thư mục model/Model_rescore.':
+    'The model runs once on each image: every drawn box is scored for its own label, and objects it sees without a box become hints. No label is added or changed. Pick one when the labels have no confidence. Read from the model/Model_rescore folder.',
+  '(mặc định)': '(default)',
+  'Tốc độ:': 'Speed:',
+  'Hiệu quả:': 'Quality:',
+  'Không chấm điểm': 'No scoring',
+  'Dùng confidence có sẵn trong tệp nhãn, nếu có.':
+    'Uses the confidence already in the labels, if any.',
+  'Tiếp →': 'Next →',
+  '← Bước trước': '← Previous step',
+  Huỷ: 'Cancel',
+  'Luôn chạy khi nhập dữ liệu. Kết quả của nó không đổi dù bạn chọn gì bên dưới.':
+    'Always runs at import. Its results do not change whatever you choose below.',
+  'Lượt quét chạy một lần, tự bắt đầu khi dữ liệu đã nhập xong (project sang Ready).':
+    'The scan runs once and starts by itself when the import is done (the project turns Ready).',
+  'Quay lại': 'Back',
+  'Nhập dữ liệu và quét': 'Import and scan',
+  'Nhập dữ liệu': 'Import',
+  'Đang gửi lựa chọn quét nhãn…': 'Sending the label scan choice…',
   'Quét bằng model ảnh': 'Scan with an image model',
   'Cắt phần ảnh trong từng khung để so với nhãn. Khung bị phát hiện sai vào hàng đợi kiểm tra.':
     'Crops each box and compares it with its label. Boxes found wrong join the review queue.',
   'Model quét': 'Scan model',
-  'Chưa có model loại SigLIP trong thư mục model-usage.':
-    'There is no SigLIP-type model in the model-usage folder yet.',
+  'Chưa có model loại SigLIP trong thư mục model/Model_bbox.':
+    'There is no SigLIP-type model in the model/Model_bbox folder yet.',
   'Xem lại bằng model thứ hai': 'Look again with a second model',
   'Xem lại các khung model quét đã nghi và xác nhận. Chậm hơn nhiều.':
     'Looks again at the boxes the scan model doubted and confirms them. Much slower.',
   'Model xem lại': 'Second-look model',
-  'Chưa có model loại Qwen2.5-VL trong thư mục model-usage.':
-    'There is no Qwen2.5-VL-type model in the model-usage folder yet.',
-  'Đang đọc thư mục model-usage…': 'Reading the model-usage folder…',
-  'Vào project': 'Open project',
+  'Chưa có model loại Qwen2.5-VL trong thư mục model/Model_bbox.':
+    'There is no Qwen2.5-VL-type model in the model/Model_bbox folder yet.',
+  'Đang đọc thư mục model/Model_bbox…': 'Reading the model/Model_bbox folder…',
   'Lượt quét nhãn bằng ảnh đã chọn đang chờ tới lượt.':
     'The image label scan you chose is waiting for its turn.',
   'Đang quét nhãn bằng ảnh ·': 'Scanning labels from the images ·',
@@ -1502,8 +1520,8 @@ export const enRules: [RegExp, string][] = [
   ],
   [/^Thêm (\d+) thành viên$/, 'Add $1 members'],
   [
-    /^Không có model "(.+)" trong thư mục model-usage\.$/,
-    'There is no model "$1" in the model-usage folder.',
+    /^Không có model "(.+)" trong thư mục model\/Model_bbox\.$/,
+    'There is no model "$1" in the model/Model_bbox folder.',
   ],
   [/^Model "(.+)" không dùng được cho bước này\.$/, 'Model "$1" cannot be used for this step.'],
   [/^Không tìm thấy tài khoản: (.+)$/, 'Accounts not found: $1'],

@@ -20,7 +20,7 @@ Mô hình không gán nhãn và không tự cho điểm. Nó trả mức khớp 
 | Lệnh                                     | `scripts/verify.ts`                                    | `npm run verify`                                                                  |
 | Chạy trong project                       | `server/verify/service.ts`                             | Quản lý lượt chạy, kết hợp với Risk Engine, lưu kết quả                           |
 | Đưa kết quả vào hàng đợi review          | `server/verify/queue.ts`                               | Thêm finding và điểm kết hợp vào case; box đủ điểm vào hàng đợi                   |
-| Giao diện                                | `src/features/verify/ScanChoice.tsx`, `ScanStatus.tsx` | Popup chọn cách quét sau khi upload; một dòng trạng thái ở trang project          |
+| Giao diện                                | `src/features/verify/ScanChoice.tsx`, `ScanStatus.tsx` | Popup chọn cách quét trước khi upload; một dòng trạng thái ở trang project        |
 
 Cả hai mô hình chạy cục bộ; ảnh không rời máy.
 
@@ -38,7 +38,7 @@ Cả hai mô hình chạy cục bộ; ảnh không rời máy.
 .venv/bin/python web/server/verify/download_models.py     # tải cả hai mô hình; thêm siglip hoặc qwen để tải một
 ```
 
-**Model cho popup quét nhãn nằm trong `model-usage/`** (ngang hàng với `web/`, đã thêm vào `.gitignore` nên không bị push). Mỗi model là một thư mục con có `config.json` và file trọng số `.safetensors` / `.bin`, ví dụ `model-usage/siglip2-base-patch16-224/`. Backend tự nhận loại theo `model_type` trong `config.json`: có chữ `siglip` thì dùng cho bước quét, `qwen2_vl` / `qwen2_5_vl` thì dùng cho bước xem lại; thư mục khác bị bỏ qua. Symlink tới thư mục model ở chỗ khác cũng được. Đổi chỗ thư mục bằng `LABEL_VERIFIER_MODELS_DIR` (tính từ `web/`, mặc định `../model-usage`).
+**Model cho popup quét nhãn nằm trong `model/Model_bbox/`** (ngang hàng với `web/`, đã thêm vào `.gitignore` nên không bị push). Mỗi model là một thư mục con có `config.json` và file trọng số `.safetensors` / `.bin`, ví dụ `model/Model_bbox/siglip2-base-patch16-224/`. Backend tự nhận loại theo `model_type` trong `config.json`: có chữ `siglip` thì dùng cho bước quét, `qwen2_vl` / `qwen2_5_vl` thì dùng cho bước xem lại; thư mục khác bị bỏ qua. Symlink tới thư mục model ở chỗ khác cũng được. Đổi chỗ thư mục bằng `LABEL_VERIFIER_MODELS_DIR` (tính từ `web/`, mặc định `../model/Model_bbox`).
 
 Lệnh `npm run verify` và `download_models.py` vẫn dùng hai biến cũ trong `web/.env`, đường dẫn tính từ `web/`:
 
@@ -64,15 +64,15 @@ npm run verify -- --input dataset.smartreview.json --images images/ --engine qwe
 
 ## Chạy trong project
 
-Lượt quét được chọn **lúc tạo project** và **chỉ chạy một lần**: ngay sau khi upload xong, form import mở popup "Chọn cách quét nhãn", người dùng chọn rồi bấm nút mới sang trang project.
+Lượt quét được chọn **lúc tạo project** và **chỉ chạy một lần**. Bấm "Tạo và nhập dữ liệu" chỉ kiểm tra form trên trình duyệt rồi mở popup "Chọn cách quét nhãn"; chưa có project nào được tạo, chưa có tệp nào được tải lên. Bấm "Quay lại" thì đóng popup, không có gì thay đổi. Bấm "Nhập dữ liệu" / "Nhập dữ liệu và quét" thì form mới tạo project, tải lên, chờ server nhận dataset, gửi lựa chọn quét (`POST /api/projects/:id/label-verify`, server giữ yêu cầu cho tới khi project sang Ready) rồi sang trang project.
 
-| Ô trong popup              | Mặc định                                     | Việc                                                                                             |
-| -------------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| Risk Engine                | luôn bật, khoá                               | Chạy lúc import như trước giờ; lựa chọn bên dưới không đổi cách nó chạy hay kết quả của nó       |
-| Quét bằng model ảnh        | tích nếu `model-usage/` có model loại SigLIP | Chọn model trong danh sách. Chỉ khi được tích thì ảnh mới bị cắt theo từng box và model mới chạy |
-| Xem lại bằng model thứ hai | không tích                                   | Chọn model loại Qwen2.5-VL. Chỉ tích được khi ô trên đang tích                                   |
+| Ô trong popup              | Mặc định                                          | Việc                                                                                             |
+| -------------------------- | ------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Risk Engine                | luôn bật, khoá                                    | Chạy lúc import như trước giờ; lựa chọn bên dưới không đổi cách nó chạy hay kết quả của nó       |
+| Quét bằng model ảnh        | tích nếu `model/Model_bbox/` có model loại SigLIP | Chọn model trong danh sách. Chỉ khi được tích thì ảnh mới bị cắt theo từng box và model mới chạy |
+| Xem lại bằng model thứ hai | không tích                                        | Chọn model loại Qwen2.5-VL. Chỉ tích được khi ô trên đang tích                                   |
 
-Danh sách model đọc từ `GET /api/projects/:id/label-verify/models` (chỉ Leader), trả `{ first: [...], second: [...] }`. Thư mục trống thì ô đó bị khoá và popup báo chưa có model. Bỏ tích ô quét thì không lượt quét nào chạy và project chỉ có kết quả của Risk Engine. Không có nút hay trang nào để quét lại sau đó: yêu cầu quét thứ hai cho cùng dữ liệu bị từ chối (409). Ngoại lệ duy nhất là lượt quét bị lỗi (ví dụ GPU hết bộ nhớ): dòng trạng thái ở trang project hiện nút "Thử lại" cho Leader, gửi lại đúng lựa chọn cũ.
+Popup đọc danh sách model từ `GET /api/projects/label-verify/models` (tài khoản Leader; không cần project vì project chưa được tạo). Route theo project `GET /api/projects/:id/label-verify/models` (Leader của project) vẫn còn và trả cùng dạng, trả `{ first: [...], second: [...] }`. Thư mục trống thì ô đó bị khoá và popup báo chưa có model. Bỏ tích ô quét thì không lượt quét nào chạy và project chỉ có kết quả của Risk Engine. Không có nút hay trang nào để quét lại sau đó: yêu cầu quét thứ hai cho cùng dữ liệu bị từ chối (409). Ngoại lệ duy nhất là lượt quét bị lỗi (ví dụ GPU hết bộ nhớ): dòng trạng thái ở trang project hiện nút "Thử lại" cho Leader, gửi lại đúng lựa chọn cũ.
 
 Khi bấm nút mà import còn đang chạy nền (đưa ảnh lên kho lưu trữ, lưu risk case), lựa chọn được giữ ở backend và lượt quét tự bắt đầu khi project sang READY; lựa chọn đang chờ mất nếu server khởi động lại trước lúc đó.
 
@@ -87,7 +87,7 @@ Báo cáo của Risk Engine, `engine_version` và fingerprint của dataset khô
 
 Trang project hiện một dòng trạng thái: đang chờ, đang quét (kèm tiến độ theo số khung), đã quét (bao nhiêu khung vào hàng đợi, bao nhiêu khung Risk Engine chưa bắt được), hoặc lỗi.
 
-`GET /api/projects/:id/label-verify` trả trạng thái (`IDLE`, `RUNNING`, `FAILED`, `READY`; `queued: true` khi một lượt đang chờ). `POST` với `{ "model": "<tên thư mục>", "second_model"?: "<tên thư mục>" }` là yêu cầu quét của popup; tên phải là một model hợp lệ đang có trong `model-usage/` và đúng loại cho bước đó, nếu không trả 400: chỉ Leader, kiểm tra same-origin, một lần cho mỗi bản dataset. Kết quả lưu ở `storage/projects/:id/verify/latest.json` (hoặc kho lưu trữ chung) kèm fingerprint của dataset. Một lượt trên toàn server, tối đa 1000 ảnh, mỗi engine tối đa 30 phút.
+`GET /api/projects/:id/label-verify` trả trạng thái (`IDLE`, `RUNNING`, `FAILED`, `READY`; `queued: true` khi một lượt đang chờ). `POST` với `{ "model": "<tên thư mục>", "second_model"?: "<tên thư mục>" }` là yêu cầu quét của popup; tên phải là một model hợp lệ đang có trong `model/Model_bbox/` và đúng loại cho bước đó, nếu không trả 400: chỉ Leader, kiểm tra same-origin, một lần cho mỗi bản dataset. Kết quả lưu ở `storage/projects/:id/verify/latest.json` (hoặc kho lưu trữ chung) kèm fingerprint của dataset. Một lượt trên toàn server, tối đa 1000 ảnh, mỗi engine tối đa 30 phút.
 
 Trên bộ 4 ảnh Việt Nam (54 box xem được): lượt mặc định mất khoảng 11 giây; hàng đợi review từ 5 case thành 6 (một ô tô bị người lái xe máy che, Risk Engine cho 0 điểm), và case SUV gán `truck` từ 70 lên 100 điểm, đứng đầu hàng đợi. Thêm `qwen` (xem lại 3 box) mất khoảng 27 giây.
 
