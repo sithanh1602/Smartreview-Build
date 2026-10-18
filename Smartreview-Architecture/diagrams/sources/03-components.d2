@@ -1,0 +1,23 @@
+...@../theme
+heading: "03 · CÁC THÀNH PHẦN CHÍNH" {shape: text; near: top-center; style: {font-size: 28; bold: true}}
+caption: "C4 / Component · Các module backend nằm trong cùng tiến trình Node" {shape: text; near: bottom-center; style: {font-size: 16; font-color: "#52657E"}}
+direction: down
+ui: "Frontend\nRoutes • Biểu mẫu • Viewer\nAPI client" {class: ui}
+entry: "HTTP / Auth\nXác thực và kiểm tra quyền\nĐiều phối request" {class: service}
+services: Các nhóm chức năng {
+  class: boundary
+  projects: "Project 2D / 3D\nImport • Members • Artifacts" {class: service}
+  review: "Review 2D / 3D\nCase • Frame • Cuboid / Track\nHandoff / Return chỉ có ở 2D" {class: service}
+  core: "Core engines\nImporters • Schema validation\nRisk / Policy 2D và 3D" {class: service}
+  optional: "AI và integrations\nPython workers\nCVAT / Guideline" {class: ai}
+}
+data: "Persistence\nMySQL cho metadata / review\nLocal hoặc Dropbox cho files" {class: data}
+ui -> entry: API
+entry -> data: Tài khoản / session
+entry -> services.projects: Project
+entry -> services.review: Review
+entry -> services.optional: Yêu cầu tùy chọn
+services.projects -> services.core: Chuẩn hóa / scoring
+services.projects -> data: Project / artifacts
+services.review -> data: Quyết định / handoff
+services.optional -> data: Kết quả AI / CVAT scan
