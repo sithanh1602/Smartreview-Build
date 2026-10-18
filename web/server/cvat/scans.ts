@@ -265,6 +265,7 @@ export class CvatScans {
         `${report.engine_version}+${yolo.available ? yolo.model : 'rules'}`,
         dataset.annotations.length,
         risks.length,
+        duration,
         JSON.stringify({
           skipped,
           risks,
