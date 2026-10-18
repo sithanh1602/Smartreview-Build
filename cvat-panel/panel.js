@@ -1159,7 +1159,7 @@
   style.textContent = `
     @keyframes sr-pulse { 0%,100% { stroke-width: 2px; filter: drop-shadow(0 0 0 #ff4d6d); } 50% { stroke-width: 5px; filter: drop-shadow(0 0 10px #ff4d6d); } }
     .sr-flash { stroke: #ff4d6d !important; stroke-width: 4px !important; fill: rgba(255,77,109,.18) !important; animation: sr-pulse .8s ease-in-out 1; }
-    .sr-flash-missing { stroke: #faad14 !important; stroke-width: 3px !important; stroke-dasharray: 6 3 !important; fill: rgba(250,173,20,.22) !important; animation: sr-pulse .8s ease-in-out 1; }
+    .sr-flash-missing { stroke: #faad14 !important; stroke-width: 3px !important; stroke-dasharray: 6 3 !important; fill: rgba(250,173,20,.22) !important; animation: sr-pulse .8s ease-in-out 3; }
     @keyframes sr-pulse-border {
       0% { box-shadow: 0 0 0 0 rgba(255, 24, 68, 0); border-color: rgba(0,0,0,0.12); }
       25% { box-shadow: 0 0 14px 4px rgba(255, 24, 68, 0.85); border-color: #ff1844; }
@@ -1230,6 +1230,8 @@
     const off = canvasOffset();
     const content = document.getElementById('cvat_canvas_content');
     if (!content || !bbox) return;
+    const old = document.getElementById('sr-temp-missing-box');
+    if (old) old.remove();
     const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
     rect.setAttribute('x', String(bbox[0] + off));
     rect.setAttribute('y', String(bbox[1] + off));
@@ -1238,7 +1240,7 @@
     rect.setAttribute('class', 'sr-flash-missing');
     rect.id = 'sr-temp-missing-box';
     content.appendChild(rect);
-    setTimeout(() => rect.remove(), 1200);
+    setTimeout(() => { if (rect.parentNode) rect.remove(); }, 2500);
   }
 
   function highlight(el, risk) {
@@ -1858,15 +1860,22 @@
       state.error = 'Chưa mở màn annotate của CVAT nên không nhảy frame được.';
       return render();
     }
+    const sub = $('sr-sub');
+    if (sub) {
+      sub.textContent = `Frame ${risk.frame} · #${risk.object_id ?? 'AI'} ${risk.label || ''} · ${risk.reasons?.[0] || ''}`;
+    }
     if (risk.geometry_type === 'cuboid' || risk.cuboid || document.querySelector('.cvat-canvas3d-perspective')) {
       await show3D(risk);
       return;
     }
     if (!risk.bbox) return;
-    if (risk.object_id == null) { highlight(null, risk); return; }
     for (let i = 0; i < 40; i++) {
       await sleep(150);
       if (currentFrame() !== risk.frame) continue;
+      if (risk.object_id == null) {
+        highlight(null, risk);
+        return;
+      }
       const el = findShape(risk.bbox, risk.object_id);
       if (el) return highlight(el, risk);
     }
