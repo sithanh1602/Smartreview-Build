@@ -27,11 +27,28 @@ const runnerScript = fileURLToPath(new URL('./yolo_runner.py', import.meta.url))
 export async function getYoloPaths() {
   const python =
     process.env.SMARTREVIEW_AI_PYTHON || path.join(projectRoot, '.venv/bin/python');
-  const model =
-    process.env.SMARTREVIEW_AI_MODEL || path.join(projectRoot, 'ai-service/yolo11n.pt');
+  const candidateModels = [
+    process.env.SMARTREVIEW_AI_MODEL,
+    path.join(projectRoot, 'ai-service/yolo11n.pt'),
+    path.join(projectRoot, 'ai-service/yolo11s.pt'),
+    path.join(projectRoot, '.venv/models/yolo11n.pt'),
+    path.join(projectRoot, '.venv/models/yolo11s.pt'),
+    path.join(projectRoot, 'yolo11n.pt'),
+    path.join(projectRoot, 'yolo11s.pt'),
+  ].filter(Boolean) as string[];
+
+  let model = candidateModels[0] || path.join(projectRoot, 'ai-service/yolo11n.pt');
+  for (const m of candidateModels) {
+    try {
+      await fs.access(m);
+      model = m;
+      break;
+    } catch {}
+  }
+
   try {
     await fs.access(python);
-    await fs.access(model);
+    await fs.access(runnerScript);
     return { python, model, available: true };
   } catch {
     return { python, model, available: false };

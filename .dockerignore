@@ -11,7 +11,9 @@ web/storage
 **/__pycache__
 **/*.log
 **/*.pt
+!ai-service/*.pt
 **/*.pth
+!ai-service/models/*.pth
 **/*.onnx
 .git
 .venv

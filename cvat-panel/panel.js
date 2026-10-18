@@ -1206,7 +1206,11 @@
       return 0;
     }
   }
-  function findShape(bbox) {
+  function findShape(bbox, objectId) {
+    if (objectId != null) {
+      const direct = document.getElementById('cvat_canvas_shape_' + objectId);
+      if (direct) return direct;
+    }
     const off = canvasOffset();
     let best = null;
     document.querySelectorAll('#cvat_canvas_content [id^="cvat_canvas_shape_"]').forEach((el) => {
@@ -1220,7 +1224,7 @@
       const err = Math.abs(b.x - off - bbox[0]) + Math.abs(b.y - off - bbox[1]) + Math.abs(b.width - bbox[2]) + Math.abs(b.height - bbox[3]);
       if (!best || err < best.err) best = { el, err };
     });
-    return best && best.err < 6 ? best.el : null;
+    return best && best.err < 30 ? best.el : null;
   }
   function highlightMissing(bbox) {
     const off = canvasOffset();
@@ -1863,7 +1867,7 @@
     for (let i = 0; i < 40; i++) {
       await sleep(150);
       if (currentFrame() !== risk.frame) continue;
-      const el = findShape(risk.bbox);
+      const el = findShape(risk.bbox, risk.object_id);
       if (el) return highlight(el, risk);
     }
   }

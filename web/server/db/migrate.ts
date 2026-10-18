@@ -26,10 +26,13 @@ export async function migrate(pool: Db) {
         continue;
       }
       // These initial DDL statements are idempotent so an interrupted migration can resume.
-      for (const statement of sql
+      const statements = sql
+        .replace(/--.*$/gm, '')
+        .replace(/\/\*[\s\S]*?\*\//g, '')
         .split(';')
         .map((s) => s.trim())
-        .filter(Boolean))
+        .filter(Boolean);
+      for (const statement of statements)
         await connection.query<Rows>(statement);
       await connection.execute<Rows>(
         'INSERT INTO schema_migrations(version,checksum) VALUES (?,?)',

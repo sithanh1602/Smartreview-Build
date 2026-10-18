@@ -14,13 +14,24 @@ def main():
     model_path = Path(sys.argv[2])
     output_path = Path(sys.argv[3])
 
-    if not model_path.is_file():
-        raise RuntimeError(f"Model file not found: {model_path}")
-
     from ultralytics import YOLO
 
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    model = YOLO(str(model_path))
+
+    if not model_path.is_file():
+        # Ultralytics can auto-download standard model names (yolo11n.pt, yolo11s.pt, etc.)
+        print(f"Model file not found at {model_path}. Auto-downloading {model_path.name} via Ultralytics...", file=sys.stderr)
+        model = YOLO(model_path.name)
+        try:
+            import shutil
+            downloaded = Path(model_path.name)
+            if downloaded.is_file() and str(model_path) != model_path.name:
+                model_path.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy(str(downloaded), str(model_path))
+        except Exception as e:
+            print(f"Notice: could not copy downloaded model to {model_path}: {e}", file=sys.stderr)
+    else:
+        model = YOLO(str(model_path))
 
     predictions = []
     frames = manifest.get("frames", [])
