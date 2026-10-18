@@ -150,10 +150,10 @@ export class CvatScans {
 
     const startF = data.job.start_frame ?? 0;
     const stopF = data.job.stop_frame ?? startF;
+    // Every frame of the job: unannotated ones too, so YOLO can point out objects nobody boxed.
     const totalJobFrames = Math.max(1, stopF - startF + 1);
-    const allJobFrames = Array.from({ length: Math.min(totalJobFrames, 30) }, (_, i) => startF + i);
-    const unannotatedFrames = allJobFrames.filter((f) => !annotatedFrames.includes(f));
-    const targetFrames = Array.from(new Set([...annotatedFrames, ...unannotatedFrames])).slice(0, 30);
+    const allJobFrames = Array.from({ length: totalJobFrames }, (_, i) => startF + i);
+    const targetFrames = Array.from(new Set([...allJobFrames, ...annotatedFrames])).sort((a, b) => a - b);
 
     // 2. Run YOLO inference on frames
     setScanProgress(jobId, 25, 'Đang tải hình ảnh và khởi chạy mô hình YOLO AI...', 'ai');
