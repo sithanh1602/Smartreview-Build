@@ -13,6 +13,7 @@ import { buildSheets, placeShots } from './cameras.ts';
 import { Review3DStore, boxKey } from './reviews.ts';
 import type { BoxRef } from './reviews.ts';
 import { ProjectMembers, TABLES_3D } from '../projects/members.ts';
+import { ProjectHandoffs } from '../projects/handoff.ts';
 import type { RemoteStorage } from '../storage/remote.ts';
 import type { Untrusted } from '../../shared/review.ts';
 import type { Scene3DSummary } from '../../shared/waymo.ts';
@@ -71,8 +72,10 @@ export class Project3DService {
   pool: Db;
   storageRoot: string;
   remote: RemoteStorage | null;
-  // Reviewers, annotators and invite codes, as the 2D projects keep them.
+  // Reviewers and annotators, as the 2D projects keep them.
   members: ProjectMembers;
+  // The round of fixes sent to annotators (projects3d/handoff.ts builds its report).
+  handoffs: ProjectHandoffs;
   python: string;
   script: string;
   deleting: Set<string>;
@@ -90,6 +93,7 @@ export class Project3DService {
     this.storageRoot = path.resolve(storageRoot);
     this.remote = remote;
     this.members = new ProjectMembers(pool, TABLES_3D);
+    this.handoffs = new ProjectHandoffs(pool, 'project_handoffs_3d');
     this.python =
       options.python ||
       process.env.SMARTREVIEW_3D_PYTHON ||
@@ -248,7 +252,8 @@ export class Project3DService {
             const text = chunk.toString(),
               images = text.match(/\d+(?= image)/g),
               frames = text.match(/\d+(?= frame)/g);
-            if (images) this.progress.set(id, { step: 'cameras', done: +images.at(-1)!, total: null });
+            if (images)
+              this.progress.set(id, { step: 'cameras', done: +images.at(-1)!, total: null });
             else if (frames)
               this.progress.set(id, { step: 'export', done: +frames.at(-1)!, total: null });
           });
@@ -271,7 +276,9 @@ export class Project3DService {
                 ),
               );
             const reason = errors.trim().split('\n').pop() || 'exporter dừng bất thường';
-            reject(new ReviewError(422, `Không chuyển được dữ liệu Waymo: ${reason.slice(0, 300)}`));
+            reject(
+              new ReviewError(422, `Không chuyển được dữ liệu Waymo: ${reason.slice(0, 300)}`),
+            );
           });
         });
       },

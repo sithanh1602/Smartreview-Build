@@ -3,19 +3,26 @@ import { rescoreDataset } from '../ai/rescore.ts';
 import { VerifyService } from '../verify/service.ts';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { imageResolver, importDataset, isFormat, namesImages } from '../../core/importers/index.ts';
 import { applyEnvRisk, parseImageTable } from '../../core/importers/signals.ts';
 import { normalizeDataset } from '../../core/schema/normalize.ts';
-import { LEGACY_ENGINE_VERSION, LATEST_ENGINE_VERSION, checksFor } from '../../core/risk/engine.ts';
+import {
+  LEGACY_ENGINE_VERSION,
+  LATEST_ENGINE_VERSION,
+  checkPatches,
+  checksFor,
+} from '../../core/risk/engine.ts';
 import { mergeLabels } from '../../core/risk/policy.ts';
 import { waiversFrom } from '../../shared/guideline-waivers.ts';
+import { patchesFrom, summaryFrom } from '../../shared/guideline-rules.ts';
 import { buildDataset, loadDataset } from '../repository.ts';
 import { ReviewStore } from '../reviews/store.ts';
 import { ReviewError } from '../../shared/review.ts';
 import { receiveUpload, safePath } from './upload.ts';
 import { ProjectMembers } from './members.ts';
 import { ProjectHandoffs, compareReturn, sameShape } from './handoff.ts';
+import type { HandoffResult } from './handoff.ts';
 import { returnedDataset } from './return.ts';
 import { FrameReviewStore } from '../frames/store.ts';
 import type { SourceFile } from '../../core/importers/index.ts';
@@ -38,7 +45,7 @@ import type {
 type ProjectRow = Rows[number];
 // How far the second half of an import is: files sent to the remote, then risk cases saved.
 export interface ImportProgress {
-  step: 'download' | 'score' | 'publish' | 'save';
+  step: 'score' | 'publish' | 'save';
   done: number;
   total: number;
 }
@@ -82,6 +89,9 @@ export class ProjectService {
   background: boolean;
   progress: Map<string, ImportProgress>;
   finishing: Set<string>;
+  // Staging directories of imports already on the remote, kept until the label scan chosen at
+  // upload has read their frames, so the scan does not fetch them back.
+  kept: Map<string, string>;
   constructor(pool: Db, storageRoot: string, remote: RemoteStorage | null = null) {
     this.pool = pool;
     this.storageRoot = path.resolve(storageRoot);
@@ -94,6 +104,7 @@ export class ProjectService {
     this.background = false;
     this.progress = new Map();
     this.finishing = new Set();
+    this.kept = new Map();
     this.ai = new AiService(this);
     this.verify = new VerifyService(this);
     this.members = new ProjectMembers(pool);
@@ -445,6 +456,8 @@ export class ProjectService {
       apiPrefix: `/api/projects/${id}`,
       engineVersion: meta?.engine_version || LEGACY_ENGINE_VERSION,
       waivers: meta?.guideline_waivers,
+      patches: meta?.guideline_patches,
+      guideline: meta?.guideline,
     };
     const remoteKey: string | null = row.storage_key;
     const source: AssetSource = remoteKey
@@ -525,6 +538,111 @@ export class ProjectService {
     await this.handoffs.returned(id, user, result);
     return result;
   }
+  // A reviewer's answer to one item of a returned round. Accept saves the label there now as
+  // Correct. Reject marks the item again for the next round: the label there now becomes an
+  // Error as it was sent, or, with no label there (removed, never drawn), the region is marked
+  // as missing on its image. Answering again replaces the first answer.
+  async judge(id: string, input: Untrusted, user: User, role: ProjectRole) {
+    if (role === 'annotator')
+      throw new ReviewError(403, 'Chỉ Leader hoặc Reviewer được kiểm tra bản sửa.');
+    const value = input?.verdict,
+      itemId = input?.item_id,
+      note = input?.note ?? null;
+    if (value !== 'accept' && value !== 'reject')
+      throw new ReviewError(400, 'verdict phải là accept hoặc reject.');
+    if (typeof itemId !== 'string') throw new ReviewError(400, 'Thiếu item_id.');
+    if (note !== null && (typeof note !== 'string' || note.length > 1000))
+      throw new ReviewError(400, 'Ghi chú tối đa 1000 ký tự.');
+    const result = await this.handoffs.returnedResult(id);
+    const found = (
+      [
+        ['error', result.errors],
+        ['missing', result.missing],
+        ['review', result.review ?? []],
+      ] as const
+    ).flatMap(([kind, list]) =>
+      list.filter((i) => i.id === itemId).map((item) => ({ kind, item })),
+    )[0];
+    if (!found) throw new ReviewError(404, 'Không tìm thấy mục này trong bản sửa.');
+    const { kind, item } = found;
+    const text = note?.trim() || null;
+    const { dataset, reviews } = await this.context(id);
+    if (item.now) {
+      const label = dataset.allCases.find((c) => c.id === item.now!.id);
+      if (!label) throw new ReviewError(409, 'Nhãn hiện tại không còn trong dataset.');
+      const existing = (await reviews.list())[label.id];
+      const sent = kind === 'error' ? (item as HandoffResult['errors'][number]) : null;
+      await reviews.save(
+        label,
+        {
+          ...(value === 'accept'
+            ? { decision: 'CORRECT', error_type: null, corrected_value: null, note: text }
+            : {
+                decision: 'ERROR',
+                error_type: sent?.error_type ?? 'OTHER',
+                corrected_value: sent?.corrected_value ?? null,
+                note: text ?? item.note ?? null,
+              }),
+          version: existing?.version,
+        },
+        existing ? 'update' : 'create',
+        user.id,
+      );
+    } else {
+      // The region of an item without a label, kept under an id of its own so a second
+      // answer replaces it.
+      const regionId = 'recheck-' + createHash('sha256').update(item.id).digest('hex').slice(0, 16);
+      const frames = new FrameReviewStore(this.pool, reviews.datasetId);
+      const current = await frames.read(item.frame_ref);
+      const others = (current?.missing_regions ?? []).filter((r) => r.id !== regionId);
+      const g = item.geometry;
+      const box =
+        g.type === 'bbox'
+          ? g
+          : g.type === 'polygon' || g.type === 'polyline'
+            ? (() => {
+                const xs = g.points.map((p) => p[0]),
+                  ys = g.points.map((p) => p[1]);
+                const x = Math.min(...xs),
+                  y = Math.min(...ys);
+                return { x, y, width: Math.max(...xs) - x, height: Math.max(...ys) - y };
+              })()
+            : null;
+      if (value === 'reject' && !box)
+        throw new ReviewError(422, 'Mục này không có khung để đánh dấu lại.');
+      const regions =
+        value === 'reject'
+          ? [
+              ...others,
+              {
+                id: regionId,
+                label:
+                  (kind === 'error' && (item as HandoffResult['errors'][number]).corrected_value) ||
+                  item.class_name ||
+                  'object',
+                note: text ?? item.note ?? 'Reviewer từ chối bản sửa.',
+                geometry: {
+                  type: 'bbox' as const,
+                  x: box!.x,
+                  y: box!.y,
+                  width: box!.width,
+                  height: box!.height,
+                },
+              },
+            ]
+          : others;
+      if (current || regions.length)
+        await frames.save(item.frame_ref, {
+          status: current?.status ?? 'IN_PROGRESS',
+          missing_regions: regions,
+          note: current?.note ?? '',
+          version: current?.version ?? 0,
+        });
+    }
+    item.verdict = { value, note: text, by: user.username, at: new Date().toISOString() };
+    await this.handoffs.saveResult(id, result);
+    return result;
+  }
   async context(id: string): Promise<ProjectContext> {
     const row = await this.row(id);
     if (row.status !== 'READY')
@@ -539,6 +657,8 @@ export class ProjectService {
           apiPrefix: `/api/projects/${id}`,
           engineVersion: stored?.engine_version || LEGACY_ENGINE_VERSION,
           waivers: stored?.guideline_waivers,
+          patches: stored?.guideline_patches,
+          guideline: stored?.guideline,
         });
         dataset.meta.project_name = row.name;
         const reviews = new ReviewStore(this.pool, dataset);
@@ -674,8 +794,7 @@ export class ProjectService {
             data,
             images,
             directory,
-            (done, total, downloading) =>
-              this.progress.set(id, { step: downloading ? 'download' : 'score', done, total }),
+            (done, total) => this.progress.set(id, { step: 'score', done, total }),
             rescoreModel,
           );
         } finally {
@@ -688,7 +807,7 @@ export class ProjectService {
       const json = JSON.stringify(data, null, 2);
       await fs.writeFile(datasetPath, json, { flag: 'wx' });
       await this.status(id, 'ANALYZING');
-      const options = await this.importOptions(id, uploaded.rules);
+      const options = await this.importOptions(id, uploaded.rules, uploaded.guideline?.name);
       const dataset = await loadDataset(datasetPath, options);
       await fs.mkdir(path.join(directory, 'risk'));
       await fs.writeFile(
@@ -711,6 +830,15 @@ export class ProjectService {
     if (this.background) void this.finish(id, key).catch(() => {});
     else await this.finish(id, key);
     return this.get(id);
+  }
+  // Removes the staging directory kept for a label scan (see `kept`), once nothing needs it.
+  async release(id: string) {
+    const directory = this.kept.get(id);
+    if (!directory) return;
+    this.kept.delete(id);
+    await fs.rm(directory, { recursive: true, force: true });
+    await fs.rm(directory + '.published', { force: true });
+    await fs.rmdir(path.dirname(directory)).catch(() => {});
   }
   // Finishes the import of a FAILED project whose checked files are still on this machine.
   async resume(id: string) {
@@ -736,8 +864,13 @@ export class ProjectService {
       const row = await this.row(id);
       const datasetPath = path.join(directory, 'dataset.json');
       const json = await fs.readFile(datasetPath, 'utf8');
-      const rules: string | undefined = JSON.parse(json).dataset?.metadata?.guideline?.rules;
-      const options = await this.importOptions(id, rules && path.join(directory, rules));
+      const guideline = JSON.parse(json).dataset?.metadata?.guideline;
+      const rules: string | undefined = guideline?.rules;
+      const options = await this.importOptions(
+        id,
+        rules && path.join(directory, rules),
+        guideline?.name,
+      );
       let dataset: LoadedDataset;
       // With a remote, the upload directory is only a staging area: publish it, then serve from the remote.
       if (this.remote) {
@@ -762,13 +895,10 @@ export class ProjectService {
         ],
       );
       this.cache.set(id, Promise.resolve({ dataset, reviews }));
+      if (this.remote) this.kept.set(id, directory);
       // A label scan chosen in the upload popup was waiting for this.
       void this.verify.drain();
-      if (this.remote) {
-        await fs.rm(directory, { recursive: true, force: true });
-        await fs.rm(directory + '.published', { force: true });
-        await fs.rmdir(path.dirname(directory)).catch(() => {});
-      }
+      if (this.remote && !this.verify.waiting(id)) await this.release(id);
     } catch (e) {
       console.error('Import not finished:', id, (e as Error).message);
       await this.status(id, 'FAILED', e instanceof ReviewError ? e.message : INTERRUPTED).catch(
@@ -782,22 +912,36 @@ export class ProjectService {
   }
   // What the risk engine is run with for an imported project; `rules` is the file holding the
   // choices a person made on the guideline's rules.
-  async importOptions(id: string, rules?: string | null) {
-    return {
+  async importOptions(id: string, rules?: string | null, name?: string) {
+    const base = {
       namespace: id,
       apiPrefix: `/api/projects/${id}`,
       engineVersion: LATEST_ENGINE_VERSION,
-      waivers: rules
-        ? waiversFrom(
-            await fs
-              .readFile(rules, 'utf8')
-              .then(JSON.parse)
-              .catch(() => {
-                throw new ReviewError(422, 'File lựa chọn quy tắc không phải JSON hợp lệ.');
-              }),
-            checksFor(LATEST_ENGINE_VERSION).map((c) => c.id),
-          )
-        : {},
+    };
+    if (!rules) return { ...base, waivers: {} };
+    const file = await fs
+      .readFile(rules, 'utf8')
+      .then(JSON.parse)
+      .catch(() => {
+        throw new ReviewError(422, 'File lựa chọn quy tắc không phải JSON hợp lệ.');
+      });
+    const patches = patchesFrom(file);
+    try {
+      checkPatches(patches);
+    } catch (e) {
+      throw new ReviewError(
+        422,
+        `Quy tắc guideline không chạy được: ${(e as Error).message}`.slice(0, 500),
+      );
+    }
+    return {
+      ...base,
+      waivers: waiversFrom(
+        file,
+        checksFor(LATEST_ENGINE_VERSION).map((c) => c.id),
+      ),
+      patches,
+      guideline: summaryFrom(file, name),
     };
   }
 }

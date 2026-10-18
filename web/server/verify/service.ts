@@ -20,6 +20,12 @@ import type { ProjectService } from '../projects/service.ts';
 import type { LoadedDataset, ProjectContext } from '../types.ts';
 import { addToQueue } from './queue.ts';
 import { labelVerifier } from './label-verifier.ts';
+import { findModel } from './models.ts';
+
+export interface ScanModels {
+  model: string;
+  second_model?: string;
+}
 
 // Job state as persisted to latest.json; a finished run adds the combined report to it.
 interface VerifyJob {
@@ -29,6 +35,7 @@ interface VerifyJob {
   // The engine at work and its boxes: the second engine starts a count of its own.
   stage: VerifierEngine;
   second: boolean;
+  models: ScanModels;
   completed: number;
   total: number;
   [extra: string]: unknown;
@@ -48,7 +55,7 @@ export class VerifyService {
   results: Map<string, { at: number; state: VerifyJob | null }>;
   // Scans asked for while the project was still being imported, or while another run held the
   // engine: each starts once its project is READY and the engine is free.
-  pending: Map<string, { second: boolean }>;
+  pending: Map<string, ScanModels>;
   constructor(projects: ProjectService, options: { verifier?: VerifyService['verifier'] } = {}) {
     this.projects = projects;
     this.verifier = options.verifier ?? labelVerifier();
@@ -56,6 +63,10 @@ export class VerifyService {
     this.active = false;
     this.results = new Map();
     this.pending = new Map();
+  }
+  // A scan is asked for or running: the import keeps its staging directory for it.
+  waiting(id: string) {
+    return this.pending.has(id) || this.jobs.has(id);
   }
   directory(id: string) {
     return path.join(this.projects.storageRoot, 'projects', id, 'verify');
@@ -116,12 +127,13 @@ export class VerifyService {
   }
   // What the person creating a project chose in the upload popup. The import may still be
   // finishing on the backend, so the scan waits for it instead of making the person wait.
-  async request(id: string, options: { second?: boolean } = {}) {
+  async request(id: string, options: Partial<ScanModels> = {}) {
     if (!(await this.verifier.available()))
       throw new ReviewError(
         503,
         'Chưa có Python của label verifier. Xem docs/label-verifier.md để cài.',
       );
+    const models = await this.models(options);
     const { status } = await this.projects.get(id);
     if (status === 'CREATED' || status === 'FAILED')
       throw new ReviewError(409, 'Project chưa có dữ liệu để kiểm nhãn.');
@@ -133,9 +145,9 @@ export class VerifyService {
       const saved = await this.saved(id);
       if (saved?.status === 'READY' && saved.dataset_revision === dataset.meta.dataset_id)
         throw new ReviewError(409, done);
-      if (!this.active) return this.start(id, options);
+      if (!this.active) return this.start(id, models);
     }
-    this.pending.set(id, { second: options.second === true });
+    this.pending.set(id, models);
     // The import may have finished between the two lines above.
     void this.drain();
     return {
@@ -148,6 +160,12 @@ export class VerifyService {
   }
   // Starts the next waiting scan whose project is ready. Called when an import finishes and
   // when a run ends.
+  async models(options: Partial<ScanModels>): Promise<ScanModels> {
+    const first = await findModel(options.model, VERIFIER_ENGINE);
+    if (!options.second_model) return { model: first.name };
+    const second = await findModel(options.second_model, SECOND_ENGINE);
+    return { model: first.name, second_model: second.name };
+  }
   async drain() {
     for (const [id, options] of this.pending) {
       if (this.active) return;
@@ -157,6 +175,7 @@ export class VerifyService {
         await this.start(id, options);
       } catch (e) {
         this.pending.delete(id);
+        await this.projects.release(id).catch(() => {});
         console.error('Queued label verify not started:', id, (e as Error).message);
       }
     }
@@ -171,7 +190,7 @@ export class VerifyService {
     if (changed.length) await reviews?.requeue(changed);
   }
   // `second`: the person asked for the second engine to look again at the doubted boxes.
-  async start(id: string, { second = false }: { second?: boolean } = {}) {
+  async start(id: string, models: ScanModels) {
     const { dataset } = await this.projects.context(id);
     if (this.projects.deleting.has(id)) throw new ReviewError(409, 'Project đang được xóa.');
     if (this.active)
@@ -195,7 +214,8 @@ export class VerifyService {
         dataset_revision: dataset.meta.dataset_id,
         started_at: new Date().toISOString(),
         stage: VERIFIER_ENGINE,
-        second,
+        second: Boolean(models.second_model),
+        models,
         completed: 0,
         total: 0,
       };
@@ -213,14 +233,27 @@ export class VerifyService {
     const directory = path.join(this.projects.storageRoot, '.tmp', randomUUID());
     try {
       const paths = new Map(frames.map((f) => [f.id, dataset.assets.get(f.id)!]));
-      // The engines read files, so remote frames are fetched into a directory removed afterwards.
+      // The engines read files, so remote frames are fetched into a directory removed afterwards,
+      // unless the import kept its staging directory for this scan: those frames are read there.
       if (dataset.remote) {
         await fs.mkdir(directory, { recursive: true });
+        const staged = this.projects.kept.get(id);
         let next = 0;
         const fetchFrames = async () => {
           while (next < frames.length) {
             const index = next++,
               frame = frames[index];
+            const local = staged && frame.image && path.join(staged, frame.image);
+            if (local && local.startsWith(staged + path.sep)) {
+              const found = await fs.access(local).then(
+                () => true,
+                () => false,
+              );
+              if (found) {
+                paths.set(frame.id, local);
+                continue;
+              }
+            }
             const data = await dataset.readAsset(frame.id);
             if (!data) throw new Error(`Không đọc được ảnh ${frame.id} từ kho lưu trữ chung.`);
             const file = path.join(
@@ -234,13 +267,19 @@ export class VerifyService {
         await Promise.all(Array.from({ length: 4 }, fetchFrames));
       }
       const risk = new Map(dataset.report.results.map((r) => [r.reference.annotation_id, r]));
-      const look = async (engine: VerifierEngine, only?: Set<string>) => {
-        const { request, skipped } = verifierRequest(
+      const look = async (engine: VerifierEngine, name: string, only?: Set<string>) => {
+        const chosen = await findModel(name, engine);
+        const { request: built, skipped } = verifierRequest(
           dataset.normalized,
           (frame) => paths.get(frame.id),
           engine,
-          { state: (annotationId) => risk.get(annotationId)?.state, only },
+          {
+            state: (annotationId) => risk.get(annotationId)?.state,
+            only,
+            captions: dataset.meta.guideline?.captions,
+          },
         );
+        const request = { ...built, model: chosen.name, model_dir: chosen.dir };
         Object.assign(state, { stage: engine, completed: 0, total: request.boxes.length });
         const response = request.boxes.length
           ? await this.verifier.run(
@@ -251,9 +290,11 @@ export class VerifyService {
           : { engine, model: request.model, results: [], skipped: [] };
         return verifierReport(dataset.normalized, response, skipped);
       };
-      const first = await look(VERIFIER_ENGINE);
+      const first = await look(VERIFIER_ENGINE, state.models.model);
       const again = secondLook(first);
-      const second = state.second && again.size ? await look(SECOND_ENGINE, again) : undefined;
+      const secondName = state.models.second_model;
+      const second =
+        secondName && again.size ? await look(SECOND_ENGINE, secondName, again) : undefined;
       const combined: CombinedReport = combineWithRisk(
         first,
         (annotationId) => risk.get(annotationId)?.score ?? 0,
@@ -290,6 +331,7 @@ export class VerifyService {
       this.active = false;
       this.jobs.delete(id);
       await fs.rm(directory, { recursive: true, force: true }).catch(() => {});
+      await this.projects.release(id).catch(() => {});
       void this.drain();
     }
   }

@@ -57,6 +57,8 @@ export interface ViewSettings {
   // Cuboids take the colour of their type, or of the decision their review holds.
   boxColor: 'type' | 'review';
   labels: boolean;
+  // The selected cuboid's distance to the vehicle, measured on the ground.
+  distance: boolean;
   orientation: boolean;
   sensors: boolean;
   lasers: Record<string, boolean>;
@@ -121,6 +123,14 @@ export class PointCloudEngine {
   // The part below the road of each cuboid the risk engine found sunk (setSunk): a red block
   // with red edges, from the cuboid's bottom up to the road.
   private sunkParts = new THREE.Group();
+  // The line from the vehicle to the selected cuboid.
+  private measure = new THREE.Group();
+  private measureLine = new THREE.LineDashedMaterial({
+    color: SELECTED_COLOR,
+    dashSize: 0.6,
+    gapSize: 0.4,
+    depthTest: false,
+  });
   private sunkGeometry = new THREE.BoxGeometry(1, 1, 1);
   private sunkEdges = new THREE.EdgesGeometry(this.sunkGeometry);
   private sunkFill = new THREE.MeshBasicMaterial({
@@ -240,6 +250,7 @@ export class PointCloudEngine {
       this.boxLabels,
       this.highlight,
       this.sunkParts,
+      this.measure,
       this.sensors,
       new THREE.AxesHelper(3),
     );
@@ -567,6 +578,9 @@ export class PointCloudEngine {
     this.boxLabels.clear();
     this.highlight.visible = false;
     this.sunkParts.clear();
+    for (const part of this.measure.children)
+      if (part instanceof THREE.Line) part.geometry.dispose();
+    this.measure.clear();
     const flags = new Map(
       flagsOf(this.scene.frames[this.current], this.reviews, this.risks, this.numbers).map(
         (flag) => [flag.objectId, flag],
@@ -617,6 +631,7 @@ export class PointCloudEngine {
         this.highlight.scale.set(sx, sy, sz);
         this.highlight.rotation.z = box.heading;
         this.highlight.visible = this.settings.boxes;
+        if (this.settings.distance) this.addMeasure(box);
       }
       // Sunk: the part from the bottom up to the road, no higher than the cuboid itself.
       if (box.lift !== undefined && box.lift < 0 && this.sunk.has(boxKey(timestamp, box.id))) {
@@ -670,6 +685,23 @@ export class PointCloudEngine {
     this.boxLines.geometry.setAttribute('position', new THREE.BufferAttribute(position, 3));
     this.boxLines.geometry.setAttribute('color', new THREE.BufferAttribute(color, 3));
   }
+  // A dashed line on the ground from the vehicle's origin (the middle of its rear axle) to the
+  // cuboid's centre; the page shows the distance itself in a corner of the view.
+  private addMeasure(box: Box3D) {
+    const [x, y, z] = box.center,
+      ground = z - box.size[2] / 2 + 0.05;
+    const line = new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(0, 0, ground),
+        new THREE.Vector3(x, y, ground),
+      ]),
+      this.measureLine,
+    );
+    line.computeLineDistances();
+    line.renderOrder = 1;
+    line.frustumCulled = false;
+    this.measure.add(line);
+  }
   // Sets the two group matrices from the vehicle pose. The camera moves by as much as the
   // vehicle did when it follows it, or when the frame of reference itself was switched.
   private applyPose(keepView: boolean) {
@@ -694,6 +726,7 @@ export class PointCloudEngine {
     this.trajectory.visible = this.settings.trajectory;
     this.sensors.visible = this.settings.sensors;
     this.boxLines.visible = this.boxLabels.visible = this.settings.boxes;
+    this.measure.visible = this.settings.boxes && this.settings.distance;
     if (!this.settings.boxes) this.highlight.visible = false;
     this.sunkParts.visible = this.settings.boxes;
     this.pointMaterial.size = this.settings.pointSize;
@@ -750,6 +783,7 @@ export class PointCloudEngine {
       next.types !== before.types ||
       next.boxColor !== before.boxColor ||
       next.labels !== before.labels ||
+      next.distance !== before.distance ||
       next.orientation !== before.orientation ||
       next.boxes !== before.boxes;
     if (boxesChanged) this.rebuildBoxes();

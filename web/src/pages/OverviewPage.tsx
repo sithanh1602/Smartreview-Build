@@ -86,7 +86,7 @@ function Overview() {
           <p className="mt-2 text-xs leading-5 text-muted">
             {meta.source?.name || 'SmartReview dataset'} · {meta.source?.kind || 'unknown source'}
           </p>
-          <dl className="my-6 grid grid-cols-2 gap-5">
+          <dl className="mt-6 grid grid-cols-2 gap-5">
             {[
               [hint('Media'), meta.media_count],
               [hint('Frames'), meta.frame_count],
@@ -99,16 +99,6 @@ function Overview() {
               </div>
             ))}
           </dl>
-          <div className="flex flex-wrap gap-2 border-t border-line pt-4">
-            <span className="rounded-md border border-line px-2 py-1 text-[10px] text-muted">
-              {hint('SCHEMA ')}
-              {meta.schema_version}
-            </span>
-            <span className="rounded-md border border-line px-2 py-1 text-[10px] text-muted">
-              {hint('ENGINE ')}
-              {meta.engine_version}
-            </span>
-          </div>
         </section>
       </div>
       <section className="panel mt-6 overflow-hidden">

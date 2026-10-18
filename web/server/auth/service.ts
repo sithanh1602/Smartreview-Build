@@ -1,12 +1,19 @@
-import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { ReviewError } from '../../shared/review.ts';
+import { EXTENSION_MINUTES, MAX_EXTENSIONS, SESSION_MINUTES } from '../../shared/session.ts';
 import { hashPassword, usernameValue, verifyPassword } from './password.ts';
 import type { Untrusted } from '../../shared/review.ts';
-import type { Db, Role, Rows, User } from '../types.ts';
-// One token per sign-in, valid for a fixed hour from then: nothing extends it, so the user is
-// signed out when it runs out and has to sign in again.
-export const SESSION_MINUTES = 60;
+import type { Db, Result, Role, Rows, User } from '../types.ts';
+// One token per sign-in, valid for an hour from then. In its last minutes the user may ask for
+// 5 more minutes, at most 3 times (so 75 minutes in all); after that they have to sign in again.
+export { SESSION_MINUTES };
 export const SESSION_SECONDS = SESSION_MINUTES * 60;
+// An extension is only granted this close to the end, so they cannot be stacked up early.
+const EXTEND_WITHIN_MINUTES = 2;
+const LONGEST_MINUTES = SESSION_MINUTES + MAX_EXTENSIONS * EXTENSION_MINUTES;
+// Extensions left, from how far the expiry still is from the longest a session may last. A
+// session written before created_at was UTC can sit in the future there: it gets none.
+const EXTENSIONS_LEFT = `IF(s.created_at>UTC_TIMESTAMP(3), 0, GREATEST(0, FLOOR(TIMESTAMPDIFF(SECOND, s.access_expires_at, DATE_ADD(s.created_at, INTERVAL ${LONGEST_MINUTES} MINUTE))/${EXTENSION_MINUTES * 60})))`;
 export const tokenHash = (value: string) => createHash('sha256').update(value).digest('hex');
 const token = () => randomBytes(32).toString('base64url');
 const validToken = (value: unknown): value is string =>
@@ -20,13 +27,9 @@ const unauthorized = () => new ReviewError(401, 'Phiên đăng nhập không h�
 export class AuthService {
   pool: Db;
   passwordChecks: number;
-  // SHA-256 of the code that lets someone register as a leader (LEADER_SIGNUP_CODE); without
-  // one, leaders are created only with the CLI.
-  leaderCode: Buffer | null;
-  constructor(pool: Db, { leaderCode = '' }: { leaderCode?: string } = {}) {
+  constructor(pool: Db) {
     this.pool = pool;
     this.passwordChecks = 0;
-    this.leaderCode = leaderCode ? createHash('sha256').update(leaderCode).digest() : null;
   }
   async cleanup() {
     await this.pool.execute<Rows>(
@@ -61,11 +64,8 @@ export class AuthService {
       !input ||
       typeof input !== 'object' ||
       Array.isArray(input) ||
-      Object.keys(input).some(
-        (k) => !['username', 'password', 'role', 'leaderCode', 'website'].includes(k),
-      ) ||
+      Object.keys(input).some((k) => !['username', 'password', 'website'].includes(k)) ||
       typeof input.password !== 'string' ||
-      (input.leaderCode !== undefined && typeof input.leaderCode !== 'string') ||
       (input.website !== undefined && typeof input.website !== 'string') ||
       input.password.length < 12 ||
       input.password.length > 128
@@ -74,9 +74,7 @@ export class AuthService {
         400,
         'Tên đăng nhập hợp lệ và mật khẩu từ 12 đến 128 ký tự là bắt buộc.',
       );
-    const role: Role = input.role ?? 'member';
-    if (!ROLES.includes(role))
-      throw new ReviewError(400, 'Loại tài khoản phải là Leader hoặc Thành viên.');
+    const role: Role = 'member';
     let username;
     try {
       username = usernameValue(input.username);
@@ -87,8 +85,6 @@ export class AuthService {
     // `website` is a field people never see: a bot that fills it is told it succeeded, and
     // nothing is created.
     if (input.website) return { id: randomUUID(), username, role: 'member' as Role };
-    if (role === 'leader' && !this.leaderCodeMatches(input.leaderCode))
-      throw new ReviewError(403, 'Mã Leader không đúng.');
     if (this.passwordChecks >= 2)
       throw new ReviewError(429, 'Hệ thống đang bận. Vui lòng thử lại.');
     this.passwordChecks++;
@@ -101,10 +97,6 @@ export class AuthService {
     } finally {
       this.passwordChecks--;
     }
-  }
-  leaderCodeMatches(code: unknown) {
-    if (!this.leaderCode || typeof code !== 'string' || !code) return false;
-    return timingSafeEqual(createHash('sha256').update(code).digest(), this.leaderCode);
   }
   async throttle(username: string, ip: string, action = 'login') {
     for (const [key, limit] of [
@@ -166,11 +158,12 @@ export class AuthService {
       ]);
       if (!current?.enabled || current.password_hash !== u.password_hash) throw unauthorized();
       await c.execute<Rows>(
-        `INSERT INTO auth_sessions(id,user_id,access_hash,access_expires_at) VALUES (?,?,?,DATE_ADD(UTC_TIMESTAMP(3), INTERVAL ${SESSION_MINUTES} MINUTE))`,
+        // created_at in UTC like the expiry: the extension limit is counted from it.
+        `INSERT INTO auth_sessions(id,user_id,access_hash,access_expires_at,created_at) VALUES (?,?,?,DATE_ADD(UTC_TIMESTAMP(3), INTERVAL ${SESSION_MINUTES} MINUTE),UTC_TIMESTAMP(3))`,
         [randomUUID(), u.id, tokenHash(accessToken)],
       );
       const [[session]] = await c.execute<Rows>(
-        'SELECT access_expires_at FROM auth_sessions WHERE access_hash=?',
+        `SELECT s.access_expires_at, ${EXTENSIONS_LEFT} AS extensions_left FROM auth_sessions s WHERE s.access_hash=?`,
         [tokenHash(accessToken)],
       );
       await c.execute<Rows>('DELETE FROM auth_login_limits WHERE bucket=?', [
@@ -181,6 +174,7 @@ export class AuthService {
         user: userView(current as User),
         accessToken,
         expiresAt: expiry(session.access_expires_at),
+        extensionsLeft: Number(session.extensions_left),
       };
     } catch (e) {
       await c.rollback();
@@ -192,15 +186,37 @@ export class AuthService {
   async authenticate(accessToken: unknown) {
     return (await this.session(accessToken)).user;
   }
-  // The signed-in user and when the session ends (ISO time), for the client to sign out then.
+  // The signed-in user, when the session ends (ISO time) for the client to sign out then, and
+  // how many 5-minute extensions are left.
   async session(accessToken: unknown) {
     if (!validToken(accessToken)) throw unauthorized();
     const [[u]] = await this.pool.execute<Rows>(
-      'SELECT u.id,u.username,u.role,s.access_expires_at FROM auth_sessions s JOIN users u ON u.id=s.user_id WHERE s.access_hash=? AND s.access_expires_at>UTC_TIMESTAMP(3) AND u.enabled=1',
+      `SELECT u.id,u.username,u.role,s.access_expires_at,${EXTENSIONS_LEFT} AS extensions_left FROM auth_sessions s JOIN users u ON u.id=s.user_id WHERE s.access_hash=? AND s.access_expires_at>UTC_TIMESTAMP(3) AND u.enabled=1`,
       [tokenHash(accessToken)],
     );
     if (!u) throw unauthorized();
-    return { user: userView(u as User), expiresAt: expiry(u.access_expires_at) };
+    return {
+      user: userView(u as User),
+      expiresAt: expiry(u.access_expires_at),
+      extensionsLeft: Number(u.extensions_left),
+    };
+  }
+  // 5 more minutes for a live session in its last minutes, while it has extensions left.
+  async extend(accessToken: unknown) {
+    if (!validToken(accessToken)) throw unauthorized();
+    const [result] = await this.pool.execute<Result>(
+      `UPDATE auth_sessions SET access_expires_at=DATE_ADD(access_expires_at, INTERVAL ${EXTENSION_MINUTES} MINUTE) WHERE access_hash=? AND access_expires_at>UTC_TIMESTAMP(3) AND access_expires_at<=DATE_ADD(UTC_TIMESTAMP(3), INTERVAL ${EXTEND_WITHIN_MINUTES} MINUTE) AND created_at<=UTC_TIMESTAMP(3) AND DATE_ADD(access_expires_at, INTERVAL ${EXTENSION_MINUTES} MINUTE)<=DATE_ADD(created_at, INTERVAL ${LONGEST_MINUTES} MINUTE)`,
+      [tokenHash(accessToken)],
+    );
+    const session = await this.session(accessToken);
+    if (!result.affectedRows)
+      throw new ReviewError(
+        409,
+        session.extensionsLeft
+          ? `Chỉ gia hạn được trong ${EXTEND_WITHIN_MINUTES} phút cuối của phiên.`
+          : 'Đã dùng hết lượt gia hạn. Hãy đăng nhập lại.',
+      );
+    return session;
   }
   async logout(accessToken: unknown) {
     if (validToken(accessToken))

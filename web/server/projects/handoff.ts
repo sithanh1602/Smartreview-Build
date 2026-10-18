@@ -35,27 +35,50 @@ export interface HandoffMissing extends Place {
   class_name: string;
   note: string;
 }
-// The file the annotators receive: every confirmed error and missing object at the moment of sending.
+// A label to look at again: the reviewer was unsure of it, or it is a risk case nobody
+// reviewed. A suggested missing object has no annotation.
+export interface HandoffCheck extends Place {
+  id: string;
+  annotation_id: string | null;
+  class_name: string;
+  score: number;
+  reasons: string[];
+  status: 'UNSURE' | 'UNREVIEWED';
+  note: string | null;
+}
+// The file the annotators receive at the moment of sending: every confirmed error and missing
+// object, and the labels to look at again. Reports sent before `review` existed lack it.
 export interface HandoffReport {
   project: { id: string; name: string };
   dataset_revision: string;
   errors: HandoffError[];
   missing: HandoffMissing[];
+  review?: HandoffCheck[];
 }
 // What became of a sent item in the file the annotator returned.
 // unchanged: the same label and shape are still there. changed: a different label or shape
 // is at that place now. removed: nothing is there any more. added / not_added: whether a
 // label now covers a region that was marked as missing one.
 export type Outcome = 'unchanged' | 'changed' | 'removed' | 'added' | 'not_added';
+// What a reviewer made of a returned item: accept the fix, or reject it so the item is
+// marked again and goes into the next round.
+export interface Verdict {
+  value: 'accept' | 'reject';
+  note: string | null;
+  by: string;
+  at: string;
+}
 interface Checked {
   outcome: Outcome;
   // The annotation at that place in the returned dataset, to open in Review.
   now: { id: string; class_name: string; geometry: Geometry } | null;
+  verdict?: Verdict;
 }
 export interface HandoffResult {
   dataset_revision: string;
   errors: (HandoffError & Checked)[];
   missing: (HandoffMissing & Checked)[];
+  review?: (HandoffCheck & Checked)[];
 }
 export interface Handoff {
   // SENT: with the annotators, decisions locked. RETURNED: the annotators sent their fixed
@@ -73,13 +96,15 @@ export interface Handoff {
   for_me: boolean;
 }
 export const HANDOFF_LOCKED =
-  'Review đã hoàn thành và đã gửi cho Annotator. Leader mở lại review thì mới sửa được.';
+  'Review đã hoàn thành và đã gửi cho Annotator. Leader hoặc Reviewer mở lại review thì mới sửa được.';
 
 export function buildReport(
   project: { id: string; name: string },
   dataset: LoadedDataset,
   reviews: Record<string, Review>,
   frameReviews: Record<string, FrameReview>,
+  // Whether the reviewer chose to send the labels to look at again too.
+  { review: withReview = false }: { review?: boolean } = {},
 ): HandoffReport {
   // A confirmed missing object goes to the annotators as a region to label, like one the
   // reviewer marked by hand.
@@ -148,7 +173,30 @@ export function buildReport(
   const missing = [...suggested, ...marked].sort(
     (a, b) => a.media_name.localeCompare(b.media_name) || a.frame_id - b.frame_id,
   );
-  return { project, dataset_revision: dataset.meta.dataset_id, errors, missing };
+  // Unsure decisions on any label, and the risk queue's cases nobody decided on.
+  const unsure = dataset.allCases.filter((c) => reviews[c.id]?.decision === 'UNSURE');
+  const unreviewed = dataset.cases.filter((c) => !reviews[c.id]);
+  const review = (withReview ? [...unsure, ...unreviewed] : [])
+    .map(
+      (c): HandoffCheck => ({
+        id: c.id,
+        annotation_id: c.missing_object ? null : c.annotation_id,
+        frame_ref: c.frame_ref,
+        frame_id: c.frame_id,
+        media_name: c.media_name,
+        width: c.width,
+        height: c.height,
+        image_url: c.image_url,
+        class_name: c.class_name,
+        geometry: c.geometry,
+        score: c.score,
+        reasons: c.reasons,
+        status: reviews[c.id] ? 'UNSURE' : 'UNREVIEWED',
+        note: reviews[c.id]?.note ?? null,
+      }),
+    )
+    .sort((a, b) => a.media_name.localeCompare(b.media_name) || a.frame_id - b.frame_id);
+  return { project, dataset_revision: dataset.meta.dataset_id, errors, missing, review };
 }
 
 const TOLERANCE = 0.51;
@@ -193,23 +241,28 @@ export function compareReturn(
     const frame = frames.get(item.frame_ref) ?? item.frame_ref;
     return { ...item, frame_ref: frame, image_url: imageUrl(frame) };
   };
+  // A sent label: still the same, changed at its place, or gone.
+  const label = <T extends Place & { class_name: string }>(e: T): T & Checked => {
+    const same = here(e.frame_ref).find(
+      (a) => a.label === e.class_name && sameShape(a.geometry, e.geometry),
+    );
+    const now = same ?? nearest(e.frame_ref, e.geometry);
+    return {
+      ...moved(e),
+      outcome: same ? 'unchanged' : now ? 'changed' : 'removed',
+      now: view(now),
+    };
+  };
+  // A region without a label: whether one covers it now.
+  const region = <T extends Place>(m: T): T & Checked => {
+    const now = nearest(m.frame_ref, m.geometry);
+    return { ...moved(m), outcome: now ? 'added' : 'not_added', now: view(now) };
+  };
   return {
     dataset_revision: returned.dataset_revision,
-    errors: report.errors.map((e) => {
-      const same = here(e.frame_ref).find(
-        (a) => a.label === e.class_name && sameShape(a.geometry, e.geometry),
-      );
-      const now = same ?? nearest(e.frame_ref, e.geometry);
-      return {
-        ...moved(e),
-        outcome: same ? 'unchanged' : now ? 'changed' : 'removed',
-        now: view(now),
-      };
-    }),
-    missing: report.missing.map((m) => {
-      const now = nearest(m.frame_ref, m.geometry);
-      return { ...moved(m), outcome: now ? 'added' : 'not_added', now: view(now) };
-    }),
+    errors: report.errors.map(label),
+    missing: report.missing.map(region),
+    review: (report.review ?? []).map((c) => (c.annotation_id ? label(c) : region(c))),
   };
 }
 
@@ -230,16 +283,20 @@ const serialize = (row: Rows[number], revision: string | null, user: User): Hand
   };
 };
 
+// One round of review sent to annotators per project. 3D projects keep theirs in
+// project_handoffs_3d, the same table shape with reports of their own (projects3d/handoff.ts).
 export class ProjectHandoffs {
   pool: Db;
-  constructor(pool: Db) {
+  table: 'project_handoffs' | 'project_handoffs_3d';
+  constructor(pool: Db, table: ProjectHandoffs['table'] = 'project_handoffs') {
     this.pool = pool;
+    this.table = table;
   }
   // Null before migration 007 too, so projects keep working on a database that lacks the table.
   async row(projectId: string) {
     try {
       const [[row]] = await this.pool.execute<Rows>(
-        'SELECT * FROM project_handoffs WHERE project_id=?',
+        `SELECT * FROM ${this.table} WHERE project_id=?`,
         [projectId],
       );
       return row ?? null;
@@ -277,18 +334,31 @@ export class ProjectHandoffs {
       throw new ReviewError(403, 'Chỉ Annotator được gửi mới gửi lại bản đã sửa.');
     return JSON.parse(row.report) as HandoffReport;
   }
-  async returned(projectId: string, user: User, result: HandoffResult) {
+  // The comparison of a returned round, for the reviewers to accept or reject item by item.
+  async returnedResult(projectId: string) {
+    const row = await this.row(projectId);
+    if (row?.status !== 'RETURNED' || !row.result)
+      throw new ReviewError(409, 'Project không có bản sửa nào đang chờ kiểm tra.');
+    return JSON.parse(row.result) as HandoffResult;
+  }
+  async saveResult(projectId: string, result: object) {
     await this.pool.execute<Rows>(
-      "UPDATE project_handoffs SET status='RETURNED',returned_by_name=?,returned_at=UTC_TIMESTAMP(3),result=? WHERE project_id=?",
+      `UPDATE ${this.table} SET result=? WHERE project_id=? AND status='RETURNED'`,
+      [JSON.stringify(result), projectId],
+    );
+  }
+  async returned(projectId: string, user: User, result: object) {
+    await this.pool.execute<Rows>(
+      `UPDATE ${this.table} SET status='RETURNED',returned_by_name=?,returned_at=UTC_TIMESTAMP(3),result=? WHERE project_id=?`,
       [user.username, JSON.stringify(result), projectId],
     );
   }
-  async send(
+  async send<R extends { dataset_revision: string }>(
     projectId: string,
     input: Untrusted,
     user: User,
     people: ProjectPeople,
-    report: HandoffReport,
+    report: R,
   ) {
     const ids: unknown = input?.annotator_ids;
     if (!Array.isArray(ids) || !ids.length || ids.some((id) => typeof id !== 'string'))
@@ -307,7 +377,8 @@ export class ProjectHandoffs {
       // A returned round is over: sending again starts the next one.
       await this.reopen(projectId);
       await this.pool.execute<Rows>(
-        'INSERT INTO project_handoffs(project_id,dataset_fingerprint,sent_by,sent_by_name,recipients,note,report) VALUES (?,?,?,?,?,?,?)',
+        // UTC like returned_at; the column default is the database server's local time.
+        `INSERT INTO ${this.table}(project_id,dataset_fingerprint,sent_by,sent_by_name,recipients,note,report,sent_at) VALUES (?,?,?,?,?,?,?,UTC_TIMESTAMP(3))`,
         [
           projectId,
           report.dataset_revision,
@@ -320,10 +391,7 @@ export class ProjectHandoffs {
       );
     } catch (e) {
       if (noTable(e))
-        throw new ReviewError(
-          503,
-          'Database chưa có bảng project_handoffs. Chạy npm run db:migrate.',
-        );
+        throw new ReviewError(503, `Database chưa có bảng ${this.table}. Chạy npm run db:migrate.`);
       if ((e as { code?: string }).code === 'ER_DUP_ENTRY')
         throw new ReviewError(409, 'Project này đã được gửi cho Annotator.');
       throw e;
@@ -332,7 +400,7 @@ export class ProjectHandoffs {
   }
   async reopen(projectId: string) {
     try {
-      await this.pool.execute<Rows>('DELETE FROM project_handoffs WHERE project_id=?', [projectId]);
+      await this.pool.execute<Rows>(`DELETE FROM ${this.table} WHERE project_id=?`, [projectId]);
     } catch (e) {
       if (!noTable(e)) throw e;
     }

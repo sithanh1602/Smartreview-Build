@@ -28,6 +28,7 @@ playwright-report/
 # Ultralytics download in progress (or interrupted).
 *.pt.*.part
 *.onnx
+/model/
 
 # Local tooling and editor files
 .agents/

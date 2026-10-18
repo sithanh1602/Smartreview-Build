@@ -169,7 +169,7 @@ test('a database without the table reads as not sent and refuses to send', async
   );
 });
 
-test('routes: annotators cannot send, only the leader reopens, a sent review rejects edits', async () => {
+test('routes: annotators cannot send or reopen, a sent review rejects edits until reopened', async () => {
   const id = '00000000-0000-0000-0000-000000000000';
   const handoffs = new ProjectHandoffs(pool());
   const call = (role: string, method: string, route: string, dispatched = { n: 0 }) =>
@@ -192,7 +192,7 @@ test('routes: annotators cannot send, only the leader reopens, a sent review rej
     (e: any) => e.status === 403,
   );
   await assert.rejects(
-    () => call('reviewer', 'DELETE', '/handoff'),
+    () => call('annotator', 'DELETE', '/handoff'),
     (e: any) => e.status === 403,
   );
   const passed = { n: 0 };
@@ -219,6 +219,19 @@ test('routes: annotators cannot send, only the leader reopens, a sent review rej
   await call('leader', 'DELETE', '/handoff');
   await call('reviewer', 'PUT', '/cases/b0/review', passed);
   assert.equal(passed.n, 3);
+  await handoffs.send(id, { annotator_ids: ['A'] }, leader, people, {
+    project: { id, name: 'P' },
+    dataset_revision: 'rev',
+    errors: [],
+    missing: [],
+  });
+  await assert.rejects(
+    () => call('reviewer', 'PUT', '/cases/b0/review', passed),
+    (e: any) => e.status === 423,
+  );
+  await call('reviewer', 'DELETE', '/handoff');
+  await call('reviewer', 'PUT', '/cases/b0/review', passed);
+  assert.equal(passed.n, 4);
 });
 
 test('the CVAT export reads back as the same boxes and the ZIP is a readable archive', async () => {
@@ -421,4 +434,242 @@ test('a file edited in CVAT comes back as the project dataset over the same imag
       () => give(bad),
       (e: any) => e.status === 422,
     );
+});
+
+test('every export format reads back as the project dataset over the same images', async () => {
+  const { EXPORT_FORMATS, exportDataset } = await import('../core/exporters/formats.ts');
+  const { returnedDataset } = await import('../server/projects/return.ts');
+  const triangle: [number, number][] = [
+    [20, 20],
+    [120, 40],
+    [60, 140],
+  ];
+  const stored = {
+    ...scene,
+    media: [
+      { id: 'm', name: 'street/m.jpg', type: 'image', width: 640, height: 480 },
+      { id: 'n', name: 'n.png', type: 'image', width: 320, height: 240 },
+      { id: 'e', name: 'empty.jpg', type: 'image', width: 100, height: 100 },
+    ],
+    frames: [
+      { id: 'f0', media_id: 'm', index: 0, image: 'media/street/m.jpg' },
+      { id: 'f1', media_id: 'n', index: 0, image: 'media/n.png' },
+      { id: 'f2', media_id: 'e', index: 0, image: 'media/empty.jpg' },
+    ],
+    annotations: [
+      ...scene.annotations,
+      {
+        id: 'p',
+        frame_id: 'f1',
+        label: 'road',
+        geometry: { type: 'polygon', points: triangle },
+      },
+    ],
+  } as any;
+  const bounds = (g: any) =>
+    g.type === 'bbox'
+      ? [g.x, g.y, g.width, g.height]
+      : (() => {
+          const xs = g.points.map((p: number[]) => p[0]),
+            ys = g.points.map((p: number[]) => p[1]);
+          const x = Math.min(...xs),
+            y = Math.min(...ys);
+          return [x, y, Math.max(...xs) - x, Math.max(...ys) - y];
+        })();
+  const near = (a: number[], b: number[]) => a.every((v, i) => Math.abs(v - b[i]) < 0.05);
+  for (const format of Object.keys(EXPORT_FORMATS) as (keyof typeof EXPORT_FORMATS)[]) {
+    const out = exportDataset(format, stored);
+    assert.equal(out.skipped, 0, format);
+    const paths = stored.media.map(out.image);
+    assert.equal(new Set(paths).size, 3, format);
+    const { data, frames } = returnedDataset(
+      stored,
+      out.files.map((f) => ({ name: f.path, text: f.text })),
+      { id: 'p', name: 'P' },
+    );
+    assert.deepEqual([...frames.keys()].sort(), ['f0', 'f1', 'f2'], format);
+    const byFrame = (id: string) =>
+      data.annotations
+        .filter((a) => a.frame_id === frames.get(id))
+        .map((a) => [a.label, bounds(a.geometry)] as const)
+        .sort((a, b) => a[1][0] - b[1][0]);
+    const f0 = byFrame('f0');
+    assert.deepEqual(
+      f0.map((a) => a[0]),
+      ['car', 'bus', 'person'],
+      format,
+    );
+    f0.forEach(([, b], i) => assert.ok(near(b, [i * 150, 10, 80, 80]), `${format} ${b}`));
+    const [road] = byFrame('f1');
+    assert.equal(road[0], 'road', format);
+    assert.ok(near(road[1], [20, 20, 100, 120]), `${format} ${road[1]}`);
+    assert.deepEqual(byFrame('f2'), [], format);
+  }
+});
+
+test('unsure and unreviewed risk cases go to the annotators to look at again, also as CVAT issues', async () => {
+  const { compareReturn } = await import('../server/projects/handoff.ts');
+  const { handoffIssues } = await import('../server/cvat/tasks.ts');
+  const dataset = await load();
+  const reviews = {
+    b0: review('ERROR', { error_type: 'CLASS', corrected_value: 'truck', note: 'xe tải' }),
+    b2: review('UNSURE', { note: 'mờ' }),
+  };
+  // Left out unless the reviewer asks for it.
+  assert.deepEqual(buildReport({ id: 'p', name: 'P' }, dataset, reviews, {}).review, []);
+  const report = buildReport({ id: 'p', name: 'P' }, dataset, reviews, {}, { review: true });
+  const queued = new Set(dataset.cases.map((c) => c.id));
+  // Unsure on any label; unreviewed only from the risk queue; never a decided case.
+  const expected = dataset.allCases
+    .filter((c) => c.id === 'b2' || (queued.has(c.id) && !(c.id in reviews)))
+    .map((c) => c.id)
+    .sort();
+  assert.deepEqual(report.review!.map((c) => c.id).sort(), expected);
+  assert.ok(report.review!.every((c) => c.id !== 'b0'));
+  const b2 = report.review!.find((c) => c.id === 'b2')!;
+  assert.deepEqual([b2.status, b2.note, b2.class_name], ['UNSURE', 'mờ', 'person']);
+  assert.ok(report.review!.filter((c) => c.id !== 'b2').every((c) => c.status === 'UNREVIEWED'));
+  // Returned unchanged: the label to look at again is still there as it was.
+  const result = compareReturn(
+    report,
+    { dataset_revision: 'r2', annotations: dataset.normalized.annotations },
+    new Map([['f0', 'f0']]),
+  );
+  assert.equal(result.review!.find((c) => c.id === 'b2')!.outcome, 'unchanged');
+  // A report sent before review items existed still compares.
+  assert.deepEqual(
+    compareReturn(
+      { ...report, review: undefined },
+      { dataset_revision: 'r2', annotations: [] },
+      new Map(),
+    ).review,
+    [],
+  );
+  const issues = handoffIssues(report);
+  assert.equal(issues.length, 1 + report.review!.length);
+  assert.match(
+    issues[0].message,
+    /^\[Lỗi\] Class: car · sửa thành truck · Ghi chú: xe tải · Lý do cảnh báo: /,
+  );
+  const unsure = issues.find((i) => i.message.startsWith('[Cần xem lại] person'))!;
+  assert.match(unsure.message, /Reviewer chưa chắc · rủi ro \d+ · Ghi chú: mờ/);
+  assert.deepEqual(unsure.geometry, box(300));
+});
+
+test('reviewers accept or reject returned items; a rejection marks the item again', async () => {
+  const { ProjectService } = await import('../server/projects/service.ts');
+  const dataset = await load();
+  const saved: any[] = [];
+  const regions = new Map<string, any>();
+  const result: any = {
+    dataset_revision: 'r2',
+    errors: [
+      {
+        id: 'b0',
+        frame_ref: 'f0',
+        class_name: 'car',
+        geometry: box(0),
+        error_type: 'CLASS',
+        corrected_value: 'truck',
+        note: 'xe tải',
+        outcome: 'changed',
+        now: { id: 'b0', class_name: 'truck', geometry: box(0) },
+      },
+      {
+        id: 'gone',
+        frame_ref: 'f0',
+        class_name: 'bus',
+        geometry: box(150),
+        error_type: 'CLASS',
+        corrected_value: 'van',
+        note: null,
+        outcome: 'removed',
+        now: null,
+      },
+    ],
+    missing: [],
+  };
+  let stored = JSON.stringify(result);
+  const frameRow = (id: string) => regions.get(id);
+  // Just what judge touches: the handoff row, the loaded project, and frame_reviews.
+  const fake: any = {
+    handoffs: {
+      returnedResult: async () => JSON.parse(stored),
+      saveResult: async (_: string, r: any) => void (stored = JSON.stringify(r)),
+    },
+    context: async () => ({
+      dataset,
+      reviews: {
+        datasetId: 1,
+        list: async () => Object.fromEntries(saved.map((s) => [s.id, { version: 1 }])),
+        save: async (c: any, input: any, mode: string) => saved.push({ id: c.id, input, mode }),
+      },
+    }),
+    pool: {
+      execute: async (sql: string, values: any[]) =>
+        sql.startsWith('SELECT') ? [[frameRow('f0')].filter(Boolean)] : [[]],
+      getConnection: async () => ({
+        beginTransaction: async () => {},
+        commit: async () => {},
+        rollback: async () => {},
+        release: () => {},
+        execute: async (sql: string, values: any[]) => {
+          if (sql.startsWith('INSERT') || sql.startsWith('UPDATE'))
+            regions.set('f0', {
+              status: values[0],
+              missing_regions: values[1],
+              note: values[2],
+              version: (regions.get('f0')?.version ?? 0) + 1,
+              updated_at: '2026-10-16 00:00:00.000',
+            });
+          if (sql.startsWith('UPDATE')) return [{ affectedRows: 1 }];
+          return [[frameRow('f0')]];
+        },
+      }),
+    },
+  };
+  const judge = (input: any, role = 'reviewer') =>
+    ProjectService.prototype.judge.call(fake, 'p', input, leader as any, role as any);
+  await assert.rejects(
+    () => judge({ item_id: 'b0', verdict: 'accept' }, 'annotator'),
+    (e: any) => e.status === 403,
+  );
+  await assert.rejects(
+    () => judge({ item_id: 'b0', verdict: 'maybe' }),
+    (e: any) => e.status === 400,
+  );
+  // Rejecting a changed label makes it an Error as it was sent.
+  await judge({ item_id: 'b0', verdict: 'reject', note: 'vẫn sai' });
+  assert.deepEqual(
+    [
+      saved[0].mode,
+      saved[0].input.decision,
+      saved[0].input.error_type,
+      saved[0].input.corrected_value,
+      saved[0].input.note,
+    ],
+    ['create', 'ERROR', 'CLASS', 'truck', 'vẫn sai'],
+  );
+  // Answering again replaces it: accepted, the label is Correct.
+  let after = await judge({ item_id: 'b0', verdict: 'accept' });
+  assert.deepEqual(
+    [saved[1].mode, saved[1].input.decision, saved[1].input.version],
+    ['update', 'CORRECT', 1],
+  );
+  assert.equal(after.errors[0].verdict.value, 'accept');
+  // A removed label has nothing to mark: rejecting puts a missing region back on its image.
+  after = await judge({ item_id: 'gone', verdict: 'reject' });
+  const marked = JSON.parse(regions.get('f0').missing_regions);
+  assert.deepEqual(
+    marked.map((r: any) => [r.label, r.geometry.x, r.geometry.width]),
+    [['van', 150, 80]],
+  );
+  assert.match(marked[0].id, /^recheck-[0-9a-f]{16}$/);
+  // Accepting the removal takes that region away again.
+  await judge({ item_id: 'gone', verdict: 'accept' });
+  assert.deepEqual(JSON.parse(regions.get('f0').missing_regions), []);
+  assert.deepEqual(
+    JSON.parse(stored).errors.map((e: any) => e.verdict.value),
+    ['accept', 'accept'],
+  );
 });

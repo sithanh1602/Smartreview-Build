@@ -4,18 +4,23 @@ const authHeader = (token: string) =>
   token.startsWith('Bearer ') || token.startsWith('Token ') ? token : `Token ${token}`;
 
 // CVAT token is a server-side secret: never forward it to the browser.
-async function cvatGet(path: string): Promise<unknown> {
+// One call to the CVAT API; a FormData body goes as multipart, anything else as JSON.
+export async function cvatCall(method: string, path: string, body?: unknown): Promise<any> {
   const base = process.env.CVAT_BASE_URL,
     token = process.env.CVAT_TOKEN;
   if (!base || !token) throw new ReviewError(503, 'Thiếu cấu hình CVAT_BASE_URL / CVAT_TOKEN.');
+  const form = body instanceof FormData;
   let response: Response;
   try {
     response = await fetch(new URL(path, base), {
+      method,
       headers: {
         Authorization: authHeader(token),
         Accept: 'application/vnd.cvat+json, application/json;q=0.9',
+        ...(body !== undefined && !form && { 'Content-Type': 'application/json' }),
       },
-      signal: AbortSignal.timeout(30_000),
+      body: body === undefined ? undefined : form ? body : JSON.stringify(body),
+      signal: AbortSignal.timeout(form ? 300_000 : 30_000),
     });
   } catch {
     throw new ReviewError(502, 'Không kết nối được CVAT.');
@@ -24,8 +29,10 @@ async function cvatGet(path: string): Promise<unknown> {
     throw new ReviewError(502, 'CVAT từ chối token hoặc không có quyền với job này.');
   if (response.status === 404) throw new ReviewError(404, 'Không tìm thấy job CVAT.');
   if (!response.ok) throw new ReviewError(502, `CVAT HTTP ${response.status}`);
-  return response.json();
+  const text = await response.text();
+  return text ? JSON.parse(text) : null;
 }
+const cvatGet = (path: string) => cvatCall('GET', path);
 
 export async function getCvatFrameImage(jobId: number, frameNumber: number): Promise<Buffer> {
   const base = process.env.CVAT_BASE_URL,

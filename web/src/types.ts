@@ -1,9 +1,10 @@
 // Shapes of what the API returns. They are the server's own types, so the UI and the
 // API cannot drift apart without a type error.
 import type { Case, MemberRole, ProjectRole, User } from '../server/types.ts';
-import type { InviteCodes, Person, ProjectPeople } from '../server/projects/members.ts';
+import type { Person, ProjectPeople } from '../server/projects/members.ts';
 import type {
   Handoff,
+  HandoffCheck,
   HandoffError,
   HandoffMissing,
   HandoffReport,
@@ -29,11 +30,11 @@ export type {
   FrameReview,
   Geometry,
   Handoff,
+  HandoffCheck,
   HandoffError,
   HandoffMissing,
   HandoffReport,
   HandoffResult,
-  InviteCodes,
   MemberRole,
   Metrics,
   MissingRegion,
@@ -125,6 +126,14 @@ export type AiReport =
         model: { name: string; [detail: string]: unknown };
         findings: AiFindingView[];
       });
+export interface ScanModels {
+  model: string;
+  second_model?: string;
+}
+export interface UsableModels {
+  first: { name: string; engine: VerifierEngine }[];
+  second: { name: string; engine: VerifierEngine }[];
+}
 // What GET /label-verify returns about the label scan chosen at upload: an idle marker, a
 // running job, or the finished scan whose findings are in the review queue.
 interface VerifyJob {
@@ -135,6 +144,7 @@ interface VerifyJob {
   // The engine at work, and whether the second engine was asked for.
   stage: VerifierEngine;
   second: boolean;
+  models?: ScanModels;
   completed: number;
   total: number;
 }
@@ -188,7 +198,7 @@ export interface Project {
   // Present while the backend finishes an import: files sent to the shared storage, then risk
   // cases saved.
   progress?: {
-    step: 'download' | 'score' | 'publish' | 'save';
+    step: 'score' | 'publish' | 'save';
     done: number;
     total: number;
   } | null;

@@ -13,6 +13,29 @@ import {
 import { VerifyService } from '../server/verify/service.ts';
 import { addToQueue } from '../server/verify/queue.ts';
 import { handleProjects } from '../server/projects/http.ts';
+import { listModels } from '../server/verify/models.ts';
+
+const FIRST = { model: 'siglip-test' };
+const BOTH = { model: 'siglip-test', second_model: 'qwen-test' };
+const modelsDir = await fs.mkdtemp(path.join(os.tmpdir(), 'smartreview-models-'));
+for (const [name, type, weights] of [
+  ['siglip-test', 'siglip', 'model.safetensors'],
+  ['qwen-test', 'qwen2_5_vl', 'model-00001.safetensors'],
+  ['no-weights', 'siglip', 'README.md'],
+  ['other', 'bert', 'model.safetensors'],
+]) {
+  await fs.mkdir(path.join(modelsDir, name));
+  await fs.writeFile(
+    path.join(modelsDir, name, 'config.json'),
+    JSON.stringify({ model_type: type }),
+  );
+  await fs.writeFile(path.join(modelsDir, name, weights), '');
+}
+process.env.LABEL_VERIFIER_MODELS_DIR = modelsDir;
+process.on(
+  'exit',
+  () => void import('node:fs').then((f) => f.rmSync(modelsDir, { recursive: true, force: true })),
+);
 
 // The verifier's models live outside this repo; these tests hold what is sent to an engine and
 // how policy/_verifier.json scores what it answers.
@@ -274,7 +297,12 @@ function project(root: string, calls: any[]) {
   const verifier = {
     available: async () => true,
     run: async (request: any, onProgress?: (done: number, total: number) => void) => {
-      calls.push({ engine: request.engine, boxes: request.boxes.map((b: any) => b.id) });
+      calls.push({
+        engine: request.engine,
+        model: request.model,
+        dir: path.basename(request.model_dir),
+        boxes: request.boxes.map((b: any) => b.id),
+      });
       onProgress?.(request.boxes.length, request.boxes.length);
       return {
         engine: request.engine,
@@ -296,6 +324,9 @@ function project(root: string, calls: any[]) {
     requeued,
     context: async () => ({ dataset, reviews }),
     get: async () => ({ status: projects.status }),
+    // No staging directory is kept: these projects are not on a remote.
+    kept: new Map(),
+    release: async () => {},
   };
   return { dataset, service: new VerifyService(projects as any, { verifier }), projects, verifier };
 }
@@ -316,14 +347,17 @@ test('a project run uses the default engine alone unless the second one is asked
     const calls: any[] = [];
     const { dataset, service, projects, verifier } = project(root, calls);
     assert.equal((await service.status('project')).status, 'IDLE');
-    assert.equal((await service.start('project')).status, 'RUNNING');
+    assert.equal((await service.start('project', FIRST)).status, 'RUNNING');
     await assert.rejects(
-      () => service.start('project'),
+      () => service.start('project', FIRST),
       (e: any) => e.status === 409,
     );
     let state = await finished(service);
     assert.equal(state.status, 'READY', state.error);
-    assert.deepEqual(calls, [{ engine: 'siglip', boxes: ['wrong', 'right'] }]);
+    assert.deepEqual(calls, [
+      { engine: 'siglip', model: 'siglip-test', dir: 'siglip-test', boxes: ['wrong', 'right'] },
+    ]);
+    assert.equal(state.model, 'siglip-test');
     assert.deepEqual([state.engine, state.second_engine, state.second], ['siglip', 'qwen', false]);
     assert.deepEqual([state.checked, state.flagged, state.added_to_queue], [2, 1, 1]);
     assert.deepEqual(state.skipped, { not_scored_by_engine: 1 });
@@ -346,12 +380,13 @@ test('a project run uses the default engine alone unless the second one is asked
     assert.equal((await reopened.status('project')).status, 'READY');
 
     calls.length = 0;
-    await service.start('project', { second: true });
+    await service.start('project', BOTH);
     state = await finished(service);
     assert.deepEqual(calls, [
-      { engine: 'siglip', boxes: ['wrong', 'right'] },
-      { engine: 'qwen', boxes: ['wrong'] },
+      { engine: 'siglip', model: 'siglip-test', dir: 'siglip-test', boxes: ['wrong', 'right'] },
+      { engine: 'qwen', model: 'qwen-test', dir: 'qwen-test', boxes: ['wrong'] },
     ]);
+    assert.deepEqual(state.models, BOTH);
     assert.deepEqual([state.second, state.confirmed], [true, 1]);
     assert.equal(state.findings[0].second.confirmed, true);
 
@@ -369,7 +404,7 @@ test('a failed or missing engine is reported, not thrown at the reader', async (
     verifier.run = async () => {
       throw new Error('label-verifier exited with 1: CUDA out of memory');
     };
-    await service.start('project');
+    await service.start('project', FIRST);
     const state = await finished(service);
     assert.equal(state.status, 'FAILED');
     assert.match(state.error, /GPU/);
@@ -377,11 +412,11 @@ test('a failed or missing engine is reported, not thrown at the reader', async (
     assert.equal(service.active, false);
     // A run that failed found nothing, so the same choice may be sent again.
     verifier.run = async () => ({ model: 'm', results: [], skipped: [] }) as any;
-    assert.equal((await service.request('project')).status, 'RUNNING');
+    assert.equal((await service.request('project', state.models)).status, 'RUNNING');
     assert.equal((await finished(service)).status, 'READY');
     verifier.available = async () => false;
     await assert.rejects(
-      () => service.start('project'),
+      () => service.start('project', FIRST),
       (e: any) => e.status === 503,
     );
     assert.equal((await service.status('project')).available, false);
@@ -416,10 +451,14 @@ test('the route starts a run for the leader only, and the second engine only on 
     } as any).then(() => sent);
   };
   assert.deepEqual(await call('GET', 'reviewer'), [200, { status: 'IDLE' }]);
-  assert.equal((await call('POST', 'leader', {}))[0], 202);
-  await call('POST', 'leader', { second: true });
-  await call('POST', 'leader', { second: 'yes' });
-  assert.deepEqual(started, [{ second: false }, { second: true }, { second: false }]);
+  assert.equal((await call('POST', 'leader', FIRST))[0], 202);
+  await call('POST', 'leader', BOTH);
+  await call('POST', 'leader', { ...FIRST, path: '/etc' });
+  assert.deepEqual(started, [
+    { model: 'siglip-test', second_model: undefined },
+    BOTH,
+    { model: 'siglip-test', second_model: undefined },
+  ]);
   await assert.rejects(
     () => call('POST', 'reviewer', {}),
     (e: any) => e.status === 403,
@@ -441,7 +480,7 @@ test('a scan chosen while the import is still finishing starts when the project 
     const calls: any[] = [];
     const { service, projects } = project(root, calls);
     projects.status = 'ANALYZING';
-    const queued: any = await service.request('project', { second: true });
+    const queued: any = await service.request('project', BOTH);
     assert.deepEqual([queued.status, queued.queued], ['IDLE', true]);
     await new Promise((r) => setTimeout(r, 30));
     // Nothing is cropped or run before the import is done.
@@ -458,14 +497,14 @@ test('a scan chosen while the import is still finishing starts when the project 
     assert.equal(state.queued, false);
     // The scan belongs to the upload: once it is done it cannot be asked for again.
     await assert.rejects(
-      () => service.request('project'),
+      () => service.request('project', FIRST),
       (e: any) => e.status === 409 && /một lần/.test(e.message),
     );
     assert.equal(calls.length, 2);
     // A project with no data cannot queue a scan.
     projects.status = 'CREATED';
     await assert.rejects(
-      () => service.request('project'),
+      () => service.request('project', FIRST),
       (e: any) => e.status === 409,
     );
   } finally {
@@ -519,4 +558,24 @@ test('scan findings join the review queue once; warnings and clean boxes do not'
   // The same scan applied again, as on every reload of the project, changes nothing.
   assert.deepEqual(addToQueue(dataset, scan), []);
   assert.equal(dataset.cases[0].findings.length, 2);
+});
+
+test('only folders of model-usage with a known model type and weights can be chosen', async () => {
+  assert.deepEqual(await listModels(), [
+    { name: 'qwen-test', engine: 'qwen' },
+    { name: 'siglip-test', engine: 'siglip' },
+  ]);
+  assert.deepEqual(await listModels(path.join(modelsDir, 'missing')), []);
+  const { service } = project(modelsDir, []);
+  for (const options of [
+    {},
+    { model: '../siglip-test' },
+    { model: 'no-weights' },
+    { model: 'qwen-test' },
+    { model: 'siglip-test', second_model: 'siglip-test' },
+  ])
+    await assert.rejects(
+      () => service.request('project', options),
+      (e: any) => e.status === 400,
+    );
 });

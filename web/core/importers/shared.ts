@@ -48,7 +48,8 @@ export function sizeOf(options: ImportOptions, image: string, format: string) {
     throw new Error(
       `${format} không ghi kích thước ảnh nên cần chính ảnh đó: không tìm thấy ảnh cho “${image}”.`,
     );
-  return size;
+  // Only the size: callers spread it into a medium of their own.
+  return { width: size.width, height: size.height };
 }
 export function parseXml(xml: string, what: string): Loose {
   if (/<!DOCTYPE|<!ENTITY/i.test(xml)) throw new Error('DTD/entity declarations are not supported');

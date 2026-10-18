@@ -2,6 +2,473 @@
 
 Ghi lại mỗi lần sửa xong một chức năng hoặc thay đổi lớn ở frontend. Mục mới nhất ở trên cùng.
 
+## 2026-10-18 · Sửa: bấm "Phân tích" trong pop-up Gemini key không còn mở bảng chọn mode xử lý
+
+### Đã làm
+
+- `GuidelineAnalysis.tsx`: form của pop-up nhập key được vẽ qua portal nhưng vẫn nằm trong form tạo project của `ImportForm` trong cây React, nên sự kiện submit lan lên và chạy `submit` của form tạo project (mở bảng chọn model/mode). Nay gọi `stopPropagation()` trong `onSubmit` của pop-up.
+
+### Đã kiểm tra
+
+- `npm run typecheck`. Chưa thử trên giao diện.
+
+## 2026-10-18 · Guideline: quy tắc về điểm chạy đúng đại lượng, đúng chiều, có cảnh báo khi lệch
+
+Vấn đề: project demo có guideline "Chỉ lấy những cái rescore <= 0.3" cho ra kết quả giống hệt project không có guideline. Quy tắc G-01 (gắn cờ box có rescore > 0,3) bị đoán thành `low_confidence below 0.3`: đo confidence chứ không phải rescore, gắn cờ khi nhỏ hơn chứ không phải lớn hơn, và chỉ chạy trên box nháp của model. Nó không gắn cờ box nào.
+
+### Đã làm
+
+- **Engine** `core/risk/checks/templates.ts`: template mới `score_range`. `source` là `rescore` (attributes.rescore, có ở cả box người vẽ) hoặc `confidence`; gắn cờ khi lớn hơn `above` hoặc nhỏ hơn `below`; box không có điểm đó thì bỏ qua. Chỉ guideline mới tạo ra rule dùng template này, nên điểm của project cũ và project không có guideline không đổi (vẫn engine 7.1.0).
+- **Gemini** `server/guideline/model-call.ts`: danh mục đại lượng thêm `box.rescore`, tách khỏi `box.confidence`.
+- **Đoán cách chạy** `shared/guideline-rules.ts`: `guessRun` nhận rescore (từ đại lượng hoặc chữ "rescore" trong điều kiện) và đọc chiều ("lớn hơn / trên / vượt / >" hay "nhỏ hơn / dưới / <") qua `directionOf`. Rescore, hoặc confidence lớn hơn ngưỡng, thành `score_range`; confidence nhỏ hơn ngưỡng vẫn là `low_confidence`. `runProblem` báo khi thiếu cả hai ngưỡng hoặc "lớn hơn" nhỏ hơn "nhỏ hơn".
+- **Cảnh báo** `RunEditor.tsx`: dưới mỗi quy tắc hiện "Guideline: …" cạnh "Check sẽ chạy: Gắn cờ box có rescore > 0,3 (+30 điểm)" (`describeRun`). Khi cách chạy lệch với câu guideline (khác đại lượng, ngược chiều) hiện khung vàng ⚠ (`runMismatch`). Với `score_range` có ghi chú box nào bị bỏ qua.
+- Tài liệu: `docs/policy-format.md` thêm dòng `score_range`.
+
+### Đã kiểm tra
+
+- `npm run typecheck`, `vite build`; `tests/guideline-rules.test.ts` 8/8 (thêm 2 test: đoán đúng trường hợp demo, cảnh báo cách chạy cũ, engine gắn cờ đúng box rescore 0,9 và bỏ qua box không có rescore); guideline, guideline-waivers, policy, risk, risk_v7, core, confidence, signals, label-verify, rescore-floor đều qua. Chưa thử trên giao diện.
+- Project demo cũ giữ điểm theo quy tắc cũ; phải tạo lại project có guideline.
+
+## 2026-10-18 · Viewer 3D: hết thanh cuộn của cả trang
+
+### Đã làm
+
+- `pages/Viewer3DPage.tsx`: ô cuộn của bảng bên phải và khung trang có thêm `relative`. Các ô chọn ẩn `sr-only` trong bảng (nút quyết định, checkbox) là `position: absolute`; trước đây không có cha nào được định vị nên chúng tính vị trí theo cả trang, nằm ở chỗ của mình trong danh sách dài và kéo trang dài thêm, sinh thanh cuộn và khoảng trống dưới viewer. Nay chúng nằm gọn trong ô cuộn, khung trang (`lg:h-dvh overflow-hidden`) cắt mọi thứ thừa.
+
+### Đã kiểm tra
+
+- Theo ảnh chụp màn hình 1920px của người dùng. Chưa chạy typecheck (lệnh shell bị chặn trong phiên này) và chưa kiểm tra lại trên trình duyệt.
+
+## 2026-10-18 · Project 3D: bàn giao lỗi cho Annotator như 2D
+
+### Đã làm
+
+- Server: `ProjectHandoffs` nhận tên bảng (`project_handoffs` / `project_handoffs_3d`, bảng 3D đã có từ migration 008 nhưng chưa dùng). `server/projects3d/handoff.ts` (mới): `buildReport3D` gom cuboid bị đánh lỗi thành mục theo đối tượng (các frame có cùng quyết định thành một mục, kèm danh sách frame và box key), tuỳ chọn kèm mục Chưa chắc / case rủi ro chưa kiểm tra; `returnRound` (Annotator đánh dấu đã sửa + ghi chú từng mục), `judge` (Reviewer chấp nhận / từ chối / bỏ), `metrics3D`. Route mới: `GET|POST|DELETE /api/projects3d/:id/handoff`, `POST …/handoff/return`, `POST …/handoff/verdict`.
+- Sửa quyền: Annotator không lưu được quyết định review 3D (403); khi đã gửi cho Annotator, review 3D bị khoá (409) tới khi mở lại.
+- `CompleteReviewButton`, `ReopenReviewButton`: thêm prop `base` để dùng cho `/projects3d`.
+- `Handoff3D.tsx` (mới): trang Annotator 3D ba bước như 2D (tải danh sách lỗi CSV/JSON; danh sách cuboid với ô "Đã sửa", ghi chú, link mở trình xem; gửi lại kèm ghi chú), kết quả sau khi gửi lại; khung cho Leader/Reviewer: nút Hoàn thành, thông báo đang khoá + Mở lại review, danh sách lượt gửi lại với Chấp nhận / Từ chối.
+- `Project3DPage`: Annotator chỉ thấy phần việc của mình (hoặc "Chưa có lỗi nào được gửi cho bạn"), không thấy thống kê review.
+- Trình xem 3D: `?frame=&object=` mở đúng frame và chọn sẵn cuboid; Annotator, hoặc khi review đang khoá, thấy quyết định ở dạng chỉ xem (`SavedDecision`) thay cho form.
+
+### Đã kiểm tra
+
+- `tests/handoff3d.test.ts` (mới, 2 test): gom frame theo đối tượng, mục cần xem lại, đếm số; gửi lại, chấp nhận / bỏ, các lỗi đầu vào. Cùng các test risk / guideline / label-verify: 105/105. `tsc`, `vite build`.
+- Chưa chạy luồng thật với MySQL (tài khoản qua tunnel không có quyền với `smartreview_test`); chưa xem trên trình duyệt.
+
+### Chưa làm
+
+- Annotator nộp lại file nhãn đã sửa (phần 2: chưa chọn định dạng); hiện chỉ đánh dấu đã sửa.
+
+## 2026-10-18 · Pop-up hết giờ phiên (gia hạn 5 phút, tối đa 3 lần) và pop-up nhập Gemini key
+
+### Đã làm
+
+- **Hết giờ phiên.** `src/features/auth/SessionTimeout.tsx` (mới), gắn trong `AuthProvider`:
+  - 60 giây trước khi phiên 60 phút hết, hiện pop-up "Hết giờ làm việc" có đếm ngược, không tắt được bằng Esc hay bấm ra ngoài. Hai nút: **Đăng xuất** và **Cho tôi thêm 5 phút (còn n/3 lần)**.
+  - Dùng hết 3 lần (thêm 15 phút), 10 giây cuối hiện pop-up "Đã hết thời gian" đếm ngược; bấm **OK** thì đăng xuất ngay, không bấm thì hết 10 giây tự đăng xuất.
+  - Gia hạn ở một tab thì các tab khác đọc lại giờ hết phiên (`BroadcastChannel` `smartreview-session`).
+- **Backend phiên.** `server/auth/service.ts` + `http.ts`: route mới `POST /api/auth/extend`. Server tự đếm lượt: chỉ cho gia hạn trong 2 phút cuối, mỗi lần +5 phút, phiên dài tối đa 75 phút tính từ `created_at`; hết lượt trả 409. Cookie `access_token` được đặt lại `Max-Age` theo giờ hết mới. `login` và `/api/auth/me` trả thêm `extensionsLeft`. Phiên mới ghi `created_at` bằng UTC (cột này trước đây là giờ máy MySQL); phiên cũ có `created_at` lệch về tương lai thì không được gia hạn. Hằng số dùng chung ở `shared/session.ts`. Không cần migration.
+- **Gemini key cho guideline.** `GuidelineAnalysis.tsx`: bấm "Phân tích Guideline" mở pop-up nhập Gemini API key (ô mật khẩu, nút Hiện/Ẩn, link Google AI Studio). Key chỉ nằm trong ô nhập, xoá ngay khi gửi hoặc đóng; không lưu vào database, log hay bộ nhớ trình duyệt. `server/guideline/http.ts` nhận `api_key` trong body, chỉ chuyển vào header `x-goog-api-key` gửi Gemini cho lần gọi đó; không có key thì dùng `GEMINI_API_KEY` của `.env` như cũ. Engine ngoài (`GUIDELINE_RULES_DIR`) chưa nhận key của người dùng.
+- Test: `tests/auth.test.ts` thêm test gia hạn 3 lần rồi bị từ chối; `tests/guideline.test.ts` thêm test key được chuyển và key sai bị từ chối.
+
+### Đã kiểm tra
+
+- `npm run typecheck`, `vite build`, `tests/guideline.test.ts` (8/8). `tests/auth.test.ts` chưa chạy được: kết nối tới `smartreview_test` bị treo. Chưa chụp màn hình.
+
+## 2026-10-18 · Quét SigLIP đọc ảnh từ thư mục tạm, không tải lại từ kho
+
+### Đã làm (backend)
+
+- `server/projects/service.ts`: khi có kho lưu trữ chung, `finish()` không xoá thư mục tạm nếu đang có lượt quét nhãn chờ cho project (`kept`, `release()`); không có lượt quét thì xoá ngay như trước.
+- `server/verify/service.ts`: `waiting(id)`; lượt quét đọc ảnh trong thư mục tạm được giữ, ảnh nào không có ở đó mới tải từ kho. Quét xong, lỗi, hoặc không bắt đầu được thì gọi `release()` xoá thư mục.
+
+### Đã kiểm tra
+
+- `tsc`; script thử ngoài repo (`verifier-test/staging-scan/check.ts`): có thư mục tạm → 0 ảnh tải từ kho, thư mục bị xoá sau khi quét; không có → tải từ kho như cũ.
+- Thêm test `tests/shared-storage.test.ts` cho luồng import thật, nhưng chưa chạy được: tài khoản MySQL qua tunnel không có quyền với database `smartreview_test`.
+
+### Còn lại
+
+- Yêu cầu quét đến sau khi import đã xong thì vẫn tải ảnh từ kho. Server tắt giữa lúc quét thì thư mục tạm còn lại tới khi xoá hoặc import lại project.
+
+## 2026-10-18 · Popup chọn model luôn mở ở bước 2
+
+### Đã sửa
+
+- `verify/ScanChoice.tsx`: dưới `React.StrictMode` effect chạy hai lần, request đầu bị huỷ rơi vào `catch` và gọi `setStep(2)` (coi như `Model_rescore` trống). Request bị huỷ giờ được bỏ qua, nên popup mở ở bước 1 "Model chấm điểm box" khi thư mục có model.
+
+### Đã kiểm tra
+
+- `tsc`. Chưa mở lại trên trình duyệt.
+
+## 2026-10-18 · Guideline: hiện trên trang project, nhắc người review, caption cho model xét box, check mới chạy được
+
+### Đã làm
+
+- `shared/guideline-rules.ts` (mới): biến lựa chọn trên guideline thành
+  - bản vá policy (`patchesFrom`): quy tắc mới / chặt hơn, verdict `flag`, được chọn "theo guideline" và đã chọn cách kiểm tra đủ số → một quy tắc `add` cho mỗi nhãn, check id `guideline.<id quy tắc>`. 7 khuôn: cạnh nhỏ hơn ngưỡng, tỉ lệ cao/rộng, dải vị trí dọc, attribute bắt buộc, thiếu track_id, confidence thấp, track mất quá số frame;
+  - caption thêm cho model xét box theo nhãn (`captionsFrom`, tối đa 8 câu/nhãn, chỉ nhãn có trong policy);
+  - bản tóm tắt guideline lưu cùng project (`summaryFrom`), và quy tắc cần người xem theo nhãn (`rulesForLabel`).
+- Engine: `supportsPatches`, `checkPatches` (bản vá không chạy được bị từ chối lúc import, lỗi 422). `server/repository.ts`: nhận `patches` và `guideline`; patches vào fingerprint (JSON khoá đã sắp xếp, `stableJson`), project không có patch giữ nguyên fingerprint cũ; meta có `guideline_patches`, `guideline`. `server/projects/service.ts`: `importOptions` đọc rules.json → waivers + patches + tóm tắt; load lại và resubmit truyền lại đủ.
+- Verifier: `verifierRequest(..., { captions })` ghép caption của guideline sau caption policy; `server/verify/service.ts` lấy từ `meta.guideline.captions`. Qwen cũng nhận vì nó dựng lựa chọn từ caption.
+- Bảng "Kiểm tra rules": quy tắc mới/chặt hơn được chọn theo guideline có thêm dòng "Chạy thành check" (`RunEditor.tsx`), đoán sẵn khuôn và con số từ `quantities` + điều kiện, báo thiếu số. Tab mới "Định nghĩa nhãn": định nghĩa trong guideline đặt cạnh ô caption tiếng Anh cho từng nhãn. Dòng tóm tắt thêm "N check mới sẽ chạy". rules.json gửi thêm `runs`, `captions`.
+- Trang project: khung **Guideline** (`GuidelinePanel.tsx`): tên file, số quy tắc / mâu thuẫn, check bị tắt, check thêm (kèm câu trích), số quy tắc cần người xem, caption thêm, bảng toàn bộ quy tắc và lựa chọn.
+- Màn review: khung "Guideline cho nhãn …" trong tab lý do, liệt kê quy tắc `reviewer` và `definition` của nhãn đó hoặc `*`.
+
+### Đã kiểm tra
+
+- `tests/guideline-rules.test.ts` (mới, 6 test): chỉ quy tắc hợp lệ thành patch; check `guideline.G-01` gắn cờ đúng box, lý do là câu của guideline; patch sai bị `checkPatches` từ chối; fingerprint đổi khi có patch và không đổi khi MySQL đảo thứ tự khoá; đoán khuôn; caption ghép vào yêu cầu verifier; tóm tắt và lọc theo nhãn. Cùng các test risk / policy / guideline / label-verify: 115/115. `tsc`, `vite build`.
+- Chưa xem trên trình duyệt; chưa chạy import thật với MySQL và Gemini.
+
+### Chưa làm
+
+- Đổi lựa chọn sau khi đã import (phải nhập lại, vì điểm và fingerprint đổi theo).
+- Quy tắc so hai box / theo cặp (`pair.*`, `frame.label_count`) chưa có khuôn để chạy; khuôn `set` sửa số của quy tắc policy có sẵn chưa dùng (quy tắc chặt hơn chạy thành check thêm).
+- Màn duyệt theo ảnh (`FrameReviewPage`) chưa hiện danh sách guideline. 3D chưa dùng guideline.
+
+## 2026-10-18 · README viết lại, setup.sh tải model theo tên
+
+### Đã làm
+
+- `README.md` (gốc repo): viết lại gọn, cập nhật theo hiện trạng: đăng ký chỉ tạo Thành viên, thêm thành viên trong trang project (bỏ phần mã mời), popup chọn model khi tạo project, hai thư mục `model/`, Risk Engine 2D 7.1.0, bàn giao lỗi; bỏ các đoạn mô tả nhiều phương án.
+- `setup.sh`: thêm `--model A,B` (lặp lại được, cũng nhận `--model=A,B`) và `--all_model` (`--all-models`). Tên: `yolo11n`, `yolo11s`, `yolo11m`, `yolo26n`, `yolo26s-coco` vào `model/Model_rescore/` (tải file release của Ultralytics; `yolo26s-coco` là `yolo26s.pt` gốc đổi tên); `siglip`, `qwen` vào `model/Model_bbox/` (Hugging Face `snapshot_download`, tự cài `huggingface_hub` nếu thiếu, tải tiếp khi chạy lại). Không nêu model thì chỉ `yolo11s`. Tên sai hoặc `yolo26s` (bản fine-tune) thì báo và thoát mã 2. `--check` kiểm tra cả model đã nêu. Bước 9 mới "Model (model/)"; bỏ khối tải `yolo11s` ở bước 5 và khối kiểm tra `LABEL_VERIFIER_*_DIR` ở bước 8.
+- `docs/label-verifier.md`: câu hướng dẫn tải bằng `setup.sh`.
+
+### Đã kiểm tra
+
+- `bash -n setup.sh`; `--help`; `--model foo` và `--model yolo26s` thoát mã 2; `--check --all_model` báo đúng model có/thiếu (symlink cũng được nhận); `./setup.sh --model yolo11m` tải thật 40 MB vào `model/Model_rescore/yolo11m.pt`. Chưa chạy tải `siglip` / `qwen` vì máy đã có.
+
+## 2026-10-18 · Trình xem 3D: thu gọn danh sách "Frame …: cuboid có ghim"
+
+### Đã làm
+
+- `viewer/ObjectPanel.tsx`: tiêu đề "Frame 0000: cuboid có ghim" (hoặc "mọi cuboid") thành nút có mũi tên ▾/▸ (`aria-expanded`), bấm để ẩn/hiện nút "Hiện tất cả…", danh sách cuboid và chú thích cờ. Dòng "x/y đã review" luôn hiện. Trạng thái giữ qua các frame và lưu trong `localStorage` (`viewer3d.frameListOpen`, đọc/ghi trong try/catch, mặc định mở).
+
+### Đã kiểm tra
+
+- `tsc`, `vite build`. Chưa xem trên trình duyệt (máy không có Chrome).
+
+## 2026-10-18 · Trình xem 3D: khoảng cách tới cuboid đang chọn
+
+### Đã làm
+
+- `viewer/engine.ts`: khi chọn một cuboid, vẽ đường nét đứt trên mặt đất (ở cao độ đáy cuboid) từ gốc xe (giữa trục sau) tới tâm cuboid. Khoảng cách hiện trong khối ở góc trái trên khung xem, ngay dưới khung thông tin frame (`Viewer3DPage`, `data-testid="viewer-distance"`): khoảng cách theo mặt đất `√(x² + y²)` và hai thành phần trong hệ tọa độ xe (`dọc ±x · ngang ±y m`; dọc + phía trước, ngang + bên trái). Không tính độ cao. Cập nhật theo frame và giữ theo cuboid đang chọn; đúng cả ở chế độ khung "world" vì nằm trong nhóm tọa độ xe.
+- `ViewSettings.distance` (mặc định bật), ô "Khoảng cách tới cuboid đang chọn" trong nhóm Cuboid của `DisplayPanel`; ẩn khi tắt cuboid.
+
+### Đã kiểm tra
+
+- `tsc`, `vite build`. Chưa xem trên trình duyệt (máy không có Chrome).
+
+## 2026-10-18 · Popup tạo project hai bước: model chấm điểm, rồi model xét box
+
+### Đã làm
+
+- `ScanChoice`: popup hai bước sau nút "Tạo và nhập dữ liệu". Bước 1 "Model chấm điểm box" (radio các model + "Không chấm điểm"; mặc định chọn model mặc định khi tệp nhãn chưa có confidence). Bước 2 "Model đọc và xét box" (SigLIP quét, Qwen xem lại như trước). Nút Huỷ / Tiếp → / ← Bước trước / Nhập dữ liệu. Thư mục chấm điểm trống thì bỏ qua bước 1. Dữ liệu chỉ được tạo, tải lên và xử lý sau nút cuối.
+- `ImportForm`: bỏ ô "Chấm điểm box bằng model" và lưới chọn model khỏi form; `start({ rescore, scan })` nhận cả hai lựa chọn từ popup.
+- Model đọc từ hai thư mục ở gốc repo (git-ignore cả `/model/`): `model/Model_rescore/` (file `.pt`, đổi bằng `SMARTREVIEW_RESCORE_MODELS_DIR`) và `model/Model_bbox/` (thay `model-usage/`, vẫn đổi bằng `LABEL_VERIFIER_MODELS_DIR`).
+- Backend `server/ai/rescore.ts`: `listScoreModels` liệt kê `.pt` trong thư mục; tên có trong danh mục (yolo11n/s/m, yolo26s) mang số đo và ngưỡng của nó, file khác dùng ngưỡng chung. `findScoreModel` kiểm tra id có file (import trả 400 nếu không). Bỏ việc tự tải model và biến `SMARTREVIEW_SCORE_MODEL`; bỏ bước tiến độ `download`.
+- `setup.sh` tải `yolo11s.pt` vào `model/Model_rescore/`. Docs: `confidence-checks.md`, `label-verifier.md`, `.env.example`.
+- Trên máy này đã tạo `model/Model_rescore/` (symlink tới `ai-service/yolo11n.pt`, `yolo11s.pt`, `yolo26s.pt` = bản fine-tune BDD100K, cùng sha với `results/checkpoints/selected.pt`; copy thêm `yolo26n.pt` và `yolo26s-coco.pt` = YOLO26 gốc COCO từ `build-phase/results`, có tên trong danh mục nhưng chưa đo ngưỡng) và `model/Model_bbox/` (symlink tới `../siglip2-base-patch16-224`, `../Qwen2.5-VL-3B-Instruct`).
+
+### Đã kiểm tra
+
+- `tsc` (app và tests), `vite build`, `tests/score-models.test.ts` (viết lại theo thư mục) và `tests/label-verify.test.ts`: 17/17. Server liệt kê đúng 3 model chấm điểm và 2 model xét box từ hai thư mục. Chưa chạy test trình duyệt (cần DB), chưa chụp màn hình (không có Chrome).
+
+## 2026-10-18 · Tạo project: chọn cách quét nhãn trước khi dữ liệu được xử lý
+
+### Đã làm
+
+- Trước đây bấm "Tạo và nhập dữ liệu" là tạo project, tải lên, kiểm tra và chạy Risk Engine (cả rescore nếu chọn) ngay; popup "Chọn cách quét nhãn" chỉ hiện sau đó. Nay thứ tự đảo lại: nút chỉ kiểm tra form trên trình duyệt rồi mở popup. Chưa tạo project, chưa tải gì lên.
+- `ScanChoice`: thành bước chọn thuần (`onConfirm(pick | null)`, `onCancel`), thêm nút "Quay lại"; nút chính là "Nhập dữ liệu" hoặc "Nhập dữ liệu và quét". Lời dẫn nói rõ dữ liệu chưa được tải lên.
+- `ImportForm`: `submit` chỉ kiểm tra và mở popup; `start(pick)` tạo project, tải lên, rồi nếu có chọn model thì gửi `POST /projects/:id/label-verify` (server giữ tới khi project Ready) và sang trang project. Gửi lựa chọn quét lỗi thì báo lỗi, dữ liệu đã nhập vẫn giữ.
+- Backend `server/projects/http.ts`: route mới `GET /api/projects/label-verify/models` (tài khoản Leader), vì lúc chọn chưa có project. Route theo project giữ nguyên, cùng dùng hàm `usableModels`.
+- `tests/browser/projects.spec.ts`: helper `skipScan` dùng `scan-choice` và nút "Nhập dữ liệu". `docs/label-verifier.md` cập nhật luồng.
+
+### Đã kiểm tra
+
+- `tsc` (app và tests), `tests/label-verify.test.ts` 14/14. Chưa chạy test trình duyệt (cần DB) và chưa chụp màn hình (máy không có Chrome).
+
+## 2026-10-18 · Viewer 3D: bảng bằng chứng không còn bẻ số xuống dòng
+
+### Đã làm
+
+- `components/EvidenceTable.tsx` (dùng chung cho 2D `CaseDetail` và 3D `ObjectPanel`): trước đây cột tên chiếm tới 176px nên trong panel hẹp cột giá trị chỉ còn khoảng 50px và giá trị như "0.81 rad (46°)" bị bẻ dòng. Nay cột giá trị co theo nội dung: giá trị ngắn (tối đa 24 ký tự) nằm một dòng, căn phải, không bao giờ bẻ; tên tự xuống dòng nếu cần. Giá trị dài (danh sách, câu chữ) nằm riêng một dòng đủ bề ngang dưới tên.
+- `pages/Viewer3DPage.tsx`: panel bên phải của viewer 3D rộng 320px → 384px (416px từ màn 2xl).
+
+### Đã kiểm tra
+
+- `npm run typecheck`, `vite build`. Chưa chụp màn hình (máy không có Chrome cho DevTools).
+
+## 2026-10-18 · Kiểm tra bản sửa: cột rộng hơn, chữ không bị cắt
+
+### Đã làm
+
+- `features/handoff/fixes.tsx` (`FixList`, trang Kiểm tra bản sửa dạng một màn hình):
+  - Cột danh sách 240px → 260px (300px từ màn 2xl). Tên lỗi không còn bị cắt; tên ảnh xuống tối đa 2 dòng thay vì cắt bằng "…", rê chuột hiện tên đầy đủ.
+  - Tiêu đề "n/N · ảnh · Frame" xuống dòng thay vì cắt cụt.
+  - Cột thông tin bên phải 260/280px → 300/340px. Chữ 12px → 14px. Mỗi tên mục (Loại lỗi, Nhãn lúc gửi, Ghi chú của Reviewer…) nằm trên giá trị của nó, nên giá trị dùng hết bề ngang thay vì bị nhãn dài chiếm chỗ. "Lý do cảnh báo" cũng lên 14px, giãn dòng hơn.
+- Trang của Annotator (không dùng chế độ một màn hình) chỉ đổi phần chữ: tên ảnh xuống dòng, lý do 14px.
+
+### Đã kiểm tra
+
+- `npm run typecheck`, `vite build`. Chưa chụp màn hình (máy không có Chrome cho DevTools).
+
+## 2026-10-18 · Kiểm tra bản sửa: mục đã sửa lên trước, chia nhóm rõ
+
+### Đã làm
+
+- `features/handoff/fixes.tsx` (`FixList`, trang Kiểm tra bản sửa sau khi Annotator gửi lại): các mục Annotator đã xử lý (đã sửa, đã xoá nhãn, đã thêm nhãn) xếp lên đầu danh sách, các mục chưa đổi xếp sau; trong mỗi nhóm giữ thứ tự lúc gửi.
+- Danh sách có tiêu đề nhóm dính trên cùng khi cuộn: "Đã sửa · n" (nền xanh) và "Chưa đổi · n" (nền đỏ).
+- Trạng thái của từng mục thành nhãn có nền và dấu: "✓ Đã sửa", "✓ Đã xoá nhãn", "✓ Đã thêm nhãn", "✗ Chưa đổi", "✗ Chưa thêm nhãn".
+- Thêm bộ lọc "Đã sửa" cạnh "Chưa đổi".
+- Màn hình của Annotator trước khi gửi lại không đổi (chưa có trạng thái nên không chia nhóm).
+
+### Đã kiểm tra
+
+- `npm run typecheck`, `vite build`. Chưa chạy test trình duyệt và chưa chụp màn hình.
+
+## 2026-10-17 · Bấm vào thông tin case thì ảnh phóng tới đúng box
+
+### Đã làm
+
+- 2D `CaseDetail`: bấm vào nội dung tab "Vì sao bị cảnh báo" (AI Check, độ tin cậy, lý do, bảng bằng chứng) thì ảnh bật "Phóng to vật thể" vào box đang review. Bấm vào tab "Chi tiết" (nhãn, độ tin cậy, nguồn) thì phóng vào annotation đang xem ở đó. Bấm một dòng trong tab "Annotations" thì vừa chọn vừa phóng vào box đó.
+- Nút "Phóng to vật thể" / "Toàn cảnh" vẫn như cũ và luôn phóng về box đang review. Ảnh so sánh bên cạnh phóng cùng chỗ.
+- `FrameViewer`: thêm prop `focus` (hình cần cắt khi `zoom`, mặc định là box của observation); đổi box thì mức zoom tay và pan về lại 100%.
+
+### Đã kiểm tra
+
+- `npm run typecheck`, `vite build`. Chưa chạy test trình duyệt và chưa chụp màn hình.
+
+## 2026-10-17 · Nút quyết định: số phím tắt đứng trước tên
+
+### Đã làm
+
+- 2D `ReviewDecisionForm`: số phím tắt (1, 2, 3) chuyển từ cuối dòng phụ lên đầu tên nút, dạng "1. Nhãn đúng / cảnh báo nhầm", "2. Lỗi gán nhãn", "3. Chưa chắc chắn". Áp dụng cả form bên phải lẫn dock nổi trên ảnh. Phím 1–3 vẫn chọn như cũ; số chỉ để nhìn (`aria-hidden`), tên đọc cho trình đọc màn hình không đổi.
+
+### Đã kiểm tra
+
+- `npm run typecheck`. Chưa chụp màn hình.
+
+## 2026-10-17 · Review 2D/3D: bằng chứng số liệu dạng bảng, chữ to hơn, lý do che khuất ghi rõ
+
+### Đã làm
+
+- `src/lib/evidence.ts` + `src/components/EvidenceTable.tsx` (mới): đổi `evidence` của từng tín hiệu (engine 2D và 3D) thành bảng "tên tiếng Việt · giá trị có đơn vị" (%, m, rad kèm độ, px, "lần"); giá trị mã như `estimated`, `low_confidence`, `local_road` được dịch ra lời. JSON gốc vẫn còn trong mục "JSON gốc" thu gọn.
+- 2D `CaseDetail` (tab "Vì sao bị cảnh báo"): bảng bằng chứng hiện sẵn, không phải bấm mở; lý do 15px, điểm ghi "+N điểm", tiêu đề 16px; khối AI Check 13px.
+- 2D `ReviewDecisionForm` và 3D `ObjectPanel` (form Quyết định): tiêu đề 16px, nút quyết định cao 56px chữ 14px, ô chọn/ghi chú 14px. Dock nổi trên ảnh (compact) giữ cỡ cũ.
+- 3D `ObjectPanel`: thẻ Lỗi/Cảnh báo của cuboid liệt kê từng tín hiệu (mã check, điểm, lý do 15px, bảng bằng chứng) thay cho danh sách lý do chữ nhỏ. Bảng "Chi tiết cuboid" 13px. `Risk` trong `flags.ts` mang thêm `findings` (tuỳ chọn).
+- Engine 2D `core/risk`: `visibilityOf` trả thêm `in_frame`, `covered` khi ước tính từ box; lý do `visibility.mostly_hidden` / `visibility.barely_visible` nay ghi nguồn số (đo từ dataset hay ước tính), phần còn trong khung, phần bị box gần camera che, ngưỡng, và tên các dấu hiệu khó xác nhận. Số lớn hơn 0 nhưng làm tròn ra 0% ghi "dưới 1%". Evidence thêm `in_frame`, `covered`. Kết quả cũ trong DB giữ câu cũ cho tới khi chạy lại engine; bảng bằng chứng vẫn hiện nguồn số và ngưỡng cho dữ liệu cũ.
+
+### Đã kiểm tra
+
+- `npm run typecheck`, `vite build`, `tests/risk.test.ts`, `guideline-waivers.test.ts`, `gestures.test.ts` (34/34). Chạy thử bộ định dạng trên evidence mẫu. Chưa chụp màn hình (máy không có Chrome).
+
+## 2026-10-16 · Đăng ký luôn tạo tài khoản Thành viên
+
+### Đã làm
+
+- `RegisterPage`: bỏ nhóm chọn "Loại tài khoản" (Thành viên / Leader) và ô "Mã Leader". Form chỉ còn tên đăng nhập, mật khẩu, xác nhận mật khẩu.
+- Backend `AuthService.register`: luôn tạo `member`; gửi `role` hoặc `leaderCode` trả 400. Bỏ `LEADER_SIGNUP_CODE` (`server/index.ts`, `.env.example`). Leader chỉ tạo bằng CLI `user:update --role leader`.
+- Test: `tests/auth.test.ts` đổi test đăng ký Leader thành test "chỉ tạo member"; `tests/browser/auth.spec.ts` bỏ kiểm ô mã mời đã xoá ở lần trước.
+
+### Đã kiểm tra
+
+- `npm run typecheck`, `npm run build`, Chromium chụp trang `/register`. Test đăng ký cần DB nên chưa chạy được (`Access denied`).
+
+## 2026-10-16 · Popup "Chọn cách quét nhãn" đọc model từ `model-usage/`
+
+### Đã làm
+
+- Thư mục `model-usage/` ngang hàng với `web/`, để trống, thêm `/model-usage/` vào `.gitignore` ở gốc repo. Đổi chỗ được bằng `LABEL_VERIFIER_MODELS_DIR` (ghi trong `.env.example`).
+- `server/verify/models.ts`: liệt kê thư mục con có `config.json` và file trọng số, nhận loại theo `model_type` (SigLIP cho bước quét, Qwen2-VL / Qwen2.5-VL cho bước xem lại). Route mới `GET /api/projects/:id/label-verify/models` (Leader).
+- `POST /label-verify` nhận `{ model, second_model? }` thay cho `{ second }`; tên được kiểm lại với thư mục (không nhận đường dẫn, sai loại thì 400). Lựa chọn được lưu trong `latest.json` (`models`) để nút "Thử lại" gửi lại đúng model. Worker nạp model từ thư mục đã chọn.
+- `ScanChoice`: hai ô "Quét bằng model ảnh" và "Xem lại bằng model thứ hai", mỗi ô có danh sách chọn model. Thư mục trống thì ô bị khoá kèm dòng báo. `ScanStatus` hiện tên model đã dùng thay cho tên engine cố định.
+
+### Đã kiểm tra
+
+- Chromium, API giả: popup có model (chọn cả hai, request gửi `{"model":"siglip2-base-patch16-224","second_model":"Qwen2.5-VL-3B-Instruct"}`) và popup khi `model-usage/` trống.
+- `listModels` trên hai model thật ở máy (`siglip2-base-patch16-224`, `Qwen2.5-VL-3B-Instruct`) nhận đúng loại; `model-usage/` trống trả danh sách rỗng.
+- `tests/label-verify.test.ts` 14/14 (thêm test cho thư mục model). Toàn bộ: 213 pass, 44 fail (đều là test cần DB, `Access denied`). Chưa chạy lượt quét thật bằng GPU.
+
+## 2026-10-16 · Bỏ các dòng phiên bản dư thừa
+
+### Đã làm
+
+- `ProjectDashboardPage`: bỏ dòng cuối trang "Cấu trúc dữ liệu 1.0.0 · Bộ xử lý 7.1.0 · Quyết định được lưu riêng cho dự án này."
+- `OverviewPage`: bỏ hai nhãn SCHEMA / ENGINE ở khung dataset (khung `dl` đổi `my-6` thành `mt-6` để không dư khoảng trống dưới).
+- `CvatScanPanel`: bỏ "· engine x.y.z" khỏi dòng người quét / thời gian.
+- Bỏ chuỗi dịch không còn dùng. Số phiên bản vẫn có trong API, chỉ không hiện ra giao diện.
+
+### Đã kiểm tra
+
+- `tsc`, `npm run build`.
+
+## 2026-10-16 · Hộp thoại xác nhận riêng thay cho confirm/alert của trình duyệt
+
+### Đã làm
+
+- Component mới `src/components/ConfirmDialog.tsx` (HeroUI `AlertDialog`): biểu tượng theo mức độ (`danger`, `warning`…), tiêu đề, nội dung, nút Hủy và nút xác nhận. Không truyền `cancelLabel` thì thành hộp thông báo một nút. Khi đang chạy (`busy`) không đóng được, lỗi hiện ngay trong hộp để thử lại.
+- Thay hết `window.confirm` / `window.alert` trong app:
+  - **Xóa thành viên** (`ProjectPeople`): "Xóa thành viên khỏi project?", nêu tên tài khoản.
+  - **Xóa project** (`DeleteProjectButton`): hỏi "Xóa project?" kèm tên project và nút **Xóa vĩnh viễn**; nếu còn file chờ dọn trong `storage/.trash` thì hiện hộp **Đã xóa project** (mức cảnh báo, nút **Đã hiểu**) trước khi rời trang. Lỗi xóa giờ hiện trong hộp thay vì dưới nút.
+  - **Tải lại bản đã lưu** (`FrameReviewPage`): hỏi khi còn thay đổi chưa lưu.
+- Khung vàng "Có thay đổi chưa lưu" khi rời ảnh frame review (trước là `div` tự dựng) cũng chuyển sang `ConfirmDialog`, cùng nhãn nút, vẫn có `role="alertdialog"` nên test trình duyệt cũ vẫn tìm thấy.
+- i18n: thêm chuỗi tiếng Anh mới, bỏ chuỗi cũ của các hộp mặc định.
+
+### Đã kiểm tra
+
+- Chromium, API giả, 1440×900: xóa thành viên (hộp hiện, bấm Xóa thành viên thì danh sách cập nhật), xóa project (hộp xác nhận, rồi hộp Đã xóa project khi `cleanupPending`, bấm Đã hiểu thì về /projects). Không có hộp mặc định nào của trình duyệt bật lên. `tsc`, `npm run build`. Hộp tải lại bản đã lưu ở frame review chưa thử trên trình duyệt.
+
+## 2026-10-16 · Bỏ mã mời, thêm thành viên qua popup chọn nhiều
+
+### Đã làm
+
+- **Bỏ mời bằng mã**: xoá mục "Cách khác: mời bằng mã" trong `ProjectPeople`, xoá `JoinProjectForm` (ô "Mã mời từ Leader" ở trang Projects). Câu chữ nhắc tới mã mời ở trang Projects, chọn vai trò và đăng ký đổi thành "Nhờ Leader thêm bạn vào project".
+- **Nút Xem thành viên**: nằm ở góc phải tiêu đề khung "Thành viên project" (Leader và Reviewer). Bấm mở popup HeroUI `Modal`: ô tìm tài khoản, chọn vai trò (chỉ Leader; Reviewer luôn thêm Annotator), danh sách tài khoản chưa ở project có checkbox, "Chọn tất cả", đếm số đã chọn. Nút **Thêm thành viên** (hoặc "Thêm N thành viên") thêm hết trong một lần, đóng popup, và hiện dòng "Đã thêm: …". Lỗi hiện ngay trong popup. Form gõ tên đăng nhập cũ đã bỏ.
+- **Backend**: `POST …/members` nhận `{ usernames[], role }` (vẫn nhận `username`), thêm tất cả hoặc không thêm ai. Gỡ `invites()`, `regenerate()`, `join()` trong `ProjectMembers` và các route `/invites`, `/join` của 2D lẫn 3D. Bảng `project_invites*` để nguyên trong DB, không viết migration xoá.
+- i18n: thêm chuỗi tiếng Anh mới, xoá chuỗi của mã mời.
+
+### Đã kiểm tra
+
+- Chromium, API giả, 1440×900 và 390×800: mở popup, tích 2 tài khoản, đổi vai trò, bấm thêm. Request gửi `{"usernames":["annotator.binh","annotator.chi"],"role":"annotator"}`, danh sách Annotator cập nhật.
+- `npm run typecheck`. Test đơn vị: 212 pass, 44 fail; cả 44 đều là test cần DB và hỏng vì `Access denied ... smartreview_test`, nên phần `add()` nhiều tài khoản chưa được chạy với MySQL thật.
+
+## 2026-10-16 · Trang kiểm tra bản sửa bỏ thanh tiêu đề
+
+### Đã làm
+
+- `FixesPage`: bỏ dòng "← Kiểm tra lại · tên project", dòng người gửi và nút **Tải danh sách lỗi (.json)**; tiêu đề chỉ còn cho trình đọc màn hình (`sr-only`). Khi bản gửi chưa được trả lại (không có khung tóm tắt) còn một dòng chữ nhỏ: ai gửi, lúc nào, cho ai, ghi chú. Về dự án qua "Dự án" trên header hoặc liên kết ở khung tóm tắt khi đã kiểm tra hết.
+
+### Đã kiểm tra
+
+- Chromium, API giả, 1440×900: trang vẫn vừa một màn hình (Reviewer khi đã trả lại và khi đang gửi). `tsc`, `npm run build`.
+
+## 2026-10-16 · Trang kiểm tra bản sửa dùng hết màn hình, ảnh to hơn
+
+### Đã làm
+
+- `ProjectLayout` bỏ giới hạn `max-w-[1400px]` cho trang fixes; lề còn 20px.
+- Ảnh lấy toàn bộ chiều cao còn lại (`FrameViewer` ở chế độ `fill` trong một khung `flex-1`) thay cho chiều cao cố định `calc(100dvh - 300px)`; cũng vậy trong toàn màn hình. Danh sách 240px, cột Đồng ý / Từ chối 260–280px.
+- Dòng phím tắt rút còn một dòng (lần trước chưa áp dụng được vì chuỗi bị ngắt dòng).
+
+### Đã kiểm tra
+
+- Chromium, API giả: ảnh hiển thị 814×458 ở 1440×900 (trước ~710 rộng), 1184×666 ở 1920×1080, 1416×797 khi toàn màn hình; trang vẫn vừa một màn hình, cột phải không tràn. `tsc`, `npm run build`; danh sách test hỏng trùng HEAD.
+
+## 2026-10-16 · Thanh công cụ xem ảnh trên trang lỗi cần sửa / kiểm tra bản sửa
+
+### Đã làm
+
+- **Thanh công cụ trên ảnh** (`FixList`, `src/features/handoff/fixes.tsx`; trang fixes và trang dự án của Annotator):
+  - Thu phóng − / % / + / 1:1 (dùng điều khiển sẵn có của `FrameViewer` qua `controlsSlot`), **lăn chuột để phóng to**, kéo để di chuyển khi đã phóng (`FrameViewer` thêm prop `wheel`).
+  - **Phóng vào chỗ lỗi** (Z): cắt cận quanh khung của mục, bấm lại xem toàn ảnh.
+  - **Khung hiển thị** (B): Cả hai / Lúc gửi / Hiện tại / Không khung để so bản sửa hoặc nhìn ảnh không bị khung che; mục không có nhãn hiện tại chỉ còn Lúc gửi (hoặc Hiện khung) / Không khung.
+  - **Toàn màn hình** (F, Esc thoát): ảnh và thanh công cụ chiếm cả màn hình, ←/→ và A/R vẫn dùng được.
+  - **Mở ảnh gốc** trong tab mới.
+- `Icon`: thêm `expand`, `shrink`, `external`, `target`.
+
+### Đã kiểm tra
+
+- Chromium, API giả: trang vẫn vừa một màn hình ở 1440×900 và 1024×768; Z + phóng to cắt đúng vào khung; các lựa chọn khung đúng theo từng trường hợp (Reviewer có/không nhãn hiện tại, Annotator); F vào toàn màn hình. `tsc`, `npm run build`.
+
+## 2026-10-16 · Trang kiểm tra bản sửa nằm trong một màn hình
+
+### Đã làm
+
+- Từ 1024px trở lên, `/projects/:id/fixes` vừa đúng một màn hình như Review: `ProjectLayout` giữ trang ở `h-dvh` không cuộn (header thấp hơn), `FixList` có `fill` cho lưới chiếm phần còn lại; **chỉ danh sách đối tượng cuộn**. Ảnh co theo chiều cao (`calc(100dvh - 300px)`), cột Đồng ý / Từ chối và chi tiết nằm cạnh ảnh từ 1024px.
+- Để vừa màn hình thấp: tiêu đề một dòng với nút ← về dự án; khung tóm tắt một hàng, thanh tiến độ mảnh; bỏ dòng đếm lỗi (các tab đã có số); chi tiết chữ nhỏ, bỏ dòng Vị trí (px); dưới 860px chiều cao ẩn câu giải thích và gợi ý phím tắt.
+- Điện thoại vẫn cuộn cả trang như trước.
+
+### Đã kiểm tra
+
+- Chromium, API giả, 18 mục: ở 1440×900, 1280×800, 1024×768 chiều cao trang bằng màn hình, cột phải không tràn, danh sách cuộn trong khung; `tsc`, `npm run build`; danh sách test hỏng trùng HEAD.
+
+## 2026-10-16 · Làm gọn trang lỗi cần sửa / kiểm tra bản sửa; sửa màu chế độ tối
+
+### Đã làm
+
+- **`FixList`** (`src/features/handoff/fixes.tsx`, dùng ở trang dự án của Annotator và trang fixes của Leader/Reviewer):
+  - Một khung đầu trang gộp "x gửi lại lúc…" với tiến độ kiểm tra: thanh xanh/đỏ, đếm ✓ đồng ý · ✗ từ chối · ○ chờ.
+  - Bộ lọc thành hàng tab có số đếm (Tất cả, Chờ kiểm tra, Nhãn sai, Thiếu nhãn, Cần xem lại, Chưa đổi; chỉ hiện tab có nghĩa), cùng hàng với dòng đếm, thay ô chọn "Lọc".
+  - Danh sách: viền trái theo loại (đỏ nhãn sai, tím thiếu nhãn, vàng cần xem lại), dấu ✓/✗/○ cố định bên phải, kết quả (Đã sửa / Chưa đổi…) không còn xuống dòng giữa chữ.
+  - Màn hình rộng (≥1280px): ảnh bên trái, cột phải 300px có khung **Đồng ý / Từ chối** (nút đặc, to) ngay trên cùng, rồi chi tiết và lý do cảnh báo; không phải cuộn xuống dưới ảnh mới thấy nút. Màn hình hẹp xếp dọc.
+  - Ghi chú khi từ chối thu gọn sau "+ Thêm ghi chú"; phím tắt A đồng ý, R từ chối, ←/→ chuyển mục (không chạy khi đang gõ).
+- **Gửi lại cho Reviewer**: ô chọn file của trình duyệt thay bằng nút "Chọn file…" và tên file đã chọn.
+- **Chế độ tối** (`src/styles.css`): thêm màu tối cho các nền nhạt `teal/emerald/rose/amber/violet-50` và chữ đặt trên chúng (`emerald-700/800`, `rose-800`, `violet-700`, `amber-700/900`). Trước đó dòng đang chọn, khung kết quả và các thông báo vàng giữ nền sáng, chữ sáng không đọc được (cả ở các trang khác dùng những lớp này).
+
+### Đã kiểm tra
+
+- Chụp màn hình bằng Chromium với API giả (desktop 1440px, điện thoại 390px, sáng và tối) cho trang kiểm tra bản sửa và trang dự án của Annotator; `tsc`, `npm run build`; danh sách test hỏng trùng với HEAD.
+
+## 2026-10-16 · Reviewer kiểm tra bản sửa bằng Đồng ý / Từ chối
+
+### Đã làm
+
+- **Một nút trên dashboard** (Leader/Reviewer, sau khi Annotator gửi lại): **Kiểm tra bản sửa · k/N →** mở trang fixes; k là số mục đã trả lời.
+- **Đồng ý / Từ chối từng mục** (`FixList` trong `src/features/handoff/fixes.tsx`, có `onJudged`): khung dưới ảnh với ghi chú và hai nút; danh sách có nhãn ✓ Đồng ý / ✗ Từ chối / Chờ kiểm tra; lọc "Chờ kiểm tra"; đầu trang đếm tiến độ; trả lời xong tự sang mục chưa kiểm tra kế tiếp. Từ chối đánh lỗi lại mục (quyết định Lỗi, hoặc vùng thiếu nhãn khi không còn nhãn) để lần Hoàn thành sau gửi lại kèm issue CVAT. Backend `POST …/handoff/verdict`.
+- Bỏ bộ lọc "Vòng sửa" trong Review làm trước đó trong ngày; việc kiểm tra bản sửa chỉ còn ở trang fixes.
+- **Giờ gửi**: backend ghi `sent_at` bằng UTC; migration 012 sửa các dòng cũ (lệch 7 tiếng).
+
+### Còn mở
+
+- Chưa xem bằng mắt trong trình duyệt; đã kiểm tra bằng `tsc`, `npm run build`, test `judge`.
+- Mỗi project vẫn chỉ giữ một vòng gửi; lịch sử nhiều vòng cần bảng mới.
+- Các cột thời gian khác cũng lấy `CURRENT_TIMESTAMP` (review_decisions.reviewed_at, frame_reviews.updated_at, cvat_scans.scanned_at) và có thể lệch giống vậy nếu được đọc như UTC; chưa kiểm tra.
+
+## 2026-10-16 · Annotator thấy cả mục "Cần xem lại"; issue CVAT đánh dấu chỗ cần sửa
+
+### Đã làm
+
+- **Mục "Cần xem lại"** trong danh sách lỗi (`src/features/handoff/fixes.tsx`): case Reviewer chọn "Chưa chắc" và case rủi ro chưa ai kiểm tra, màu vàng, ghi rõ "Reviewer chưa chắc" / "Chưa ai kiểm tra", điểm rủi ro, lý do cảnh báo; bộ lọc có thêm "Cần xem lại"; dòng đếm có thêm "n cần xem lại". Backend thêm `review` vào file gửi (`buildReport`) và vào kết quả khi gửi lại (`compareReturn`).
+- **Pop-up Hoàn thành** có ô **Gửi kèm mục "Cần xem lại"** (mặc định tắt) với số case Chưa chắc và chưa kiểm tra; không chọn thì file chỉ có lỗi đã xác nhận như trước. API nhận `include_review`.
+- **Issue CVAT**: "Đưa vào CVAT" tạo một issue cho mỗi lỗi, vùng thiếu nhãn và mục cần xem lại, đúng frame và vùng; dòng trạng thái báo số issue và cách đọc trong CVAT. Đã chạy thật trên CVAT 2.74.1 local (task thử đã xoá).
+
+### Còn mở
+
+- Chưa xem bằng mắt trong trình duyệt. Task tạo trước thay đổi này (đã có trong CVAT) chỉ được thêm issue nếu job chưa có issue nào.
+- SmartReview chưa đọc lại trạng thái Resolve của issue khi Annotator gửi lại.
+
+## 2026-10-16 · Trang dự án của Annotator chỉ còn việc của họ, làm hết trên một trang
+
+### Đã làm
+
+- **Ẩn phần của Leader/Reviewer với Annotator** (`ProjectDashboardPage`): không còn khung Dataset / QA Analysis / Review, trạng thái quét, nút Bắt đầu review, Kiểm tra toàn bộ ảnh, AI Checking, dòng Schema/Engine; trang cũng không gọi `/dashboard` nữa. Annotator chỉ thấy tên project, thành viên và việc của mình; chưa được gửi gì thì "Chưa có lỗi nào được gửi cho bạn".
+- **Ba bước trên cùng trang** (`AnnotatorWork`): (1) Lấy dữ liệu để sửa: "Đưa vào công cụ" (CVAT local) và "Hoặc tải về (.zip)" đặt cạnh nhau; (2) Xem ảnh cần sửa: danh sách lỗi và ảnh hiện ngay trên trang, không còn chuyển sang trang có nút tải lần nữa; (3) Gửi lại cho Reviewer. Sau khi gửi lại, trang hiện kết quả từng lỗi.
+- **Trang `/fixes` chỉ cho Leader/Reviewer** ("File đã gửi" / "Kiểm tra lại"); bỏ nút tải `.zip` ở đó; Leader vẫn gửi lại được thay Annotator. Annotator mở link cũ thì về trang dự án. Danh sách lỗi và form gửi lại tách thành `src/features/handoff/fixes.tsx`, hai trang dùng chung.
+
+### Còn mở
+
+- Chỉ ẩn trên giao diện: Annotator gõ URL `/review`, `/frames`, `/ai-check` vẫn vào được và API vẫn cho lưu quyết định review (`docs/project-roles.md`).
+- Chưa xem bằng mắt trong trình duyệt; đã kiểm tra bằng `tsc` và `npm run build`.
+
+## 2026-10-16 · Trang dự án của Annotator: tải .zip theo định dạng, đưa vào CVAT local, xem ảnh cần sửa
+
+### Đã làm
+
+- **Ba dòng việc cho Annotator được gửi** (`src/features/handoff/AnnotatorSteps.tsx`), trong khung "Review đã hoàn thành" ở trang dự án, thay cho nút "Xem lỗi cần sửa →" khi review đang chờ:
+  1. **Tải dataset (.zip)**: chọn một trong 8 định dạng ảnh (CVAT for images, COCO, Datumaro, PASCAL VOC, Ultralytics YOLO, LabelMe, KITTI, SmartReview JSON), dòng phụ nói định dạng giữ gì (vd. "polygon thành khung bao").
+  2. **Gán vào công cụ**: chọn công cụ (hiện chỉ "CVAT local"), **Đưa vào CVAT** tạo task trong CVAT với đủ ảnh và nhãn; xong hiện **Mở task #n trong CVAT ↗** (tab mới). Trong lúc chờ có spinner và câu "có thể mất vài phút"; lỗi hiện ngay dưới dòng.
+  3. **Xem ảnh cần sửa**: mở trang lỗi cần sửa.
+- Backend: `core/exporters/formats.ts`, `GET …/handoff/dataset.zip?format=`, `POST …/handoff/cvat` (`server/cvat/tasks.ts`), chi tiết ở `docs/review-handoff.md`.
+- **Sửa lỗi import KITTI khi gửi lại**: `sizeOf` (`core/importers/shared.ts`) trả cả media cũ, KITTI rải nó vào media mới nên mất id ("Unknown media reference"); giờ chỉ trả width/height.
+
+### Còn mở
+
+- Chưa xem bằng mắt trong trình duyệt (máy không có Chrome cho DevTools); đã kiểm tra bằng `tsc`, `npm run build`, test round-trip 8 định dạng, và chạy tạo task thật trên CVAT 2.74.1 local (task thử đã xoá).
+- Task CVAT chưa gán assignee; chưa kéo bản sửa thẳng từ CVAT về.
+
+## 2026-10-16 · Mở lại review: pop-up thay hộp thoại của trình duyệt, Reviewer cũng mở được
+
+### Đã làm
+
+- **Pop-up HeroUI** (`src/features/handoff/ReopenReviewButton.tsx`) thay cho `window.confirm` ở trang dự án: nêu tên các Annotator sẽ bị thu hồi file, nói quyết định review sẽ mở khoá; nút **Hủy** và **Thu hồi và mở lại** (màu danger). Trong lúc gửi, hai nút bị khoá và có spinner, không bấm được hai lần.
+- **Lỗi hiện trong pop-up**. Trước đây lỗi khi mở lại ghi vào lỗi tải dashboard, nên cả phần số liệu bị thay bằng dòng lỗi và nút "Thử lại".
+- **Reviewer mở lại được**: nút hiện cho mọi vai trò trừ Annotator khi review đang chờ Annotator (`SENT`). Backend `DELETE /api/projects/:id/handoff` nhận Leader và Reviewer, Annotator nhận 403 (`server/projects/http.ts`); test route trong `tests/handoff.test.ts`. Các câu "chỉ Leader mở lại" trong pop-up Hoàn thành, thông báo khoá (423) và docs đã đổi thành "Leader hoặc Reviewer".
+
+### Còn mở
+
+- Chưa xem bằng mắt trong trình duyệt.
+
 ## 2026-10-15 · Viewer 3D: phần cuboid chìm dưới mặt đường tô đỏ
 
 ### Đã làm

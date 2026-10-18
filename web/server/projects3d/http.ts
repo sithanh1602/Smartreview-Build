@@ -2,6 +2,9 @@ import { ReviewError, validateReview } from '../../shared/review.ts';
 import { readJson, sameOrigin } from '../projects/upload.ts';
 import { noTable, RISK_FILE } from './service.ts';
 import { precisionOf } from '../../core/risk3d/precision.ts';
+import { HANDOFF_LOCKED } from '../projects/handoff.ts';
+import { buildReport3D, judge, metrics3D, returnRound } from './handoff.ts';
+import type { Handoff3DReport, Handoff3DResult } from './handoff.ts';
 import type { Project3DService } from './service.ts';
 import type { Json, Req, Res } from '../types.ts';
 
@@ -24,12 +27,6 @@ export async function handleProjects3D(
         if (user.role !== 'leader') throw new ReviewError(403, 'Chỉ Leader được tạo project.');
         json(res, 201, await projects.create(await readJson(req), user));
       } else throw new ReviewError(405, 'Use GET or POST.');
-      return true;
-    }
-    if (url.pathname === '/api/projects3d/join') {
-      if (req.method !== 'POST') throw new ReviewError(405, 'Use POST.');
-      sameOrigin(req);
-      json(res, 200, await projects.members.join(await readJson(req), user));
       return true;
     }
     const match = url.pathname.match(/^\/api\/projects3d\/([^/]+)(\/.*)?$/);
@@ -126,6 +123,10 @@ export async function handleProjects3D(
       if (!(whole ? ['PUT'] : ['POST', 'PUT']).includes(req.method))
         throw new ReviewError(405, whole ? 'Use PUT.' : 'Use POST or PUT.');
       sameOrigin(req);
+      // Annotators fix labels; deciding on them is the reviewers' part, as in 2D.
+      if (role === 'annotator')
+        throw new ReviewError(403, 'Annotator không lưu được quyết định review.');
+      if (await projects.handoffs.locked(id)) throw new ReviewError(409, HANDOFF_LOCKED);
       let objectId: string;
       try {
         objectId = decodeURIComponent(whole ? first : second);
@@ -141,6 +142,75 @@ export async function handleProjects3D(
       json(res, whole || mode === 'update' ? 200 : 201, {
         reviews: await store.save(refs, input, user.id, whole ? undefined : mode),
       });
+    } else if (route === '/handoff') {
+      // The round sent to annotators: GET for the reviewers and its annotators, POST sends it,
+      // DELETE withdraws it.
+      if (req.method === 'GET') {
+        const { index, store } = await projects.reviews(id);
+        const row = await projects.handoffs.row(id);
+        if (!row) {
+          if (role === 'annotator') json(res, 200, { handoff: null });
+          else {
+            const data = await projects.read(id, RISK_FILE);
+            json(res, 200, {
+              handoff: null,
+              metrics: metrics3D(await store.list(), data && JSON.parse(data.toString('utf8'))),
+            });
+          }
+        } else {
+          const sent = await projects.handoffs.report(id, user, role, index.fingerprint);
+          json(res, 200, sent);
+        }
+      } else if (req.method === 'POST') {
+        sameOrigin(req);
+        if (role === 'annotator')
+          throw new ReviewError(403, 'Chỉ Leader hoặc Reviewer được hoàn thành review.');
+        const input = await readJson(req);
+        if (input?.include_review !== undefined && typeof input.include_review !== 'boolean')
+          throw new ReviewError(400, 'include_review phải là true hoặc false.');
+        const { index, store } = await projects.reviews(id);
+        const [scene, risk] = await Promise.all([
+          projects.read(id, 'scene.json'),
+          projects.read(id, RISK_FILE),
+        ]);
+        if (!scene) throw new ReviewError(409, 'Không tìm thấy dữ liệu project trên kho lưu trữ.');
+        const report = buildReport3D(
+          { id, name: (await projects.row(id)).name },
+          index.fingerprint,
+          JSON.parse(scene.toString('utf8')),
+          await store.list(),
+          risk && JSON.parse(risk.toString('utf8')),
+          { review: input?.include_review === true },
+        );
+        json(
+          res,
+          201,
+          await projects.handoffs.send(id, input, user, await projects.members.people(id), report),
+        );
+      } else if (req.method === 'DELETE') {
+        sameOrigin(req);
+        if (role === 'annotator')
+          throw new ReviewError(403, 'Chỉ Leader hoặc Reviewer được mở lại review.');
+        await projects.handoffs.reopen(id);
+        json(res, 200, { handoff: null });
+      } else throw new ReviewError(405, 'Use GET, POST or DELETE.');
+    } else if (route === '/handoff/return') {
+      // The annotator says which items are fixed and sends the round back.
+      if (req.method !== 'POST') throw new ReviewError(405, 'Use POST.');
+      sameOrigin(req);
+      const report = (await projects.handoffs.sent(id, user, role)) as unknown as Handoff3DReport;
+      await projects.handoffs.returned(id, user, returnRound(report, await readJson(req)));
+      json(res, 200, await projects.handoffs.get(id, user));
+    } else if (route === '/handoff/verdict') {
+      // A reviewer accepts or rejects one item of the returned round.
+      if (req.method !== 'POST') throw new ReviewError(405, 'Use POST.');
+      sameOrigin(req);
+      if (role === 'annotator')
+        throw new ReviewError(403, 'Chỉ Leader hoặc Reviewer được kiểm tra bản sửa.');
+      const result = (await projects.handoffs.returnedResult(id)) as unknown as Handoff3DResult;
+      const next = judge(result, await readJson(req), user.username);
+      await projects.handoffs.saveResult(id, next);
+      json(res, 200, next);
     } else if (route === '/members') {
       if (req.method === 'GET') json(res, 200, await projects.members.people(id));
       else if (req.method === 'POST') {
@@ -166,13 +236,6 @@ export async function handleProjects3D(
           ? await projects.members.remove(id, member[1])
           : await projects.members.setRole(id, member[1], await readJson(req)),
       );
-    } else if (route === '/invites') {
-      leaderOnly();
-      if (req.method === 'GET') json(res, 200, await projects.members.invites(id));
-      else if (req.method === 'POST') {
-        sameOrigin(req);
-        json(res, 200, await projects.members.regenerate(id, await readJson(req)));
-      } else throw new ReviewError(405, 'Use GET or POST.');
     } else if (!route || route === '/import-status') {
       if (req.method !== 'GET') throw new ReviewError(405, 'Use GET.');
       json(res, 200, { ...(await projects.get(id)), my_role: role });

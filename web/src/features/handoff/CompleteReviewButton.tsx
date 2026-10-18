@@ -11,9 +11,12 @@ export function CompleteReviewButton({
   metrics,
   onSent,
   className = 'sr-button border-accent text-accent',
+  base = '/projects',
 }: {
-  project: Project;
-  metrics: Pick<Metrics, 'unreviewed' | 'confirmed_errors'>;
+  project: Pick<Project, 'id' | 'my_role' | 'handoff'>;
+  // The API collection of the project: "/projects3d" for a 3D project.
+  base?: string;
+  metrics: Pick<Metrics, 'unreviewed' | 'unsure' | 'confirmed_errors'>;
   onSent: (handoff: Handoff) => void;
   className?: string;
 }) {
@@ -27,6 +30,7 @@ export function CompleteReviewButton({
       {open && (
         <SendDialog
           project={project}
+          base={base}
           metrics={metrics}
           onClose={() => setOpen(false)}
           onSent={onSent}
@@ -38,23 +42,26 @@ export function CompleteReviewButton({
 
 function SendDialog({
   project,
+  base,
   metrics,
   onClose,
   onSent,
 }: {
-  project: Project;
-  metrics: Pick<Metrics, 'unreviewed' | 'confirmed_errors'>;
+  project: Pick<Project, 'id'>;
+  base: string;
+  metrics: Pick<Metrics, 'unreviewed' | 'unsure' | 'confirmed_errors'>;
   onClose: () => void;
   onSent: (handoff: Handoff) => void;
 }) {
   const [annotators, setAnnotators] = useState<Person[] | null>(null),
     [chosen, setChosen] = useState(() => new Set<string>()),
     [note, setNote] = useState(''),
+    [withReview, setWithReview] = useState(false),
     [error, setError] = useState(''),
     [sending, setSending] = useState(false);
   useEffect(() => {
     const c = new AbortController();
-    request<ProjectPeople>(`/projects/${project.id}/members`, { signal: c.signal })
+    request<ProjectPeople>(`${base}/${project.id}/members`, { signal: c.signal })
       .then((people) => {
         if (c.signal.aborted) return;
         setAnnotators(people.annotators);
@@ -64,16 +71,16 @@ function SendDialog({
         if (!c.signal.aborted) setError(e.message);
       });
     return () => c.abort();
-  }, [project.id]);
+  }, [project.id, base]);
   async function send() {
     setSending(true);
     setError('');
     try {
       onSent(
-        await request<Handoff>(`/projects/${project.id}/handoff`, {
+        await request<Handoff>(`${base}/${project.id}/handoff`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ annotator_ids: [...chosen], note }),
+          body: JSON.stringify({ annotator_ids: [...chosen], note, include_review: withReview }),
         }),
       );
       onClose();
@@ -95,16 +102,31 @@ function SendDialog({
             <Modal.Body>
               <p className="text-sm">
                 Gửi file kết quả review cho Annotator để sửa nhãn. Sau khi gửi, các quyết định
-                review bị khoá; chỉ Leader mở lại được.
+                review bị khoá; chỉ Leader hoặc Reviewer mở lại được.
               </p>
               <p className="mt-3 text-sm" data-testid="handoff-summary">
                 <strong>{metrics.confirmed_errors}</strong> lỗi đã xác nhận trong các case rủi ro
               </p>
               {metrics.unreviewed > 0 && (
                 <p className="mt-2 rounded-lg border border-amber-500 bg-amber-50 p-3 text-sm text-amber-900">
-                  Còn <strong>{metrics.unreviewed}</strong> case rủi ro chưa kiểm tra. Chúng sẽ
-                  không có trong file.
+                  Còn <strong>{metrics.unreviewed}</strong> case rủi ro chưa kiểm tra.
                 </p>
+              )}
+              {metrics.unreviewed + metrics.unsure > 0 && (
+                <label className="mt-3 flex items-start gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    className="mt-1"
+                    checked={withReview}
+                    disabled={sending}
+                    onChange={(e) => setWithReview(e.target.checked)}
+                  />
+                  <span>
+                    Gửi kèm mục “Cần xem lại”: <strong>{metrics.unsure}</strong> case Chưa chắc và{' '}
+                    <strong>{metrics.unreviewed}</strong> case chưa kiểm tra, tách khỏi lỗi đã xác
+                    nhận. Không chọn thì Annotator chỉ nhận lỗi đã xác nhận.
+                  </span>
+                </label>
               )}
               <fieldset className="mt-4" disabled={sending}>
                 <legend className="text-sm font-semibold">Gửi cho Annotator</legend>

@@ -9,7 +9,6 @@ import { migrate } from '../server/db/migrate.ts';
 import { testPool } from './db-helpers.ts';
 let pool, auth, server, base, reviewer, annotator;
 const password = randomUUID();
-const LEADER_CODE = 'leader-' + randomUUID();
 const jar = (r) =>
   r.headers
     .getSetCookie()
@@ -35,7 +34,7 @@ const login = (user) => call('/api/auth/login', 'POST', '', { username: user.use
 before(async () => {
   pool = testPool();
   await migrate(pool);
-  auth = new AuthService(pool, { leaderCode: LEADER_CODE });
+  auth = new AuthService(pool);
   reviewer = await auth.createUser({
     username: 'review_' + randomUUID(),
     password,
@@ -91,7 +90,8 @@ test('the only cookie is an HttpOnly access_token; secrets are hashed in DB, abs
   const res = await login(reviewer),
     cookies = jar(res);
   const body = await res.json();
-  assert.deepEqual(Object.keys(body).sort(), ['expiresAt', 'user']);
+  assert.deepEqual(Object.keys(body).sort(), ['expiresAt', 'extensionsLeft', 'user']);
+  assert.equal(body.extensionsLeft, 3);
   const set = res.headers.getSetCookie();
   const session = set.filter((c) => !/Max-Age=0/.test(c));
   assert.equal(session.length, 1);
@@ -132,6 +132,33 @@ test('the session ends after its hour and cannot be extended; logout revokes it'
   assert.equal(logout.status, 200);
   assert.ok(logout.headers.getSetCookie().every((c) => c.includes('Max-Age=0')));
   assert.equal((await call('/api/auth/me', 'GET', fresh)).status, 401);
+});
+test('the last minutes of a session can be extended by 5 minutes, at most 3 times', async () => {
+  const cookies = jar(await login(reviewer));
+  const hash = tokenHash(value(cookies, 'access_token'));
+  // Too early: nothing to extend yet.
+  assert.equal((await call('/api/auth/extend', 'POST', cookies, {})).status, 409);
+  // Move the session to its last minute, keeping the hour it started with.
+  const toLastMinute = () =>
+    pool.execute(
+      'UPDATE auth_sessions SET created_at=DATE_SUB(created_at, INTERVAL TIMESTAMPDIFF(SECOND, UTC_TIMESTAMP(3), access_expires_at) - 60 SECOND), access_expires_at=DATE_ADD(UTC_TIMESTAMP(3), INTERVAL 60 SECOND) WHERE access_hash=?',
+      [hash],
+    );
+  for (const left of [2, 1, 0]) {
+    await toLastMinute();
+    const res = await call('/api/auth/extend', 'POST', cookies, {});
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.equal(body.extensionsLeft, left);
+    const minutes = (Date.parse(body.expiresAt) - Date.now()) / 60000;
+    assert.ok(minutes > 5.9 && minutes <= 6, `extended to ${minutes} minutes`);
+    assert.match(res.headers.getSetCookie()[0], /Max-Age=3[56]\d;/);
+  }
+  await toLastMinute();
+  const spent = await call('/api/auth/extend', 'POST', cookies, {});
+  assert.equal(spent.status, 409);
+  assert.match((await spent.json()).error, /hết lượt gia hạn/);
+  assert.equal((await call('/api/auth/extend', 'POST', '', {})).status, 401);
 });
 test('role changes and disabled accounts take effect for existing tokens', async () => {
   const cookies = jar(await login(reviewer));
@@ -189,6 +216,8 @@ test('registration validates input and account type, hashes password and support
       { username, password: 'short' },
       { username: 'bad name', password },
       { username, password, role: 'reviewer' },
+      { username, password, role: 'leader' },
+      { username, password, leaderCode: 'x' },
       { username, password, admin: true },
     ]) {
       assert.equal((await call('/api/auth/register', 'POST', '', data)).status, 400);
@@ -243,33 +272,19 @@ test('registration validates input and account type, hashes password and support
     ]);
   }
 });
-test('a leader account needs the leader code; the hidden field makes registration a no-op', async () => {
+test('registration only creates members; the hidden field makes registration a no-op', async () => {
   const username = 'lead_' + randomUUID(),
     bot = 'bot_' + randomUUID();
   const ipBucket = tokenHash('register:ip:127.0.0.1');
   const register = (data) => call('/api/auth/register', 'POST', '', data);
   try {
-    assert.equal((await register({ username, password, role: 'leader' })).status, 403);
-    assert.equal(
-      (await register({ username, password, role: 'leader', leaderCode: 'wrong' })).status,
-      403,
-    );
-    assert.equal((await register({ username, password, leaderCode: 1 })).status, 400);
-    const res = await register({ username, password, role: 'leader', leaderCode: LEADER_CODE });
+    const res = await register({ username, password });
     assert.equal(res.status, 201);
-    assert.equal((await res.json()).user.role, 'leader');
+    assert.equal((await res.json()).user.role, 'member');
     const caught = await register({ username: bot, password, website: 'https://spam.invalid' });
     assert.equal(caught.status, 201);
     const [rows] = await pool.execute('SELECT id FROM users WHERE username=?', [bot]);
     assert.equal(rows.length, 0);
-    // Without a configured code nobody registers as a leader.
-    await assert.rejects(
-      new AuthService(pool).register(
-        { username: 'x' + username.slice(1), password, role: 'leader', leaderCode: '' },
-        randomUUID(),
-      ),
-      { status: 403 },
-    );
   } finally {
     await pool.execute('DELETE FROM users WHERE username IN (?,?)', [username, bot]);
     await pool.execute('DELETE FROM auth_login_limits WHERE bucket IN (?,?,?)', [

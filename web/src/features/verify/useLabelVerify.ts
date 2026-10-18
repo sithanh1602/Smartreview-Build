@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { request } from '../../lib/api';
-import type { VerifyReport } from '../../types.ts';
+import type { ScanModels, VerifyReport } from '../../types.ts';
 
 // The project's latest label verification: its state, polled while a run is in progress, and
 // how to start one.
@@ -32,9 +32,7 @@ export function useLabelVerify(projectId: string | undefined) {
       clearTimeout(timer);
     };
   }, [projectId, endpoint, attempt]);
-  // `second`: also have the second engine look again at the doubted boxes. Resolves to whether
-  // the run started; the failure is left in `error`.
-  async function start(second: boolean) {
+  async function start(models: ScanModels) {
     setBusy(true);
     setError('');
     try {
@@ -42,7 +40,7 @@ export function useLabelVerify(projectId: string | undefined) {
         await request<VerifyReport>(endpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ second }),
+          body: JSON.stringify(models),
         }),
       );
       setAttempt((a) => a + 1);

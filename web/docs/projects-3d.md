@@ -84,7 +84,7 @@ tạm để trình duyệt tải thẳng từ Dropbox.
   có bù chuyển động không, dung lượng lưu, người tạo, vai trò của người xem).
 - Đang import: dòng trạng thái, tự hỏi lại backend mỗi giây.
 - `CREATED` / `FAILED`: lý do lỗi và form chọn lại tệp của segment (chỉ Leader).
-- Khối **thành viên** như project 2D (`ProjectPeople`): Leader thêm Reviewer / Annotator bằng tên đăng nhập hoặc mã mời, đổi vai trò, xoá; Reviewer thêm được Annotator. Quy tắc giống `docs/project-roles.md`, dữ liệu nằm ở `project_members_3d` và `project_invites_3d`.
+- Khối **thành viên** như project 2D (`ProjectPeople`): Leader thêm Reviewer / Annotator qua popup **Xem thành viên** (chọn nhiều), đổi vai trò, xoá; Reviewer thêm được Annotator. Quy tắc giống `docs/project-roles.md`, dữ liệu nằm ở `project_members_3d` (`project_invites_3d` còn trong DB nhưng không dùng từ khi bỏ mã mời).
 - Nút **Mở review 3D** hiện vòng xoay và "Đang mở review 3D…" trong lúc mã của viewer được tải về.
 - Leader tạo project có nút xoá project; leader khác xem và quản lý được nhưng không xoá được.
 
@@ -316,8 +316,6 @@ Thiếu Python hoặc thiếu hai gói đó thì import trả 503 kèm hướng 
 | `GET/POST /api/projects3d/:id/members`           | Như 2D             | Danh sách thành viên; thêm thẳng bằng tên đăng nhập             |
 | `GET …/members/candidates`                       | Leader, Reviewer   | Tài khoản thành viên chưa ở trong project                       |
 | `PATCH/DELETE …/members/:userId`                 | Leader             | Đổi vai trò, xoá khỏi project                                   |
-| `GET/POST /api/projects3d/:id/invites`           | Leader             | Hai mã mời (reviewer, annotator); POST tạo mã mới               |
-| `POST /api/projects3d/join` `{ code }`           | Member             | Vào project 3D bằng mã mời                                      |
 | `GET /api/projects3d/:id/scene`                  | Thành viên, Leader | `scene.json` của project `READY`                                |
 | `GET /api/projects3d/:id/risk`                   | Thành viên, Leader | Báo cáo của Risk Engine 3D ([risk-3d.md](risk-3d.md))           |
 | `GET /api/projects3d/:id/risk/precision`         | Thành viên, Leader | Mỗi quy tắc đúng bao nhiêu theo review, engine bỏ sót bao nhiêu |

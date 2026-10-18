@@ -41,7 +41,7 @@ let pool, tmp, remote, first, second, server, base;
 const ids = [];
 const dataset = await fs.readFile(new URL('../fixtures/upload/dataset.json', import.meta.url));
 const png = await fs.readFile(new URL('../fixtures/upload/street.png', import.meta.url));
-async function importProject() {
+async function importProject(beforeImport?: (id: string) => void) {
   const created = await fetch(`${base}/api/projects`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -49,6 +49,7 @@ async function importProject() {
   });
   const project = await created.json();
   ids.push(project.id);
+  beforeImport?.(project.id);
   const form = new FormData();
   form.append('annotation', new Blob([dataset]), 'dataset.json');
   form.append('media', new Blob([png]), 'street.png');
@@ -143,4 +144,45 @@ test('share moves a locally stored project to the remote', async () => {
   await missing(path.join(tmp, 'first', 'projects', id));
   const { dataset: opened } = await second.context(id);
   assert.deepEqual(await opened.readAsset([...opened.assets.keys()][0]), png);
+});
+
+test('a scan chosen at upload reads the staged frames, then the staging directory goes', async () => {
+  // A model folder the scan accepts; the engine itself is replaced below.
+  const models = path.join(tmp, 'models');
+  await fs.mkdir(path.join(models, 'fake-siglip'), { recursive: true });
+  await fs.writeFile(
+    path.join(models, 'fake-siglip', 'config.json'),
+    JSON.stringify({ model_type: 'siglip' }),
+  );
+  await fs.writeFile(path.join(models, 'fake-siglip', 'model.safetensors'), '');
+  const previousDir = process.env.LABEL_VERIFIER_MODELS_DIR,
+    previous = first.verify.verifier;
+  process.env.LABEL_VERIFIER_MODELS_DIR = models;
+  const read: string[] = [];
+  first.verify.verifier = {
+    available: async () => true,
+    async run(request) {
+      for (const box of request.boxes) {
+        await fs.access(box.image);
+        read.push(box.image);
+      }
+      return { engine: request.engine, model: request.model, results: [], skipped: [] };
+    },
+  };
+  try {
+    // The upload popup asks for the scan while the import is still running.
+    const id = await importProject((id) => first.verify.pending.set(id, { model: 'fake-siglip' }));
+    for (let i = 0; i < 200 && (first.verify.waiting(id) || first.kept.has(id)); i++)
+      await new Promise((r) => setTimeout(r, 25));
+    assert.equal(first.verify.waiting(id), false);
+    assert.ok(read.length > 0);
+    // Read from the staging directory, not fetched back into the scan's own .tmp directory.
+    for (const image of read) assert.ok(image.startsWith(path.join(tmp, 'first', 'projects', id)));
+    await missing(path.join(tmp, 'first', 'projects', id));
+    assert.equal((await first.verify.saved(id))?.status, 'READY');
+  } finally {
+    first.verify.verifier = previous;
+    if (previousDir === undefined) delete process.env.LABEL_VERIFIER_MODELS_DIR;
+    else process.env.LABEL_VERIFIER_MODELS_DIR = previousDir;
+  }
 });

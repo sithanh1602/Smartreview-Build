@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { Icon } from '../components/Icon';
 import { LogoMark } from '../components/Logo';
 import { Spinner } from '../components/Spinner';
@@ -8,6 +8,7 @@ import { LanguageToggle } from '../components/LanguageToggle';
 import { AccountMenu } from '../features/auth/AuthGate';
 import { request, requestBytes } from '../lib/api';
 import { useProject3D } from '../features/projects3d/useProject3D';
+import { useHandoff3D } from '../features/handoff/Handoff3D';
 import { PointCloudEngine } from '../features/projects3d/viewer/engine';
 import { BACKGROUND, BOX_COLORS, cssColor } from '../features/projects3d/viewer/colors';
 import { Swatch } from '../features/projects3d/viewer/controls';
@@ -49,6 +50,8 @@ const VIEWS: [ViewPreset, string][] = [
 ];
 type Tab = 'review' | 'display';
 const pad = (n: number) => String(n).padStart(4, '0');
+// A coordinate with its sign: + ahead or to the left of the vehicle, − behind or to the right.
+const signed = (v: number) => `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(1)}`;
 const dark = 'rounded-md border border-[#30363d] bg-[#21262d] px-2.5 py-1';
 
 // The 3D review workspace: the point cloud with its cuboids, under it the frames of the segment
@@ -84,6 +87,17 @@ export function Viewer3DPage() {
     engine = useRef<PointCloudEngine | null>(null);
   const ready = project?.status === 'READY',
     revision = project?.metadata?.dataset_id;
+  // Decisions are the reviewers', and are locked while a round is with the annotators.
+  const { sent } = useHandoff3D(projectId!, ready);
+  const locked =
+    project?.my_role === 'annotator'
+      ? 'Bạn là Annotator: trình xem chỉ để xem cuboid cần sửa và quyết định của Reviewer.'
+      : sent?.handoff?.status === 'SENT'
+        ? 'Review đã gửi cho Annotator nên quyết định đang bị khoá. Mở lại review ở trang project để sửa.'
+        : undefined;
+  // A link from the list of fixes names the frame and the object to open.
+  const [params] = useSearchParams();
+  const asked = useRef(false);
   useEffect(() => {
     if (!ready) return;
     const c = new AbortController();
@@ -110,6 +124,7 @@ export function Viewer3DPage() {
           boxes: true,
           boxColor: 'type',
           labels: true,
+          distance: true,
           orientation: true,
           sensors: true,
           lasers: Object.fromEntries(loaded.lasers.map((l) => [l.name, true])),
@@ -230,6 +245,11 @@ export function Viewer3DPage() {
         : [],
     [scene],
   );
+  // The selected cuboid in the frame on screen, whose distance the view shows in its corner.
+  const measured =
+    scene && info && selected
+      ? (scene.frames[info.index]?.boxes.find((b) => b.id === selected) ?? null)
+      : null;
   // The cuboids of the frame on screen that were reviewed as wrong or the engine doubts, numbered.
   const flags = useMemo(
     () => (scene && info ? flagsOf(scene.frames[info.index], reviews, risks, numbers) : []),
@@ -309,6 +329,15 @@ export function Viewer3DPage() {
     engine.current?.focus(frame, objectId);
     if (frame !== engine.current?.current) show(frame);
   };
+  useEffect(() => {
+    if (asked.current || !info || !scene || !engine.current) return;
+    const frame = Number(params.get('frame')),
+      object = params.get('object');
+    if (!object || !Number.isInteger(frame) || frame < 0 || frame >= scene.frames.length) return;
+    asked.current = true;
+    open(frame, object);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [info, scene, params]);
   // What a gesture seen by the webcam does. Raising fingers calls up the issue with that number,
   // in whichever frame it is.
   const onGesture = (action: Action) => {
@@ -361,7 +390,7 @@ export function Viewer3DPage() {
       ? 'Project chưa sẵn sàng. Quay lại trang project để xem trạng thái.'
       : failure;
   return (
-    <div className="flex min-h-dvh flex-col lg:h-dvh lg:overflow-hidden">
+    <div className="relative flex min-h-dvh flex-col lg:h-dvh lg:overflow-hidden">
       {/* A slim header: the point cloud gets the height. The first link leaves the project. */}
       <header className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-line bg-panel px-3 py-0.5 text-xs">
         <Link to="/projects" aria-label="SmartReview">
@@ -461,23 +490,44 @@ export function Viewer3DPage() {
             )}
             {info && (
               <div
-                className="pointer-events-none absolute top-2.5 left-2.5 rounded-md bg-[#161b22]/85 px-3 py-2 leading-relaxed tabular-nums"
+                className="pointer-events-none absolute top-2.5 left-2.5 flex flex-col items-start gap-2"
                 data-testid="viewer-hud"
               >
-                <p>
-                  {info.points.toLocaleString('en-US')} điểm · {info.boxes} cuboid · xe{' '}
-                  {info.speedKmh.toFixed(0)} km/h
-                </p>
-                <p className="flex flex-wrap gap-x-3">
-                  {types
-                    .filter((type) => info.byType[type])
-                    .map((type) => (
-                      <span key={type} className="inline-flex items-center gap-1.5">
-                        <Swatch color={BOX_COLORS[type] ?? BOX_COLORS.UNKNOWN} />
-                        {type} {info.byType[type]}
-                      </span>
-                    ))}
-                </p>
+                <div className="rounded-md bg-[#161b22]/85 px-3 py-2 leading-relaxed tabular-nums">
+                  <p>
+                    {info.points.toLocaleString('en-US')} điểm · {info.boxes} cuboid · xe{' '}
+                    {info.speedKmh.toFixed(0)} km/h
+                  </p>
+                  <p className="flex flex-wrap gap-x-3">
+                    {types
+                      .filter((type) => info.byType[type])
+                      .map((type) => (
+                        <span key={type} className="inline-flex items-center gap-1.5">
+                          <Swatch color={BOX_COLORS[type] ?? BOX_COLORS.UNKNOWN} />
+                          {type} {info.byType[type]}
+                        </span>
+                      ))}
+                  </p>
+                </div>
+                {settings?.boxes && settings.distance && measured && (
+                  <div
+                    className="rounded-md border border-white/40 bg-[#161b22]/90 px-3 py-2 tabular-nums"
+                    data-testid="viewer-distance"
+                  >
+                    <p className="text-[11px] text-[#8b949e]">
+                      Khoảng cách tới {measured.type} · {measured.id.slice(0, 5)}
+                    </p>
+                    <p className="text-lg leading-7 font-semibold text-white">
+                      {Math.hypot(measured.center[0], measured.center[1]).toFixed(1)} m
+                    </p>
+                    <p className="text-xs text-[#d0d7de]">
+                      dọc {signed(measured.center[0])} · ngang {signed(measured.center[1])} m
+                    </p>
+                    <p className="mt-0.5 text-[10px] text-[#8b949e]">
+                      Theo mặt đất, từ giữa trục sau xe tới tâm cuboid
+                    </p>
+                  </div>
+                )}
               </div>
             )}
             {info && (
@@ -672,7 +722,7 @@ export function Viewer3DPage() {
         </div>
         {settings && scene && info && revision && showPanel && (
           <aside
-            className="flex shrink-0 flex-col border-t border-line bg-panel lg:w-80 lg:border-t-0 lg:border-l"
+            className="flex shrink-0 flex-col border-t border-line bg-panel lg:w-96 lg:border-t-0 lg:border-l 2xl:w-[26rem]"
             data-testid="viewer-panel"
           >
             <div className="flex gap-2 border-b border-line p-2" role="tablist">
@@ -705,7 +755,9 @@ export function Viewer3DPage() {
                 Ẩn
               </button>
             </div>
-            <div className="min-h-0 flex-1 p-4 lg:overflow-y-auto" role="tabpanel">
+            {/* relative: the panel's sr-only inputs (absolute) stay inside the scrolling box;
+                otherwise they sit at their place in the long list and stretch the page. */}
+            <div className="relative min-h-0 flex-1 p-4 lg:overflow-y-auto" role="tabpanel">
               {tab === 'review' ? (
                 <ObjectPanel
                   projectId={projectId!}
@@ -722,6 +774,7 @@ export function Viewer3DPage() {
                   calling={calling}
                   risks={risks}
                   onSaved={(saved) => setReviews((current) => ({ ...current, ...saved }))}
+                  locked={locked}
                   onFocus={() => engine.current?.view('perspective')}
                   onOpen={open}
                 />

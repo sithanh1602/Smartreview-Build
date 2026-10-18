@@ -230,8 +230,8 @@ test('a cuboid on an empty stretch of road holds only road points and is empty',
     ids.some(([i, checks]) => i === 3 && (checks as string[]).includes('points.empty_near')),
   );
   assert.match(report.cases[0].reasons.join(' '), /mặt đường/);
-  // A sign is not on the road: its points all count.
-  const sign = { type: 'SIGN', size: [0.1, 0.8, 0.8], ...road };
+  // A sign is not on the road: its points all count. It stands still, as a sign does.
+  const sign = { type: 'SIGN', size: [0.1, 0.8, 0.8], center: [10, 0, 1], ...road };
   assert.equal(only(drive(3, () => sign)).ids.length, 0);
 });
 
@@ -308,7 +308,15 @@ test('a cuboid floating above the road or sunk into it over a run is a case', ()
   );
   // A sign is not on the road, and nothing is judged beyond the distance the road is measured.
   assert.equal(
-    only(drive(9, () => ({ ...fits, type: 'SIGN', size: [0.1, 0.8, 0.8], lift: 2 }))).ids.length,
+    only(
+      drive(9, () => ({
+        ...fits,
+        type: 'SIGN',
+        size: [0.1, 0.8, 0.8],
+        center: [10, 0, 1],
+        lift: 2,
+      })),
+    ).ids.length,
     0,
   );
   assert.equal(only(drive(9, (i) => ({ ...fits, center: [60 + i, 0, 1], lift: 2 }))).ids.length, 0);
@@ -320,14 +328,15 @@ test('a cuboid too far above or below the road to be right is a certain, high-ri
     const { certain_m, certain_score } = rule(id).params;
     const sign = id === 'fit.floating' ? 1 : -1;
     const far = only(drive(9, () => ({ ...fits, lift: sign * (certain_m + 0.2) }))).report;
-    assert.equal(far.cases.length, id === 'fit.sunk' ? 9 : 1);
+    // Sunk the whole track: box.below_ground joins the fit.sunk case, one case for the object.
+    assert.equal(far.cases.length, 1);
     const temporal = far.cases.find((c) => c.findings.some((f) => f.check_id === id))!;
     assert.equal(temporal.certain, true);
     assert.equal(temporal.score, certain_score);
     assert.equal(temporal.severity, 'high');
     // Over the rule's level but within certain_m: a doubt, not certain.
     const near = only(drive(9, () => ({ ...fits, lift: sign * (certain_m - 0.2) }))).report;
-    assert.equal(near.cases.length, id === 'fit.sunk' ? 9 : 1);
+    assert.equal(near.cases.length, 1);
     assert.equal(near.cases[0].certain, undefined);
     assert.equal(near.cases[0].severity === 'high', id === 'fit.sunk');
   }
@@ -365,7 +374,8 @@ test('a run of cuboids lowered or raised against the rest of their track is a ca
   assert.ok(
     short.report.cases.every((c) => c.findings.every((f) => f.check_id === 'box.below_ground')),
   );
-  assert.equal(short.report.cases.length, Math.max(0, min_frames - 6));
+  // The lowered frames in a row are one box.below_ground case.
+  assert.equal(short.report.cases.length, min_frames - 1 > 5 ? 1 : 0);
 });
 
 test('calibration reports what correct labels reach against each threshold', () => {
@@ -428,4 +438,146 @@ test('frame 1 heading reference requires stationary same-ID car and compensates 
   for (const f of rotated.frames.slice(1))
     f.pose = [0, -1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
   assert.equal(matches(rotated).length, 0);
+});
+
+// Which frames a rule flags, in a report.
+const flaggedBy = (scene: Scene, id: string) =>
+  [...analyzeScene(scene).cases, ...analyzeScene(scene).warnings]
+    .filter((c) => c.findings.some((f) => f.check_id === id))
+    .map((c) => [c.frame_index, c.object_id]);
+
+test('a run of near cuboids with almost no points is one case; a short run or a far one is not', () => {
+  const { below, min_frames, max_distance_m } = rule('points.sparse_run').params;
+  const few = below - 3;
+  const run = drive(7, (i) => (i >= 1 && i < 1 + min_frames ? { counted: i === 2 ? 1 : few } : {}));
+  assert.deepEqual(flaggedBy(run, 'points.sparse_run'), [[2, 'a']]);
+  const found = analyzeScene(run).cases.find((c) => c.frame_index === 2)!;
+  assert.ok(found.score >= policy.scoring.queue_from);
+  assert.deepEqual(
+    found.findings.find((f) => f.check_id === 'points.sparse_run')!.evidence.frame_indexes,
+    [1, min_frames],
+  );
+  const shorter = drive(7, (i) => (i >= 1 && i < min_frames ? { counted: few } : {}));
+  assert.deepEqual(flaggedBy(shorter, 'points.sparse_run'), []);
+  const far = drive(7, (i) => ({ center: [max_distance_m + 5 + i, 0, 1], counted: few }));
+  assert.deepEqual(flaggedBy(far, 'points.sparse_run'), []);
+  // No points at all over the track is track.never_observed alone.
+  const never = drive(7, () => ({ counted: 0 }));
+  assert.deepEqual(flaggedBy(never, 'points.sparse_run'), []);
+  assert.equal(flaggedBy(never, 'track.never_observed').length, 1);
+});
+
+test('an object seen in one or a few frames in the middle of the segment is flagged', () => {
+  const withVisitor = (frames: number[]) => {
+    const scene = drive(7);
+    for (const i of frames)
+      scene.frames[i].boxes.push(car('b', 10 + i, { center: [10 + i, 8, 1] }));
+    return scene;
+  };
+  assert.deepEqual(flaggedBy(withVisitor([3]), 'track.single_frame'), [[3, 'b']]);
+  assert.deepEqual(flaggedBy(withVisitor([2, 3]), 'track.short'), [[2, 'b']]);
+  assert.deepEqual(flaggedBy(withVisitor([2, 3]), 'track.single_frame'), []);
+  // Touching the start of the segment, or long enough, is not.
+  assert.deepEqual(flaggedBy(withVisitor([0, 1]), 'track.short'), []);
+  const longest = rule('track.short').params.max_frames;
+  assert.deepEqual(
+    flaggedBy(withVisitor(Array.from({ length: longest + 1 }, (_, n) => 1 + n)), 'track.short'),
+    [],
+  );
+});
+
+test('an object moving faster than its type can is a tracking case, once per jump', () => {
+  const { max_speed_mps, frame_s } = rule('track.speed').params;
+  const leap = max_speed_mps.VEHICLE * frame_s * 2;
+  // The id taken over by a car further ahead from frame 4 on.
+  const swapped = drive(7, (i) => (i >= 4 ? { center: [10 + i + leap, 0, 1] } : {}));
+  assert.deepEqual(flaggedBy(swapped, 'track.speed'), [[4, 'a']]);
+  const found = analyzeScene(swapped).cases.find((c) => c.frame_index === 4)!;
+  assert.ok(
+    found.findings.some((f) => f.check_id === 'track.speed' && f.error_type === 'TRACKING'),
+  );
+  // One cuboid off and back: that cuboid only.
+  const once = drive(7, (i) => (i === 3 ? { center: [13, leap, 1] } : {}));
+  assert.deepEqual(flaggedBy(once, 'track.speed'), [[3, 'a']]);
+  // A car at 10 m/s is fine; a pedestrian at that pace is not.
+  assert.deepEqual(flaggedBy(drive(7), 'track.speed'), []);
+  const runner = drive(7, () => ({ type: 'PEDESTRIAN', size: [0.8, 0.8, 1.7] }));
+  assert.ok(flaggedBy(runner, 'track.speed').length > 0);
+});
+
+test('a vehicle whose size drifts over its track is a case on the cuboid furthest off', () => {
+  const step = 0.25;
+  const drifting = drive(9, (i) => ({ size: [4.5 + step * i, 2, 1.6] }));
+  // Next to each other the cuboids differ too little for track.size_change.
+  assert.deepEqual(flaggedBy(drifting, 'track.size_change'), []);
+  assert.deepEqual(flaggedBy(drifting, 'track.size_spread'), [[0, 'a']]);
+  // A pedestrian's size moves with the body: not judged.
+  const walker = drive(9, (i) => ({
+    type: 'PEDESTRIAN',
+    size: [0.6 + 0.05 * i, 0.6, 1.7],
+    center: [10 + 0.1 * i, 0, 1],
+  }));
+  assert.deepEqual(flaggedBy(walker, 'track.size_spread'), []);
+  // Far cuboids with few points are not sized from the object.
+  const sparse = drive(9, (i) => ({
+    size: [4.5 + step * i, 2, 1.6],
+    counted: 5,
+    center: [80 + i, 0, 1],
+  }));
+  assert.deepEqual(flaggedBy(sparse, 'track.size_spread'), []);
+});
+
+test('a moving vehicle pointing across its way is a case; reversing or parked is not', () => {
+  const { min_angle_rad } = rule('track.heading_motion').params;
+  const sideways = drive(9, () => ({ heading: min_angle_rad + 0.3 }));
+  assert.deepEqual(flaggedBy(sideways, 'track.heading_motion'), [[2, 'a']]);
+  assert.deepEqual(
+    flaggedBy(
+      drive(9, () => ({ heading: Math.PI })),
+      'track.heading_motion',
+    ),
+    [],
+  );
+  const parked = drive(9, () => ({ heading: min_angle_rad + 0.3, center: [10, 0, 1] }));
+  assert.deepEqual(flaggedBy(parked, 'track.heading_motion'), []);
+});
+
+test('sunk frames in a row are one case, scored by depth, and only near the vehicle', () => {
+  const { below_m, max_distance_m, deep_m, deep_score } = rule('box.below_ground').params;
+  const sunkCases = (scene: Scene) =>
+    analyzeScene(scene).cases.filter((c) =>
+      c.findings.some((f) => f.check_id === 'box.below_ground'),
+    );
+  // Frames 2 to 5 a little under the road, deepest at 4; no fit measured, so no fit.sunk.
+  const shallow = below_m + 0.1;
+  const run = sunkCases(
+    drive(8, (i) => (i >= 2 && i <= 5 ? { lift: -(i === 4 ? shallow + 0.05 : shallow) } : {})),
+  );
+  assert.equal(run.length, 1);
+  assert.equal(run[0].frame_index, 4);
+  assert.equal(run[0].score, rule('box.below_ground').score);
+  assert.equal(run[0].severity, 'medium');
+  assert.deepEqual(run[0].findings[0].evidence.frame_indexes, [2, 5]);
+  // Two runs apart are two cases.
+  assert.equal(
+    sunkCases(drive(8, (i) => (i === 1 || i === 5 ? { lift: -shallow } : {}))).length,
+    2,
+  );
+  // Deeper than deep_m: high risk.
+  const deep = sunkCases(drive(3, () => ({ lift: -(deep_m + 0.1) })));
+  assert.deepEqual([deep.length, deep[0].score, deep[0].severity], [1, deep_score, 'high']);
+  // Beyond max_distance_m the road is not measured well enough to say.
+  const far = drive(4, (i) => ({ center: [max_distance_m + 2 + i, 0, 1], lift: -(deep_m + 0.3) }));
+  assert.equal(sunkCases(far).length, 0);
+});
+
+test('a long run of few points on a sign is not a case', () => {
+  const { below, min_frames } = rule('points.sparse_run').params;
+  const sign = drive(min_frames + 2, () => ({
+    type: 'SIGN',
+    size: [0.1, 0.8, 0.8],
+    center: [10, 0, 1],
+    counted: below - 5,
+  }));
+  assert.deepEqual(flaggedBy(sign, 'points.sparse_run'), []);
 });

@@ -51,6 +51,18 @@
     --color-rose-700: #fda4af;
     --color-amber-800: #fcd34d;
     --color-sky-700: #7dd3fc;
+    /* Light tints behind text, and the text drawn on them. */
+    --color-teal-50: #1f3a37;
+    --color-emerald-50: #183a2c;
+    --color-rose-50: #42262b;
+    --color-amber-50: #3d3320;
+    --color-violet-50: #2f2a45;
+    --color-emerald-700: #6ee7b7;
+    --color-emerald-800: #a7f3d0;
+    --color-rose-800: #fecdd3;
+    --color-violet-700: #c4b5fd;
+    --color-amber-700: #fcd34d;
+    --color-amber-900: #fde68a;
   }
   body {
     @apply m-0 bg-ink text-slate-900 antialiased;

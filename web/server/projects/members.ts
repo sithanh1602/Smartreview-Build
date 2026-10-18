@@ -1,15 +1,9 @@
-import { randomInt } from 'node:crypto';
 import { ReviewError } from '../../shared/review.ts';
 import { usernameValue } from '../auth/password.ts';
 import type { Untrusted } from '../../shared/review.ts';
 import type { Db, MemberRole, ProjectRole, Rows, User } from '../types.ts';
 
 export const MEMBER_ROLES: MemberRole[] = ['reviewer', 'annotator'];
-// No 0/O or 1/I, so a code read aloud or retyped is not mistaken.
-const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-const CODE_LENGTH = 10;
-const newCode = () =>
-  Array.from({ length: CODE_LENGTH }, () => ALPHABET[randomInt(ALPHABET.length)]).join('');
 const missing = () => new ReviewError(404, 'Project không tồn tại.');
 const memberRole = (value: Untrusted): MemberRole => {
   if (!MEMBER_ROLES.includes(value))
@@ -27,23 +21,18 @@ export interface ProjectPeople {
   reviewers: Person[];
   annotators: Person[];
 }
-export type InviteCodes = Record<MemberRole, string>;
 
-// The tables a project kind keeps its people in: 2D and 3D projects have their own.
 export interface MemberTables {
   projects: string;
   members: string;
-  invites: string;
 }
 const TABLES_2D: MemberTables = {
   projects: 'projects',
   members: 'project_members',
-  invites: 'project_invites',
 };
 export const TABLES_3D: MemberTables = {
   projects: 'projects_3d',
   members: 'project_members_3d',
-  invites: 'project_invites_3d',
 };
 
 export class ProjectMembers {
@@ -53,9 +42,6 @@ export class ProjectMembers {
     this.pool = pool;
     this.t = tables;
   }
-  // What `user` is in the project. Every leader is a leader in every project unless its creator
-  // hid it; only deleting and hiding are kept for the creator (see `owns`). A project the user
-  // may not see reads as missing, so its existence is not revealed.
   async role(projectId: string, user: User): Promise<ProjectRole> {
     if (!/^[a-f0-9-]{36}$/.test(projectId)) throw missing();
     const [[row]] = await this.pool.execute<Rows>(
@@ -70,8 +56,6 @@ export class ProjectMembers {
     if (!row.role) throw missing();
     return row.role;
   }
-  // Whether `user` may delete the project: its creator, or any leader when it has none (the
-  // demo and projects made before roles existed).
   async owns(projectId: string, user: User) {
     const [[row]] = await this.pool.execute<Rows>(
       `SELECT created_by FROM ${this.t.projects} WHERE id=?`,
@@ -99,62 +83,6 @@ export class ProjectMembers {
       annotators: of('annotator'),
     };
   }
-  // One reusable code per role, created the first time the leader asks for them.
-  async invites(projectId: string): Promise<InviteCodes> {
-    for (let attempt = 0; ; attempt++) {
-      const [rows] = await this.pool.execute<Rows>(
-        `SELECT role,code FROM ${this.t.invites} WHERE project_id=?`,
-        [projectId],
-      );
-      const codes = Object.fromEntries(rows.map((r) => [r.role, r.code])) as InviteCodes;
-      const absent = MEMBER_ROLES.filter((role) => !codes[role]);
-      if (!absent.length) return codes;
-      if (attempt === 3) throw new Error('Could not create invite codes.');
-      // IGNORE: another request made the code first, or the random code is already taken.
-      for (const role of absent)
-        await this.pool.execute<Rows>(
-          `INSERT IGNORE INTO ${this.t.invites}(project_id,role,code) VALUES (?,?,?)`,
-          [projectId, role, newCode()],
-        );
-    }
-  }
-  // Replaces a role's code; the old one stops working, people who already joined stay.
-  async regenerate(projectId: string, input: Untrusted): Promise<InviteCodes> {
-    const role = memberRole(input?.role);
-    await this.pool.execute<Rows>(
-      `INSERT INTO ${this.t.invites}(project_id,role,code) VALUES (?,?,?) ON DUPLICATE KEY UPDATE code=VALUES(code),created_at=UTC_TIMESTAMP(3)`,
-      [projectId, role, newCode()],
-    );
-    return this.invites(projectId);
-  }
-  // The code decides the role; a member holds one role per project.
-  async join(input: Untrusted, user: User) {
-    if (user.role !== 'member')
-      throw new ReviewError(403, 'Tài khoản Leader không tham gia project bằng mã mời.');
-    const code = typeof input?.code === 'string' ? input.code.trim().toUpperCase() : '';
-    if (code.length !== CODE_LENGTH || [...code].some((c) => !ALPHABET.includes(c)))
-      throw new ReviewError(400, `Mã mời gồm ${CODE_LENGTH} ký tự chữ và số.`);
-    const [[invite]] = await this.pool.execute<Rows>(
-      `SELECT i.project_id,i.role,p.name FROM ${this.t.invites} i JOIN ${this.t.projects} p ON p.id=i.project_id WHERE i.code=?`,
-      [code],
-    );
-    if (!invite) throw new ReviewError(404, 'Mã mời không đúng hoặc đã bị thay.');
-    await this.pool.execute<Rows>(
-      `INSERT IGNORE INTO ${this.t.members}(project_id,user_id,role) VALUES (?,?,?)`,
-      [invite.project_id, user.id, invite.role],
-    );
-    const [[member]] = await this.pool.execute<Rows>(
-      `SELECT role FROM ${this.t.members} WHERE project_id=? AND user_id=?`,
-      [invite.project_id, user.id],
-    );
-    if (member.role !== invite.role)
-      throw new ReviewError(
-        409,
-        `Bạn đã là ${member.role === 'reviewer' ? 'Reviewer' : 'Annotator'} của project này. Leader có thể đổi vai trò cho bạn.`,
-      );
-    return { project_id: invite.project_id, name: invite.name, role: invite.role as MemberRole };
-  }
-  // Member accounts the leader can still add, for the picker next to the username field.
   async candidates(projectId: string): Promise<string[]> {
     const [rows] = await this.pool.execute<Rows>(
       `SELECT u.username FROM users u WHERE u.role='member' AND u.enabled=1 AND NOT EXISTS (SELECT 1 FROM ${this.t.members} m WHERE m.project_id=? AND m.user_id=u.id) ORDER BY u.username LIMIT 200`,
@@ -162,35 +90,48 @@ export class ProjectMembers {
     );
     return rows.map((r) => r.username);
   }
-  // The leader adds an existing member account by username, without an invite code.
   async add(projectId: string, input: Untrusted) {
     const role = memberRole(input?.role);
-    let username: string;
+    const given = Array.isArray(input?.usernames) ? input.usernames : [input?.username];
+    if (!given.length || given.length > 200)
+      throw new ReviewError(400, 'Chọn từ 1 đến 200 tài khoản.');
+    let usernames: string[];
     try {
-      username = usernameValue(input?.username);
+      usernames = [...new Set(given.map((u: Untrusted) => usernameValue(u)))] as string[];
     } catch {
       throw new ReviewError(400, 'Tên đăng nhập không hợp lệ.');
     }
-    const [[user]] = await this.pool.execute<Rows>(
-      'SELECT id,role,enabled FROM users WHERE username=?',
-      [username],
+    const [users] = await this.pool.query<Rows>(
+      'SELECT id,username,role,enabled FROM users WHERE username IN (?)',
+      [usernames],
     );
-    if (!user?.enabled) throw new ReviewError(404, 'Không tìm thấy tài khoản này.');
-    if (user.role !== 'member')
+    const found = new Map(users.map((u) => [u.username.toLowerCase(), u]));
+    const unknown = usernames.filter((u) => !found.get(u.toLowerCase())?.enabled);
+    if (unknown.length)
+      throw new ReviewError(
+        404,
+        unknown.length === 1 && usernames.length === 1
+          ? 'Không tìm thấy tài khoản này.'
+          : `Không tìm thấy tài khoản: ${unknown.join(', ')}`,
+      );
+    if (users.some((u) => u.role !== 'member'))
       throw new ReviewError(409, 'Tài khoản Leader không thể làm thành viên project.');
-    await this.pool.execute<Rows>(
-      `INSERT IGNORE INTO ${this.t.members}(project_id,user_id,role) VALUES (?,?,?)`,
-      [projectId, user.id, role],
+    const ids = users.map((u) => u.id);
+    const [taken] = await this.pool.query<Rows>(
+      `SELECT u.username,m.role FROM ${this.t.members} m JOIN users u ON u.id=m.user_id WHERE m.project_id=? AND m.user_id IN (?) AND m.role<>?`,
+      [projectId, ids, role],
     );
-    const [[member]] = await this.pool.execute<Rows>(
-      `SELECT role FROM ${this.t.members} WHERE project_id=? AND user_id=?`,
-      [projectId, user.id],
-    );
-    if (member.role !== role)
+    if (taken.length)
       throw new ReviewError(
         409,
-        `Tài khoản này đã là ${member.role === 'reviewer' ? 'Reviewer' : 'Annotator'} của project. Đổi vai trò trong danh sách thành viên.`,
+        taken.length === 1 && usernames.length === 1
+          ? `Tài khoản này đã là ${taken[0].role === 'reviewer' ? 'Reviewer' : 'Annotator'} của project. Đổi vai trò trong danh sách thành viên.`
+          : `Đã ở project với vai trò khác: ${taken.map((t) => t.username).join(', ')}. Đổi vai trò trong danh sách thành viên.`,
       );
+    await this.pool.query<Rows>(
+      `INSERT IGNORE INTO ${this.t.members}(project_id,user_id,role) VALUES ?`,
+      [ids.map((id) => [projectId, id, role])],
+    );
     return this.people(projectId);
   }
   async member(projectId: string, userId: string) {

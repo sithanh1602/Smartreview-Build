@@ -140,6 +140,18 @@ export function DisplayPanel({
           disabled={!settings.boxes}
           onChange={(labels) => set({ labels })}
         />
+        <Check
+          label="Khoảng cách tới cuboid đang chọn"
+          checked={settings.distance}
+          disabled={!settings.boxes}
+          onChange={(distance) => set({ distance })}
+        />
+        {settings.boxes && settings.distance && (
+          <p className="text-xs text-muted">
+            Hiện ở góc trái trên khung xem, kèm đường nét đứt từ xe tới cuboid. Đo theo mặt đất từ
+            giữa trục sau xe tới tâm cuboid; dọc + là phía trước, ngang + là bên trái.
+          </p>
+        )}
         <label className="block text-sm">
           Màu cuboid
           <select

@@ -1,18 +1,22 @@
 #!/usr/bin/env bash
-# Cài mọi thư viện SmartReview cần, tất cả nằm trong repo (web/node_modules và .venv).
+# Cài mọi thứ SmartReview cần, tất cả nằm trong repo (web/node_modules, .venv, model/).
 #
-#   ./setup.sh             Gói Node cho web, tạo web/.env nếu chưa có, Python venv (.venv) với
-#                          numpy + pyarrow cho project 3D và Ultralytics + OpenCV cho AI Check,
-#                          tải model ai-service/yolo11n.pt
-#   ./setup.sh --no-ai     Bỏ phần AI Check (PyTorch nặng vài GB); vẫn cài phần còn lại
-#   ./setup.sh --verifier  Thêm các gói của label verifier (transformers, bitsandbytes) vào .venv
-#   ./setup.sh --browser   Thêm Chromium của Playwright cho npm run test:ui
-#   ./setup.sh --all       Tất cả các mục trên
-#   ./setup.sh --check     Chỉ kiểm tra, không cài hay ghi gì
+#   ./setup.sh               Gói Node, web/.env (nếu chưa có), .venv cho project 3D và AI Check,
+#                            model AI Check ai-service/yolo11n.pt và model chấm điểm yolo11s
+#   ./setup.sh --no-ai       Bỏ phần AI Check (PyTorch nặng vài GB)
+#   ./setup.sh --verifier    Thêm gói Python của label verifier (transformers, bitsandbytes…)
+#   ./setup.sh --browser     Thêm Chromium của Playwright cho npm run test:ui
+#   ./setup.sh --all         Tất cả các mục trên
+#   ./setup.sh --model A,B   Tải các model đã nêu (lặp lại --model được)
+#   ./setup.sh --all_model   Tải mọi model tải được
+#   ./setup.sh --check       Chỉ kiểm tra, không cài hay tải gì
 #
-# Script không đụng tới MySQL, không ghi đè web/.env đã có, không tải mô hình của label verifier
-# (web/server/verify/download_models.py) và không cài gì vào repo bên cạnh guideline-rules:
-# chỉ báo tình trạng của chúng.
+# Model (./setup.sh --model list để xem lại):
+#   model/Model_rescore/  yolo11n yolo11s yolo11m yolo26n yolo26s-coco   (chấm điểm box khi import)
+#   model/Model_bbox/     siglip (1,5 GB) qwen (7,5 GB)                  (đọc và xét box)
+#   yolo26s (bản fine-tune BDD100K) không tải được: copy tay vào model/Model_rescore/yolo26s.pt
+#
+# Script không đụng tới MySQL và không ghi đè web/.env đã có.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -26,24 +30,59 @@ REQ_3D="$WEB/server/projects3d/requirements.txt"
 REQ_AI="$ROOT/ai-service/requirements.txt"
 REQ_VERIFIER="$WEB/server/verify/requirements.txt"
 MODEL="$ROOT/ai-service/yolo11n.pt"
-# Model mặc định của bước chấm điểm khi import (web/server/ai/rescore.ts).
-SCORE_MODEL="$ROOT/ai-service/yolo11s.pt"
+# Popup tạo project liệt kê model từ hai thư mục này (web/server/ai/rescore.ts, verify/models.ts).
+RESCORE_DIR="$ROOT/model/Model_rescore"
+BBOX_DIR="$ROOT/model/Model_bbox"
+
+# Model tải được: tên → "thư mục|nguồn". Nguồn là file release của Ultralytics hoặc repo
+# Hugging Face; yolo26s-coco là yolo26s.pt gốc COCO, đổi tên để không trùng bản fine-tune.
+RESCORE_MODELS="yolo11n yolo11s yolo11m yolo26n yolo26s-coco"
+BBOX_MODELS="siglip qwen"
+model_source() {
+  case "$1" in
+    yolo11n | yolo11s | yolo11m | yolo26n) echo "rescore|$1.pt" ;;
+    yolo26s-coco) echo "rescore|yolo26s.pt" ;;
+    siglip) echo "bbox|google/siglip2-base-patch16-224" ;;
+    qwen) echo "bbox|Qwen/Qwen2.5-VL-3B-Instruct" ;;
+    *) return 1 ;;
+  esac
+}
+usage() { sed -n '2,19p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
 
 with_ai=true
 with_browser=false
 with_verifier=false
 check_only=false
-for arg in "$@"; do
-  case "$arg" in
+models=""
+while [ $# -gt 0 ]; do
+  case "$1" in
     --no-ai) with_ai=false ;;
     --ai) with_ai=true ;; # Tên cũ: AI Check giờ được cài mặc định.
     --browser) with_browser=true ;;
     --verifier) with_verifier=true ;;
     --all) with_ai=true; with_browser=true; with_verifier=true ;;
+    --all_model | --all-models) models="$RESCORE_MODELS $BBOX_MODELS" ;;
+    --model=*) models="$models ${1#--model=}" ;;
+    --model)
+      [ $# -ge 2 ] || { echo "--model cần tên model (xem ./setup.sh --help)" >&2; exit 2; }
+      models="$models $2"; shift ;;
     --check) check_only=true ;;
-    -h | --help) sed -n '2,15p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
-    *) echo "Tham số không hợp lệ: $arg (xem ./setup.sh --help)" >&2; exit 2 ;;
+    -h | --help) usage; exit 0 ;;
+    *) echo "Tham số không hợp lệ: $1 (xem ./setup.sh --help)" >&2; exit 2 ;;
   esac
+  shift
+done
+models="$(echo "$models" | tr ',' ' ' | xargs -n1 2>/dev/null | awk '!seen[$0]++' | xargs)"
+if [ "$models" = "list" ]; then usage; exit 0; fi
+for name in $models; do
+  if [ "$name" = "yolo26s" ]; then
+    echo "yolo26s là bản fine-tune, không tải được: copy file vào model/Model_rescore/yolo26s.pt" >&2
+    exit 2
+  fi
+  model_source "$name" >/dev/null || {
+    echo "Không có model \"$name\". Chọn trong: $RESCORE_MODELS $BBOX_MODELS" >&2
+    exit 2
+  }
 done
 
 missing=0
@@ -153,14 +192,6 @@ else
     [ -f "$MODEL" ] || fail "Không tải được yolo11n.pt. Đặt file vào ai-service/ rồi chạy lại."
     ok "Đã tải model ai-service/yolo11n.pt"
   fi
-  # YOLO11n và YOLO11m server tự tải khi người dùng chọn; YOLO11s là mặc định nên tải sẵn.
-  if [ -f "$SCORE_MODEL" ]; then
-    ok "Model chấm điểm ai-service/yolo11s.pt đã có"
-  elif $check_only; then
-    warn "Chưa có ai-service/yolo11s.pt: lần import có chấm điểm đầu tiên sẽ tự tải (19 MB)"
-  else
-    (cd "$ROOT/ai-service" && "$PY" -c "from ultralytics import YOLO; YOLO('yolo11s.pt')" >/dev/null)       && ok "Đã tải model chấm điểm ai-service/yolo11s.pt"       || warn "Không tải được yolo11s.pt; lần import có chấm điểm đầu tiên sẽ thử tải lại"
-  fi
   python_ai="$(env_value SMARTREVIEW_AI_PYTHON)"
   if [ -n "$python_ai" ] && [ "$python_ai" != "$PY" ]; then
     warn "web/.env đang dùng Python ngoài repo cho AI Check: $python_ai"
@@ -195,7 +226,7 @@ verifier_python="${verifier_python:-$PY}"
 if [ -x "$verifier_python" ] && has_modules "$verifier_python" torch transformers PIL sentencepiece; then
   ok "Python của label verifier đã đủ gói: $verifier_python"
 elif ! $with_verifier; then
-  warn "Bỏ qua. Dùng ./setup.sh --verifier khi cần chạy npm run verify"
+  warn "Bỏ qua. Dùng ./setup.sh --verifier khi cần quét nhãn bằng SigLIP / Qwen"
 elif $check_only; then
   lack "Chưa có các gói của label verifier trong .venv"
 else
@@ -203,17 +234,52 @@ else
   "$PY" -m pip install -r "$REQ_VERIFIER"
   ok "Đã cài các gói của label verifier vào .venv"
 fi
-# Mỗi mô hình một thư mục ngoài repo; không đặt biến thì mô hình lấy từ cache của Hugging Face.
-for name in LABEL_VERIFIER_SIGLIP_DIR LABEL_VERIFIER_QWEN_DIR; do
-  model_dir="$(env_value "$name")"
-  if [ -z "$model_dir" ]; then
-    warn "$name không đặt: mô hình được tải về cache của Hugging Face ở lần chạy đầu"
-  elif [ -f "$(from_web "$model_dir")/config.json" ]; then
-    ok "$name: $(from_web "$model_dir")"
+
+step "9. Model (model/)"
+# Không nêu --model thì chỉ cần model chấm điểm mặc định.
+wanted="${models:-yolo11s}"
+for name in $wanted; do
+  IFS='|' read -r kind source <<<"$(model_source "$name")"
+  if [ "$kind" = rescore ]; then
+    target="$RESCORE_DIR/$name.pt"
+    if [ -e "$target" ]; then ok "$name: model/Model_rescore/$name.pt"; continue; fi
+    if $check_only; then lack "Chưa có model/Model_rescore/$name.pt"; continue; fi
+    if ! [ -x "$PY" ] || ! has_modules "$PY" ultralytics; then
+      warn "$name: cần Ultralytics trong .venv (chạy ./setup.sh không có --no-ai)"; continue
+    fi
+    mkdir -p "$RESCORE_DIR/.download"
+    if "$PY" -c "import sys; from ultralytics.utils.downloads import attempt_download_asset as get; get(sys.argv[1])" \
+      "$RESCORE_DIR/.download/$source" >/dev/null 2>&1 && [ -f "$RESCORE_DIR/.download/$source" ]; then
+      mv "$RESCORE_DIR/.download/$source" "$target"
+      ok "Đã tải $name vào model/Model_rescore/$name.pt"
+    else
+      warn "Không tải được $name ($source). Kiểm tra mạng rồi chạy lại"
+    fi
+    rmdir "$RESCORE_DIR/.download" 2>/dev/null || true
   else
-    warn "$name=$model_dir chưa có mô hình: chạy .venv/bin/python web/server/verify/download_models.py"
+    target="$BBOX_DIR/${source#*/}"
+    # Đủ khi có config.json, file trọng số và không còn file tải dở trong cache của thư mục.
+    if [ -f "$target/config.json" ] &&
+      [ -n "$(find "$target/" -maxdepth 1 \( -name '*.safetensors' -o -name '*.bin' \) -print -quit)" ] &&
+      [ -z "$(find "$target/" -path '*/.cache/*' -name '*.incomplete' -print -quit 2>/dev/null)" ]; then
+      ok "$name: model/Model_bbox/${source#*/}"; continue
+    fi
+    if $check_only; then lack "Chưa có model/Model_bbox/${source#*/}"; continue; fi
+    ensure_venv
+    has_modules "$PY" huggingface_hub || "$PY" -m pip install --quiet huggingface_hub
+    mkdir -p "$target"
+    # Mất kết nối thì giữ file đã tải; chạy lại lệnh để tải tiếp.
+    if "$PY" -c "import sys; from huggingface_hub import snapshot_download; snapshot_download(sys.argv[1], local_dir=sys.argv[2])" \
+      "$source" "$target"; then
+      ok "Đã tải $name vào model/Model_bbox/${source#*/}"
+    else
+      warn "Chưa tải xong $name. Chạy lại lệnh để tải tiếp"
+    fi
   fi
 done
+if [ -n "$(env_value LABEL_VERIFIER_MODELS_DIR)" ] || [ -n "$(env_value SMARTREVIEW_RESCORE_MODELS_DIR)" ]; then
+  warn "web/.env đặt thư mục model khác model/: popup đọc theo web/.env, không theo thư mục vừa tải"
+fi
 
 if $check_only; then
   step "Kết quả kiểm tra"

@@ -37,7 +37,7 @@ test('member chooses a role after login and cannot open leader pages or APIs', a
   await expect(page).toHaveURL(/\/role$/);
   await page.getByRole('button', { name: /Annotator/ }).click();
   await expect(page).toHaveURL(/\/projects$/);
-  await expect(page.getByLabel('Mã mời từ Leader')).toBeVisible();
+  await expect(page.getByText('Nhờ Leader thêm bạn vào project.', { exact: false })).toBeVisible();
   await page.goto('/projects/new');
   await expect(page).toHaveURL(/\/projects$/);
   expect(await (await context.request.get('/api/projects')).json()).toEqual([]);

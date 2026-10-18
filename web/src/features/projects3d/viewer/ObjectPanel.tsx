@@ -15,6 +15,7 @@ import {
   sunkBoxes,
 } from './flags.ts';
 import { Pin } from './Pin.tsx';
+import { EvidenceTable } from '../../../components/EvidenceTable';
 import { RiskQueue, nextIssue, padFrame } from './RiskQueue.tsx';
 import type { Flag, Issue, Risk } from './flags.ts';
 import type { Box3D, Scene3D } from './engine.ts';
@@ -35,6 +36,15 @@ const decisionKeys = Object.keys(DECISIONS);
 const split = (label: string) => label.match(/^(.*?) \((.*)\)$/)?.slice(1) ?? [label];
 const fixed = (values: number[], digits = 2) => values.map((v) => v.toFixed(digits));
 const MARK: Record<string, string> = { CORRECT: '✓', UNSURE: '?', ERROR: '✗' };
+// Whether the list of the frame's cuboids is open, kept per browser across frames and reloads.
+const LIST_OPEN_KEY = 'viewer3d.frameListOpen';
+function readListOpen() {
+  try {
+    return localStorage.getItem(LIST_OPEN_KEY) !== 'false';
+  } catch {
+    return true;
+  }
+}
 
 // Where a cuboid's centre is in the world: its frame's pose (16 numbers, row-major) applied
 // to the centre given in vehicle coordinates.
@@ -151,15 +161,15 @@ function ReviewForm({
   return (
     <section aria-label="Quyết định review" data-testid="review-form">
       <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-2">
-        <h3 className="text-sm font-semibold">Quyết định</h3>
+        <h3 className="text-base font-semibold">Quyết định</h3>
         {existing ? (
-          <p className="text-[11px] text-accent">
+          <p className="text-xs text-accent">
             {hint('✓ Reviewed · ')}
             {hint(DECISIONS[existing.decision])} ·{' '}
             {new Date(existing.reviewed_at).toLocaleString('vi-VN')}
           </p>
         ) : (
-          <p className="text-[11px] text-muted">chưa review</p>
+          <p className="text-xs text-muted">chưa review</p>
         )}
       </div>
       <form
@@ -177,7 +187,7 @@ function ReviewForm({
               return (
                 <label
                   key={value}
-                  className={`flex min-h-12 cursor-pointer flex-col items-center justify-center rounded-lg border px-1 py-1 text-center text-[11px] leading-4 font-semibold has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-accent ${decision === value ? 'border-accent bg-accent/10 text-accent' : 'border-line hover:border-accent'}`}
+                  className={`flex min-h-14 cursor-pointer flex-col items-center justify-center rounded-lg border px-1 py-1 text-center text-sm leading-5 font-semibold has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-accent ${decision === value ? 'border-accent bg-accent/10 text-accent' : 'border-line hover:border-accent'}`}
                 >
                   <input
                     type="radio"
@@ -190,7 +200,7 @@ function ReviewForm({
                     onChange={() => setDecision(value)}
                   />
                   {main}
-                  <span className="text-[10px] font-normal text-muted" aria-hidden="true">
+                  <span className="text-[11px] font-normal text-muted" aria-hidden="true">
                     {sub ? `${sub} · ` : ''}
                     {i + 1}
                   </span>
@@ -200,11 +210,11 @@ function ReviewForm({
           </div>
           {decision === 'ERROR' && (
             <>
-              <label className="block text-[11px] text-muted">
+              <label className="block text-xs text-muted">
                 {hint('Error Type')}
                 <select
                   aria-label={hint('Error Type')}
-                  className="field mt-1 min-h-9 rounded-lg px-2 py-1 text-xs"
+                  className="field mt-1 min-h-10 rounded-lg px-2 py-1 text-sm"
                   value={type}
                   onChange={(e) => {
                     setType(e.target.value);
@@ -219,11 +229,11 @@ function ReviewForm({
                 </select>
               </label>
               {type === 'CLASS' ? (
-                <label className="block text-[11px] text-muted">
+                <label className="block text-xs text-muted">
                   {hint('Correct Label')}
                   <select
                     aria-label={hint('Correct Label')}
-                    className="field mt-1 min-h-9 rounded-lg px-2 py-1 text-xs"
+                    className="field mt-1 min-h-10 rounded-lg px-2 py-1 text-sm"
                     required
                     value={correction}
                     onChange={(e) => setCorrection(e.target.value)}
@@ -237,11 +247,11 @@ function ReviewForm({
                   </select>
                 </label>
               ) : (
-                <label className="block text-[11px] text-muted">
+                <label className="block text-xs text-muted">
                   {hint('Correction (optional)')}
                   <input
                     aria-label={hint('Correction (optional)')}
-                    className="field mt-1 min-h-9 rounded-lg px-2 py-1 text-xs"
+                    className="field mt-1 min-h-10 rounded-lg px-2 py-1 text-sm"
                     maxLength={1000}
                     value={correction}
                     onChange={(e) => setCorrection(e.target.value)}
@@ -254,18 +264,18 @@ function ReviewForm({
             <textarea
               aria-label={hint('Note (optional)')}
               placeholder={hint('Note (optional)')}
-              className="field min-h-12 resize-y rounded-lg px-2 py-1.5 text-xs"
+              className="field min-h-14 resize-y rounded-lg px-2.5 py-2 text-sm"
               rows={2}
               maxLength={NOTE_MAX}
               value={note}
               onChange={(e) => setNote(e.target.value)}
             />
-            <p className="text-right text-[10px] text-muted tabular-nums">
+            <p className="text-right text-[11px] text-muted tabular-nums">
               {note.length}/{NOTE_MAX}
             </p>
           </div>
           {trackFrames > 1 && (
-            <label className="flex cursor-pointer items-start gap-2 text-xs">
+            <label className="flex cursor-pointer items-start gap-2 text-sm">
               <input
                 type="checkbox"
                 className="mt-0.5 size-4 accent-teal-600"
@@ -274,7 +284,7 @@ function ReviewForm({
               />
               <span>
                 {`Áp dụng cho cả ${trackFrames} frame của đối tượng này`}
-                <span className="block text-[11px] text-muted">
+                <span className="block text-xs text-muted">
                   Ghi đè quyết định đã có ở các frame đó.
                 </span>
               </span>
@@ -282,7 +292,7 @@ function ReviewForm({
           )}
           <div className="flex gap-1.5">
             <button
-              className="sr-button min-h-9 flex-1 py-1 text-xs"
+              className="sr-button min-h-10 flex-1 py-1 text-sm"
               type="submit"
               disabled={!decision || saving}
             >
@@ -291,7 +301,7 @@ function ReviewForm({
             </button>
             {onNext && (
               <button
-                className="sr-button min-h-9 border-accent py-1 text-xs text-accent"
+                className="sr-button min-h-10 border-accent py-1 text-sm text-accent"
                 type="button"
                 disabled={!decision || saving}
                 onClick={saveAndNext}
@@ -303,12 +313,12 @@ function ReviewForm({
         </fieldset>
       </form>
       {message && (
-        <p role="status" className="mt-2 text-xs text-accent">
+        <p role="status" className="mt-2 text-[13px] text-accent">
           {message}
         </p>
       )}
       {error && (
-        <p role="alert" className="mt-2 text-xs text-rose-700">
+        <p role="alert" className="mt-2 text-[13px] text-rose-700">
           {error}
         </p>
       )}
@@ -317,6 +327,48 @@ function ReviewForm({
 }
 
 // The cuboids of the frame on screen, the details of the selected one and its review.
+// The decision on a cuboid where it cannot be changed: for annotators, and while the review is
+// with them.
+function SavedDecision({ review, reason }: { review: Review | null; reason: string }) {
+  const kind = review?.error_type && ERROR_TYPES_3D.find(([id]) => id === review.error_type)?.[1];
+  return (
+    <section aria-label="Quyết định review" data-testid="saved-decision">
+      <h3 className="text-base font-semibold">Quyết định</h3>
+      {review ? (
+        <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-sm">
+          <dt className="text-muted">Kết quả</dt>
+          <dd className="font-semibold">{hint(DECISIONS[review.decision])}</dd>
+          {kind && (
+            <>
+              <dt className="text-muted">Loại lỗi</dt>
+              <dd>{kind}</dd>
+            </>
+          )}
+          {review.corrected_value && (
+            <>
+              <dt className="text-muted">Sửa thành</dt>
+              <dd>{review.corrected_value}</dd>
+            </>
+          )}
+          {review.note && (
+            <>
+              <dt className="text-muted">Ghi chú</dt>
+              <dd className="break-words">{review.note}</dd>
+            </>
+          )}
+          <dt className="text-muted">Lúc</dt>
+          <dd>{new Date(review.reviewed_at).toLocaleString('vi-VN')}</dd>
+        </dl>
+      ) : (
+        <p className="mt-2 text-sm text-muted">Cuboid này chưa được review.</p>
+      )}
+      <p className="mt-3 rounded-lg border border-amber-500 bg-amber-50 p-2.5 text-xs text-amber-900">
+        {reason}
+      </p>
+    </section>
+  );
+}
+
 export function ObjectPanel({
   projectId,
   revision,
@@ -334,6 +386,7 @@ export function ObjectPanel({
   onSaved,
   onFocus,
   onOpen,
+  locked,
 }: {
   projectId: string;
   revision: string;
@@ -358,9 +411,19 @@ export function ObjectPanel({
   onFocus: () => void;
   // Opens a frame with an object selected.
   onOpen: (frame: number, objectId: string) => void;
+  // Why decisions cannot be saved here, if they cannot: the decision is then only shown.
+  locked?: string;
 }) {
   // Without the engine there is nothing to narrow the list to.
   const [showAll, setShowAll] = useState(!report);
+  const [listOpen, setListOpen] = useState(readListOpen);
+  const toggleList = () =>
+    setListOpen((open) => {
+      try {
+        localStorage.setItem(LIST_OPEN_KEY, String(!open));
+      } catch {}
+      return !open;
+    });
   useEffect(() => setShowAll(!report), [report]);
   const frame = scene.frames[frameIndex];
   const boxes = [...frame.boxes].sort(
@@ -409,10 +472,24 @@ export function ObjectPanel({
         onOpen={onOpen}
       />
       <section className="border-b border-line py-4">
-        <h2 className="mb-2 flex items-baseline justify-between gap-2 text-sm font-semibold">
-          {showAll
-            ? `Frame ${padFrame(frameIndex)}: mọi cuboid`
-            : `Frame ${padFrame(frameIndex)}: cuboid có ghim`}
+        <h2
+          className={`flex items-baseline justify-between gap-2 text-sm font-semibold ${listOpen ? 'mb-2' : ''}`}
+        >
+          <button
+            type="button"
+            className="flex items-baseline gap-1.5 text-left hover:text-accent"
+            aria-expanded={listOpen}
+            aria-controls="frame-box-list"
+            onClick={toggleList}
+            data-testid="toggle-frame-list"
+          >
+            <span aria-hidden="true" className="w-3 text-xs text-muted">
+              {listOpen ? '▾' : '▸'}
+            </span>
+            {showAll
+              ? `Frame ${padFrame(frameIndex)}: mọi cuboid`
+              : `Frame ${padFrame(frameIndex)}: cuboid có ghim`}
+          </button>
           <span
             className="text-xs font-normal text-muted tabular-nums"
             data-testid="frame-progress"
@@ -420,96 +497,98 @@ export function ObjectPanel({
             {reviewed}/{boxes.length} đã review
           </span>
         </h2>
-        {report && boxes.length > 0 && (
-          <button
-            type="button"
-            className="mb-2 text-[11px] text-accent underline-offset-2 hover:underline"
-            aria-pressed={showAll}
-            onClick={() => setShowAll((v) => !v)}
-            data-testid="toggle-all-boxes"
-          >
-            {showAll
-              ? `Chỉ hiện cuboid có cờ (${flaggedIds.size})`
-              : `Hiện tất cả ${boxes.length} cuboid của frame`}
-          </button>
-        )}
-        {listed.length ? (
-          <ul className="max-h-44 overflow-y-auto pr-1" data-testid="box-list">
-            {listed.map((b) => {
-              const decision = reviewOf(b)?.decision,
-                flag = flags.find((f) => f.objectId === b.id);
-              return (
-                <li key={b.id}>
-                  <button
-                    type="button"
-                    aria-pressed={b.id === selected}
-                    className={`flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-xs ${b.id === selected ? 'bg-accent/10 text-accent' : 'hover:bg-slate-50'}`}
-                    onClick={() => onSelect(b.id === selected ? null : b.id)}
-                  >
-                    <Swatch color={BOX_COLORS[b.type] ?? BOX_COLORS.UNKNOWN} />
-                    <span className="font-semibold">{b.type}</span>
-                    <span className="min-w-0 flex-1 truncate text-muted">{b.id.slice(0, 5)}</span>
-                    <span className="text-muted tabular-nums">{b.points} điểm</span>
-                    {flag && (
-                      <span data-testid={`flag-${flag.number ?? 'warn'}`}>
-                        <Pin
-                          level={flag.level}
-                          number={flag.number}
-                          title={
-                            flag.number === undefined
-                              ? PIN_NAMES[flag.level]
-                              : `Lỗi #${flag.number}: ${PIN_NAMES[flag.level]}, ${flag.source === 'risk' ? 'nghi ' : ''}${FLAG_NAMES[flag.errorType] ?? flag.errorType}`
-                          }
-                        />
-                      </span>
-                    )}
-                    <span
-                      className={`w-3 text-center font-bold ${decision === 'CORRECT' ? 'text-accent' : decision === 'ERROR' ? 'text-rose-700' : 'text-amber-700'}`}
-                      title={decision ? `Đã review: ${hint(DECISIONS[decision])}` : undefined}
+        <div id="frame-box-list" hidden={!listOpen}>
+          {report && boxes.length > 0 && (
+            <button
+              type="button"
+              className="mb-2 text-[11px] text-accent underline-offset-2 hover:underline"
+              aria-pressed={showAll}
+              onClick={() => setShowAll((v) => !v)}
+              data-testid="toggle-all-boxes"
+            >
+              {showAll
+                ? `Chỉ hiện cuboid có cờ (${flaggedIds.size})`
+                : `Hiện tất cả ${boxes.length} cuboid của frame`}
+            </button>
+          )}
+          {listed.length ? (
+            <ul className="max-h-44 overflow-y-auto pr-1" data-testid="box-list">
+              {listed.map((b) => {
+                const decision = reviewOf(b)?.decision,
+                  flag = flags.find((f) => f.objectId === b.id);
+                return (
+                  <li key={b.id}>
+                    <button
+                      type="button"
+                      aria-pressed={b.id === selected}
+                      className={`flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-xs ${b.id === selected ? 'bg-accent/10 text-accent' : 'hover:bg-slate-50'}`}
+                      onClick={() => onSelect(b.id === selected ? null : b.id)}
                     >
-                      {decision ? MARK[decision] : ''}
+                      <Swatch color={BOX_COLORS[b.type] ?? BOX_COLORS.UNKNOWN} />
+                      <span className="font-semibold">{b.type}</span>
+                      <span className="min-w-0 flex-1 truncate text-muted">{b.id.slice(0, 5)}</span>
+                      <span className="text-muted tabular-nums">{b.points} điểm</span>
+                      {flag && (
+                        <span data-testid={`flag-${flag.number ?? 'warn'}`}>
+                          <Pin
+                            level={flag.level}
+                            number={flag.number}
+                            title={
+                              flag.number === undefined
+                                ? PIN_NAMES[flag.level]
+                                : `Lỗi #${flag.number}: ${PIN_NAMES[flag.level]}, ${flag.source === 'risk' ? 'nghi ' : ''}${FLAG_NAMES[flag.errorType] ?? flag.errorType}`
+                            }
+                          />
+                        </span>
+                      )}
+                      <span
+                        className={`w-3 text-center font-bold ${decision === 'CORRECT' ? 'text-accent' : decision === 'ERROR' ? 'text-rose-700' : 'text-amber-700'}`}
+                        title={decision ? `Đã review: ${hint(DECISIONS[decision])}` : undefined}
+                      >
+                        {decision ? MARK[decision] : ''}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <p className="text-xs text-muted">
+              {boxes.length
+                ? 'Frame này không có cuboid nào bị nghi lỗi hay cảnh báo.'
+                : 'Frame này không có cuboid.'}
+            </p>
+          )}
+          {flags.length > 0 && (
+            <p
+              className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted"
+              data-testid="flag-legend"
+            >
+              <span>{`${flags.length} cờ:`}</span>
+              {PIN_LEVELS.map((level) => {
+                const n = flags.filter((f) => f.level === level).length;
+                return (
+                  n > 0 && (
+                    <span key={level} className="inline-flex items-center gap-1">
+                      <Pin level={level} size={10} />
+                      {`${PIN_NAMES[level]} (${n})`}
                     </span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        ) : (
-          <p className="text-xs text-muted">
-            {boxes.length
-              ? 'Frame này không có cuboid nào bị nghi lỗi hay cảnh báo.'
-              : 'Frame này không có cuboid.'}
-          </p>
-        )}
-        {flags.length > 0 && (
-          <p
-            className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted"
-            data-testid="flag-legend"
-          >
-            <span>{`${flags.length} cờ:`}</span>
-            {PIN_LEVELS.map((level) => {
-              const n = flags.filter((f) => f.level === level).length;
-              return (
-                n > 0 && (
-                  <span key={level} className="inline-flex items-center gap-1">
-                    <Pin level={level} size={10} />
-                    {`${PIN_NAMES[level]} (${n})`}
-                  </span>
-                )
-              );
-            })}
-          </p>
-        )}
+                  )
+                );
+              })}
+            </p>
+          )}
+        </div>
       </section>
       {box ? (
         <>
           {risk && (
             <section
-              className={`mt-4 rounded-md border px-3 py-2 text-xs ${risk.warning ? 'border-line bg-slate-50' : risk.certain ? 'border-rose-300 bg-rose-50 text-rose-950' : 'border-orange-300 bg-orange-50 text-orange-950'}`}
+              className={`mt-4 rounded-md border px-3 py-2.5 text-[13px] leading-5 ${risk.warning ? 'border-line bg-slate-50' : risk.certain ? 'border-rose-300 bg-rose-50 text-rose-950' : 'border-orange-300 bg-orange-50 text-orange-950'}`}
               role="note"
               data-testid="box-risk"
             >
-              <p className="flex items-center gap-1.5 font-semibold">
+              <p className="flex items-center gap-1.5 text-sm font-semibold">
                 <Pin
                   level={
                     risk.warning
@@ -528,16 +607,35 @@ export function ObjectPanel({
                   : `Lỗi #${issue?.number ?? '?'} · Frame ${padFrame(frameIndex)} · ${ISSUE_NAMES[risk.suspected_error ?? 'OTHER'] ?? risk.suspected_error}`}
               </p>
               {!risk.warning && (
-                <p className="mt-0.5">
+                <p className="mt-1">
                   {risk.certain ? 'Engine chắc chắn đây là lỗi' : 'Engine nghi'}, rủi ro{' '}
                   {SEVERITY_NAMES[risk.severity] ?? risk.severity} ({risk.score} điểm). Lý do:
                 </p>
               )}
-              <ul className="mt-1 list-disc pl-4">
-                {risk.reasons.map((reason) => (
-                  <li key={reason}>{reason}</li>
-                ))}
-              </ul>
+              {risk.findings?.length ? (
+                <ul className="mt-2 space-y-2.5">
+                  {risk.findings.map((f) => (
+                    <li key={f.check_id} className="rounded-lg border border-line bg-panel p-2.5">
+                      <div className="flex items-start justify-between gap-2">
+                        <span className="font-mono text-[11px] break-all text-muted">
+                          {f.check_id}
+                        </span>
+                        <span className="shrink-0 font-semibold">
+                          {f.level === 'warning' || !f.score ? 'cảnh báo' : `+${f.score} điểm`}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-[15px] leading-6 font-medium">{f.reason}</p>
+                      <EvidenceTable checkId={f.check_id} evidence={f.evidence} />
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <ul className="mt-1 list-disc pl-4">
+                  {risk.reasons.map((reason) => (
+                    <li key={reason}>{reason}</li>
+                  ))}
+                </ul>
+              )}
             </section>
           )}
           <section className="border-b border-line py-4" data-testid="box-details">
@@ -561,7 +659,7 @@ export function ObjectPanel({
                 </button>
               </span>
             </h2>
-            <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-xs">
+            <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-[13px] leading-5">
               <dt className="text-muted">Track ID</dt>
               <dd className="break-all">{box.id}</dd>
               <dt className="text-muted">Loại</dt>
@@ -612,17 +710,21 @@ export function ObjectPanel({
             </dl>
           </section>
           <div className="pt-4">
-            <ReviewForm
-              key={boxKey(frame.timestamp, box.id)}
-              projectId={projectId}
-              revision={revision}
-              timestamp={frame.timestamp}
-              box={box}
-              trackFrames={frames.length}
-              existing={reviewOf(box)}
-              onSaved={onSaved}
-              onNext={onNext}
-            />
+            {locked ? (
+              <SavedDecision review={reviewOf(box)} reason={locked} />
+            ) : (
+              <ReviewForm
+                key={boxKey(frame.timestamp, box.id)}
+                projectId={projectId}
+                revision={revision}
+                timestamp={frame.timestamp}
+                box={box}
+                trackFrames={frames.length}
+                existing={reviewOf(box)}
+                onSaved={onSaved}
+                onNext={onNext}
+              />
+            )}
           </div>
         </>
       ) : (

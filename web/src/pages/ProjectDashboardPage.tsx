@@ -7,12 +7,15 @@ import { useProject } from '../features/projects/useProject';
 import { ProjectStatus } from '../features/projects/ProjectLayout';
 import { ImportForm } from '../features/projects/ImportForm';
 import { ProjectPeople } from '../features/projects/ProjectPeople';
+import { GuidelinePanel } from '../features/projects/GuidelinePanel';
 import { StartReviewButton } from '../features/projects/StartReviewButton';
 import { ScanStatus } from '../features/verify/ScanStatus';
 import { request } from '../lib/api';
 import { CompleteReviewButton } from '../features/handoff/CompleteReviewButton';
+import { ReopenReviewButton } from '../features/handoff/ReopenReviewButton';
+import { AnnotatorWork } from '../features/handoff/AnnotatorSteps';
+import { RecheckButton } from '../features/handoff/fixes';
 import { useAuth } from '../features/auth/AuthProvider';
-import { ui } from '../lib/i18n';
 import type { Dashboard } from '../types.ts';
 
 export function ProjectDashboardPage() {
@@ -27,7 +30,8 @@ export function ProjectDashboardPage() {
   useEffect(() => {
     setDashboard(null);
     setFailure('');
-    if (p?.status !== 'READY') return;
+    // Annotators see only their own work, not the review figures.
+    if (p?.status !== 'READY' || p.my_role === 'annotator') return;
     const c = new AbortController();
     request<Dashboard>(`/projects/${projectId}/dashboard`, {
       signal: c.signal,
@@ -57,21 +61,7 @@ export function ProjectDashboardPage() {
   if (!p) return null;
   const leader = p.my_role === 'leader';
   const handoff = p.handoff;
-  async function reopen() {
-    if (
-      !window.confirm(
-        ui('Mở lại review? File đã gửi cho Annotator sẽ bị thu hồi và Reviewer sửa lại được.'),
-      )
-    )
-      return;
-    try {
-      await request(`/projects/${projectId}/handoff`, { method: 'DELETE' });
-      retry();
-    } catch (e) {
-      setFailure((e as Error).message);
-    }
-  }
-  return (
+  const header = (
     <>
       <Link to="/projects" className="text-sm text-muted">
         {hint('← Projects')}
@@ -90,6 +80,33 @@ export function ProjectDashboardPage() {
         )}
       </div>
       <ProjectPeople project={p} />
+    </>
+  );
+  if (p.my_role === 'annotator')
+    return (
+      <>
+        {header}
+        {p.status !== 'READY' ? (
+          <p role="status" className="panel p-8 text-muted">
+            {['CREATED', 'FAILED'].includes(p.status)
+              ? 'Project chưa có dữ liệu. Leader cần import dataset trước khi bạn làm việc.'
+              : 'Leader đang import dataset. Trạng thái tự cập nhật.'}
+          </p>
+        ) : handoff?.for_me ? (
+          <AnnotatorWork key={handoff.status} projectId={p.id} onReturned={retry} />
+        ) : (
+          <section className="panel p-8" data-testid="no-fixes">
+            <h2 className="font-semibold">Chưa có lỗi nào được gửi cho bạn</h2>
+            <p className="mt-2 text-sm text-muted">
+              Khi Reviewer hoàn thành review và chọn bạn, lỗi cần sửa và ảnh sẽ hiện ở đây.
+            </p>
+          </section>
+        )}
+      </>
+    );
+  return (
+    <>
+      {header}
       {handoff && (
         <section className="panel mb-6 border-amber-500 p-5" data-testid="handoff-banner">
           {handoff.status === 'SENT' ? (
@@ -118,25 +135,19 @@ export function ProjectDashboardPage() {
               </p>
             </>
           )}
-          <div className="mt-4 flex flex-wrap gap-3">
-            {(p.my_role !== 'annotator' || handoff.for_me) && (
+          {handoff.status === 'RETURNED' ? (
+            <RecheckButton projectId={p.id} />
+          ) : (
+            <div className="mt-4 flex flex-wrap gap-3">
               <Link
                 className="sr-button border-accent text-accent"
                 to={`/projects/${projectId}/fixes`}
               >
-                {handoff.status === 'RETURNED'
-                  ? 'Kiểm tra lại các lỗi đã gửi →'
-                  : p.my_role === 'annotator'
-                    ? 'Xem lỗi cần sửa →'
-                    : 'Xem file đã gửi →'}
+                Xem file đã gửi →
               </Link>
-            )}
-            {leader && handoff.status === 'SENT' && (
-              <button className="sr-button" onClick={reopen}>
-                Mở lại review
-              </button>
-            )}
-          </div>
+              <ReopenReviewButton projectId={p.id} handoff={handoff} onReopened={retry} />
+            </div>
+          )}
         </section>
       )}
       {p.error_message && (
@@ -294,12 +305,7 @@ export function ProjectDashboardPage() {
               )}
             </p>
           )}
-          <p className="mt-6 text-xs text-muted">
-            {hint('Schema ')}
-            {dashboard.dataset.schema_version}
-            {hint(' · Engine')}
-            {dashboard.dataset.engine_version} · Quyết định được lưu riêng cho project này.
-          </p>
+          <GuidelinePanel meta={dashboard.dataset} />
         </>
       )}
     </>

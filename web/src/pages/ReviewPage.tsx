@@ -209,6 +209,7 @@ function ReviewWorkspace() {
         <CaseDetail
           key={selected.id}
           item={selected}
+          guideline={meta.guideline}
           aiFinding={aiFinding}
           locked={Boolean(handoff)}
           finish={

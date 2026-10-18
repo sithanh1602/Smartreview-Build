@@ -2,8 +2,10 @@ import fs from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { normalizeDataset } from '../core/schema/normalize.ts';
-import { analyzeDataset, supportsWaivers, severity } from '../core/risk/engine.ts';
+import { analyzeDataset, supportsPatches, supportsWaivers, severity } from '../core/risk/engine.ts';
 import { canonicalWaivers, type Waivers } from '../shared/guideline-waivers.ts';
+import { stableJson, type GuidelineSummary } from '../shared/guideline-rules.ts';
+import type { Patch } from '../core/risk/rules.ts';
 import type { Annotation, Source } from '../core/schema/types.ts';
 import type { MissingHint } from '../core/importers/signals.ts';
 import type { CheckStat, ContextPosition, FrameReport, RiskResult } from '../core/risk/types.ts';
@@ -34,6 +36,10 @@ export interface DatasetMeta {
   checks: Record<string, CheckStat>;
   // Stored with the project and read back on every load, like engine_version.
   guideline_waivers?: Waivers;
+  // Checks a project's guideline added or tightened, as policy patches (shared/guideline-rules.ts).
+  guideline_patches?: Patch[];
+  // The guideline's rules and the choices made on them, for people to read; scores ignore it.
+  guideline?: GuidelineSummary;
   review_storage: 'mysql';
 }
 
@@ -43,6 +49,8 @@ export interface DatasetOptions {
   engineVersion?: string;
   // Policy checks a project's guideline choices switched off; see shared/guideline-waivers.ts.
   waivers?: Waivers;
+  patches?: Patch[];
+  guideline?: GuidelineSummary;
 }
 // Where frame images live: locate turns a frame's relative image path into an asset reference, read fetches it.
 export interface AssetSource {
@@ -66,7 +74,14 @@ export async function loadDataset(datasetPath: string, options: DatasetOptions =
 }
 export async function buildDataset(
   text: string,
-  { namespace = '', apiPrefix = '/api', engineVersion, waivers: given = {} }: DatasetOptions,
+  {
+    namespace = '',
+    apiPrefix = '/api',
+    engineVersion,
+    waivers: given = {},
+    patches = [],
+    guideline,
+  }: DatasetOptions,
   source: AssetSource,
 ) {
   const waivers = canonicalWaivers(given);
@@ -74,9 +89,12 @@ export async function buildDataset(
   // Engines before 4.0.0 know nothing of waivers, so only the later ones are given them.
   const applied =
     Object.keys(waivers).length > 0 && !!engineVersion && supportsWaivers(engineVersion);
+  const patched = patches.length > 0 && !!engineVersion && supportsPatches(engineVersion);
   const report = analyzeDataset(
     normalized,
-    engineVersion ? { engineVersion, ...(applied && { waivers }) } : undefined,
+    engineVersion
+      ? { engineVersion, ...(applied && { waivers }), ...(patched && { patches }) }
+      : undefined,
   );
   // Scores under different waivers are different revisions. With none, the fingerprint is the
   // one it always was, so existing projects keep their revision and their decisions.
@@ -85,6 +103,7 @@ export async function buildDataset(
     .update(text)
     .update(report.engine_version)
     .update(applied ? JSON.stringify(waivers) : '')
+    .update(patched ? stableJson(patches) : '')
     .digest('hex')
     .slice(0, 20);
   const frames = new Map(normalized.frames.map((f) => [f.id, f]));
@@ -239,6 +258,8 @@ export async function buildDataset(
     ),
     checks: report.checks,
     ...(applied && { guideline_waivers: waivers }),
+    ...(patched && { guideline_patches: patches }),
+    ...(guideline && { guideline }),
     review_storage: 'mysql',
   };
   const readAsset = async (frameId: string) =>

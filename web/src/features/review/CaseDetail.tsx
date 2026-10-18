@@ -10,6 +10,9 @@ import { RiskBadge } from '../../components/RiskBadge';
 import { Icon } from '../../components/Icon';
 import { Tip } from '../../components/Tip';
 import { ReviewDecisionForm } from './ReviewDecisionForm';
+import { EvidenceTable } from '../../components/EvidenceTable';
+import { rulesForLabel, type GuidelineSummary } from '../../../shared/guideline-rules.ts';
+
 import { confidenceText, objectText } from '../../lib/format';
 import { useLoadedDataset } from '../../app/DatasetProvider';
 import { request } from '../../lib/api';
@@ -17,6 +20,36 @@ import type { PanelControls } from './usePanels';
 import { ImageCaseList } from './ImageCaseList';
 import { levelColor } from './grouping';
 import type { AiFindingView, Case, ContextPosition, Observation } from '../../types.ts';
+
+// What the guideline asks a person to check for boxes of this label, which no check can measure.
+function GuidelineChecklist({ summary, label }: { summary?: GuidelineSummary; label: string }) {
+  const rules = rulesForLabel(summary, label);
+  if (!rules.length) return null;
+  return (
+    <section
+      className="mt-3 rounded-xl border border-violet-300 p-3 text-[13px] leading-5"
+      data-testid="guideline-checklist"
+    >
+      <h3 className="text-sm font-semibold">Guideline cho nhãn “{label}”</h3>
+      <p className="mt-0.5 text-xs text-muted">
+        Công cụ không tự đo được các yêu cầu này; hãy nhìn ảnh để đối chiếu.
+      </p>
+      <ul className="mt-2 space-y-2">
+        {rules.map((r) => (
+          <li key={r.id}>
+            <p>
+              {r.kind === 'definition' && <span className="text-muted">Định nghĩa · </span>}
+              {r.condition}
+            </p>
+            <p className="text-xs text-muted">
+              {r.id} · § {r.section}
+            </p>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
 
 type Tab = 'why' | 'objects' | 'details';
 // Which annotations are drawn: all of them, only the flagged one, or all but the flagged one.
@@ -49,8 +82,11 @@ export function CaseDetail({
   onOpenCase,
   wholeImage,
   onWholeImage,
+  guideline,
 }: {
   item: Case;
+  // The project's guideline: its rules for this label that a person must judge by eye.
+  guideline?: GuidelineSummary;
   index: number;
   count: number;
   onNavigate: (delta: number) => void;
@@ -81,6 +117,8 @@ export function CaseDetail({
   const [view, setView] = useState<View>();
   const [scene, setScene] = useState<Scene | null>(null);
   const [selectedAnnotation, setSelectedAnnotation] = useState<string | null>(null);
+  // The annotation "Phóng to vật thể" crops to: null is the one under review.
+  const [focusId, setFocusId] = useState<string | null>(null);
   const [sceneAttempt, setSceneAttempt] = useState(0);
   const [position, setPosition] = useState<ContextPosition>('current'),
     [zoom, setZoom] = useState(false),
@@ -145,6 +183,13 @@ export function CaseDetail({
       : loadedAnnotations
     : [observation];
   const inspected = annotations.find((a) => a.annotation_id === selectedAnnotation) || observation;
+  const focused = annotations.find((a) => a.annotation_id === focusId) || observation;
+  // Clicking the information about an annotation (why flagged, confidence, details) zooms the
+  // image to that annotation's box.
+  const zoomTo = (id: string | null | undefined) => {
+    setFocusId(id ?? null);
+    setZoom(true);
+  };
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
@@ -346,7 +391,10 @@ export function CaseDetail({
           <ToggleButton
             size="sm"
             isSelected={zoom}
-            onChange={setZoom}
+            onChange={(on) => {
+              setFocusId(null);
+              setZoom(on);
+            }}
             isDisabled={
               observation.geometry.type !== 'bbox' ||
               observation.geometry.width <= 0 ||
@@ -399,6 +447,7 @@ export function CaseDetail({
                   observation={observation}
                   trackId={item.track_id}
                   zoom={zoom}
+                  focus={focused.geometry}
                   tone="canvas"
                   fill
                   // Labels as imported: no risk, case numbers, AI proposal or highlight.
@@ -427,6 +476,7 @@ export function CaseDetail({
                 observation={observation}
                 trackId={item.track_id}
                 zoom={zoom}
+                focus={focused.geometry}
                 interactive
                 tone="canvas"
                 fill
@@ -642,10 +692,11 @@ export function CaseDetail({
             id="case-panel-why"
             aria-labelledby="case-tab-why"
             hidden={tab !== 'why'}
+            onClick={() => zoomTo(observation.annotation_id)}
           >
             {aiFinding && (
-              <section className="mb-3 rounded-xl border border-blue-300 p-3 text-xs">
-                <h3 className="font-semibold">
+              <section className="mb-3 rounded-xl border border-blue-300 p-3 text-[13px] leading-5">
+                <h3 className="text-sm font-semibold">
                   AI Check (Kiểm tra bằng AI) · Điểm ưu tiên {aiFinding.score}
                 </h3>
                 <p className="mt-1.5">{aiFinding.reason}</p>
@@ -665,28 +716,25 @@ export function CaseDetail({
             )}
             <section>
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <h3 className="text-sm font-semibold">{hint('Why flagged')}</h3>
+                <h3 className="text-base font-semibold">{hint('Why flagged')}</h3>
                 <RiskBadge level={item.severity} score={item.score} />
               </div>
-              <p className="mt-1 text-[11px] text-muted">
+              <p className="mt-1 text-xs text-muted">
                 {item.findings.length} tín hiệu · điểm cộng dồn, tối đa 100
               </p>
-              <div className="mt-2 space-y-2">
+              <div className="mt-2 space-y-2.5">
                 {item.findings.map((f) => (
-                  <Card key={f.check_id} variant="secondary" className="gap-0 rounded-xl p-2.5">
+                  <Card key={f.check_id} variant="secondary" className="gap-0 rounded-xl p-3">
                     <div className="flex items-start justify-between gap-2">
-                      <p className="break-all font-mono text-[10px] text-muted">{f.check_id}</p>
-                      <span className="text-xs font-semibold text-amber-800">+{f.score}</span>
+                      <p className="font-mono text-[11px] break-all text-muted">{f.check_id}</p>
+                      <span className="shrink-0 text-sm font-semibold text-amber-800">
+                        +{f.score} điểm
+                      </span>
                     </div>
-                    <p className="mt-1.5 text-[13px] leading-5 text-slate-800">{hint(f.reason)}</p>
-                    <details className="mt-1.5">
-                      <summary className="cursor-pointer text-[11px] text-accent">
-                        {hint('Evidence · số liệu')}
-                      </summary>
-                      <pre className="mt-2 max-h-52 overflow-auto bg-ink p-2 text-[10px] leading-5 text-muted">
-                        {JSON.stringify(f.evidence, null, 2)}
-                      </pre>
-                    </details>
+                    <p className="mt-1.5 text-[15px] leading-6 font-medium text-slate-900">
+                      {hint(f.reason)}
+                    </p>
+                    <EvidenceTable checkId={f.check_id} evidence={f.evidence} />
                   </Card>
                 ))}
                 {!item.findings.length && (
@@ -712,6 +760,7 @@ export function CaseDetail({
                 </ul>
               </details>
             </section>
+            <GuidelineChecklist summary={guideline} label={item.class_name} />
           </div>
           <div
             role="tabpanel"
@@ -733,7 +782,10 @@ export function CaseDetail({
                   type="button"
                   className={`flex w-full items-center justify-between gap-3 border-b border-line px-2 py-1.5 text-left text-xs ${a.annotation_id === item.annotation_id ? 'font-semibold text-accent' : 'text-muted'} ${a.annotation_id === inspected.annotation_id ? 'bg-accent/10' : 'hover:bg-slate-50'}`}
                   aria-pressed={a.annotation_id === inspected.annotation_id}
-                  onClick={() => setSelectedAnnotation(a.annotation_id)}
+                  onClick={() => {
+                    setSelectedAnnotation(a.annotation_id);
+                    zoomTo(a.annotation_id);
+                  }}
                 >
                   <span>
                     {a.class_name} · {a.annotation_id}
@@ -750,6 +802,7 @@ export function CaseDetail({
             id="case-panel-details"
             aria-labelledby="case-tab-details"
             hidden={tab !== 'details'}
+            onClick={() => zoomTo(inspected.annotation_id)}
           >
             <h3 className="mb-3 text-sm font-semibold">
               {inspected.class_name}

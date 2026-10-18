@@ -9,16 +9,13 @@ import { Icon } from '../../components/Icon';
 import { ToggleButton, ToggleButtonGroup } from '@heroui/react';
 import { GuidelineAnalysis } from './GuidelineAnalysis';
 import { ScanChoice } from '../verify/ScanChoice';
-import type { Choices } from './GuidelineAnalysis';
-import type { GuidelineExtraction } from '../../../server/guideline/model-call.ts';
+import type { ImportPick } from '../verify/ScanChoice';
+import type { Reviewed } from './GuidelineAnalysis';
 import { GUIDELINE_TYPES, guidelineText as readText } from './guidelineText';
 import { FORMAT_INFO } from '../../../core/importers/catalog.ts';
 import { IMAGE_TYPES, LIMITS, inspectSources, readPack } from './dataset';
 import type { Candidate, Format, Inspection, Pack, Signal } from './dataset';
 import type { Project } from '../../types.ts';
-import type { listScoreModels } from '../../../server/ai/rescore.ts';
-
-type ScoreModel = Awaited<ReturnType<typeof listScoreModels>>[number];
 
 type Source = 'files' | 'zip';
 const FORMAT_IDS = Object.keys(FORMAT_INFO) as Format[];
@@ -125,7 +122,7 @@ export function ImportForm({
   const [ownGuideline, setOwnGuideline] = useState(false),
     [guidelineFile, setGuidelineFile] = useState<File | null>(null),
     [guidelineText, setGuidelineText] = useState('');
-  const reviewed = useRef<{ result: GuidelineExtraction; choices: Choices } | null>(null);
+  const reviewed = useRef<Reviewed | null>(null);
   const [annotations, setAnnotations] = useState<File[]>([]),
     [metadata, setMetadata] = useState<File | null>(null),
     [media, setMedia] = useState<File[]>([]),
@@ -133,14 +130,9 @@ export function ImportForm({
     [message, setMessage] = useState(''),
     [error, setError] = useState('');
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
-  // Null until the person chooses: then a dataset without scores is scored by default.
-  const [rescoreChoice, setRescoreChoice] = useState<boolean | null>(null);
-  // The models the server can score with (GET /projects/score-models), and the one picked.
-  const [scoreModels, setScoreModels] = useState<ScoreModel[]>([]),
-    [scoreModel, setScoreModel] = useState('yolo11s');
-  // The project whose files were just accepted: the person chooses how its labels are scanned
-  // before going on. `ready` is false while the backend still finishes the import.
-  const [accepted, setAccepted] = useState<{ id: string; ready: boolean } | null>(null);
+  // The form passed its checks: the person chooses how the labels are scanned, and nothing is
+  // created or uploaded until they confirm.
+  const [choosing, setChoosing] = useState(false);
   const idRef = useRef(project?.id),
     mounted = useRef(true),
     xhrRef = useRef<XMLHttpRequest | null>(null);
@@ -149,17 +141,6 @@ export function ImportForm({
     return () => {
       mounted.current = false;
     };
-  }, []);
-  useEffect(() => {
-    request<ScoreModel[]>('/projects/score-models')
-      .then((models) => {
-        if (!mounted.current) return;
-        setScoreModels(models);
-        const fallback = models.find((m) => m.default) ?? models[0];
-        if (fallback) setScoreModel(fallback.id);
-      })
-      // Without the list the import still scores with the server's default model.
-      .catch(() => {});
   }, []);
   useEffect(() => {
     if (!busy) return;
@@ -244,7 +225,8 @@ export function ImportForm({
   const zipped = source === 'zip',
     shown = zipped ? (pack?.inspection ?? null) : inspection,
     packBytes = pack?.images.reduce((n, i) => n + i.entry.size, 0) ?? 0;
-  const rescore = rescoreChoice ?? (!!shown && !shown.signals.confidence && !shown.signals.rescore);
+  // Labels without any confidence are scored unless the person picks otherwise in the popup.
+  const rescoreByDefault = !!shown && !shown.signals.confidence && !shown.signals.rescore;
   // The text the analysis reads: the chosen file, else the pasted text, else the archive's file.
   const packed = zipped ? (pack?.guideline ?? null) : null,
     guidelineName = guidelineFile?.name ?? (guidelineText.trim() ? '' : (packed?.name ?? null)),
@@ -255,7 +237,7 @@ export function ImportForm({
             guidelineFile
               ? readText(guidelineFile.name, guidelineFile)
               : guidelineText.trim() || readText(packed!.name, await packed!.blob());
-  async function submit(e: React.FormEvent) {
+  function submit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
     if (zipped ? !pack : !annotations.length || !media.length) {
@@ -293,6 +275,13 @@ export function ImportForm({
       setError('Guideline/policy tối đa 10 MB.');
       return;
     }
+    setChoosing(true);
+  }
+  async function start(pick: ImportPick) {
+    setChoosing(false);
+    const chosen = zipped ? pack!.annotations : annotations,
+      table = zipped ? pack!.metadata : metadata,
+      pasted = guidelineText.trim();
     setBusy(true);
     setUploadProgress(null);
     setMessage('Đang tạo project…');
@@ -326,10 +315,10 @@ export function ImportForm({
           form.append('guideline', await inPack.blob(), inPack.name.split('/').pop()!);
       }
       if (ownGuideline && reviewed.current) {
-        const { result, choices } = reviewed.current;
+        const { result, choices, runs, captions } = reviewed.current;
         form.append(
           'guideline_rules',
-          new File([JSON.stringify({ ...result, choices }, null, 2)], 'rules.json'),
+          new File([JSON.stringify({ ...result, choices, runs, captions }, null, 2)], 'rules.json'),
         );
       }
       if (zipped) {
@@ -348,13 +337,10 @@ export function ImportForm({
           const p = await request(`/projects/${id}/import-status`);
           if (mounted.current && ['VALIDATING', 'NORMALIZING', 'ANALYZING'].includes(p.status)) {
             setUploadProgress(100);
-            const model = scoreModels.find((m) => m.id === scoreModel);
             setMessage(
-              p.progress?.step === 'download'
-                ? `Đang tải model ${model?.name ?? scoreModel} lần đầu (${model?.download ?? ''}), chỉ tải một lần…`
-                : p.progress?.step === 'score'
-                  ? `Đang chấm điểm box bằng model: ${p.progress.done}/${p.progress.total} ảnh…`
-                  : statusLabel[p.status],
+              p.progress?.step === 'score'
+                ? `Đang chấm điểm box bằng model ${pick.rescore}: ${p.progress.done}/${p.progress.total} ảnh…`
+                : statusLabel[p.status],
             );
           }
         } catch {
@@ -367,7 +353,7 @@ export function ImportForm({
         xhrRef.current = xhr;
         xhr.open(
           'POST',
-          `/api/projects/${id}/import${rescore ? `?rescore=1&model=${encodeURIComponent(scoreModel)}` : ''}`,
+          `/api/projects/${id}/import${pick.rescore ? `?rescore=1&model=${encodeURIComponent(pick.rescore)}` : ''}`,
         );
         setMessage('Đang tải dữ liệu lên…');
         xhr.upload.onprogress = (e) => {
@@ -398,9 +384,22 @@ export function ImportForm({
         };
         xhr.send(form);
       });
-      if (mounted.current) {
-        setAccepted({ id: imported.id, ready: imported.status === 'READY' });
+      // The scan waits on the server until the import is finished.
+      if (pick.scan) {
+        setMessage('Đang gửi lựa chọn quét nhãn…');
+        try {
+          await request(`/projects/${imported.id}/label-verify`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(pick.scan),
+          });
+        } catch (e) {
+          throw new Error(
+            `Đã nhập dữ liệu nhưng chưa bắt đầu quét nhãn: ${(e as Error).message} Mở project để quét lại.`,
+          );
+        }
       }
+      if (mounted.current) onImported ? onImported() : navigate(`/projects/${imported.id}`);
     } catch (e) {
       if (mounted.current) setError((e as Error).message);
     } finally {
@@ -674,65 +673,6 @@ export function ImportForm({
         {shown && !reading && (
           <SignalReport inspection={shown} table={!!(zipped ? pack?.metadata : metadata)} />
         )}
-        <label className="flex gap-3 rounded-lg border border-line p-4 text-sm">
-          <input
-            type="checkbox"
-            className="mt-1"
-            checked={rescore}
-            onChange={(e) => setRescoreChoice(e.target.checked)}
-          />
-          <span>
-            <strong>Chấm điểm box bằng model (rescore) và tìm vật bị sót</strong>
-            <span className="mt-1 block text-xs text-muted">
-              Máy chủ chạy model đã chọn một lần trên mỗi ảnh: mỗi box người vẽ được chấm điểm cho
-              đúng nhãn của nó, và vật model thấy mà chưa có box được ghi thành gợi ý. Không thêm,
-              không sửa nhãn nào. Nên bật khi tệp nhãn chưa có confidence.
-            </span>
-          </span>
-        </label>
-        {rescore && scoreModels.length > 0 && (
-          <fieldset
-            className="-mt-2 rounded-lg border border-line p-4 text-sm"
-            data-testid="score-model"
-          >
-            <legend className="px-1 font-semibold">Model chấm điểm</legend>
-            <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-              {scoreModels.map((m) => (
-                <label
-                  key={m.id}
-                  className={`flex cursor-pointer gap-2 rounded-lg border p-3 has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-accent ${scoreModel === m.id ? 'border-accent bg-accent/10' : 'border-line hover:border-accent'}`}
-                >
-                  <input
-                    type="radio"
-                    name="score-model"
-                    className="mt-1"
-                    value={m.id}
-                    checked={scoreModel === m.id}
-                    onChange={() => setScoreModel(m.id)}
-                  />
-                  <span>
-                    <strong>{m.name}</strong>
-                    {m.default && <span className="ml-1 text-xs text-accent">(mặc định)</span>}
-                    {!m.installed &&
-                      ('localOnly' in m && m.localOnly ? (
-                        <span className="ml-1 text-xs text-muted">· copy {m.file} tay vào ai-service/</span>
-                      ) : (
-                        <span className="ml-1 text-xs text-muted">· tự tải {m.download} lần đầu</span>
-                      ))}
-                    <span className="mt-1 block text-xs">Tốc độ: {m.speed}</span>
-                    <span className="block text-xs">Hiệu quả: {m.quality}</span>
-                    <span className="mt-1 block text-xs text-muted">{m.note}</span>
-                  </span>
-                </label>
-              ))}
-            </div>
-            <p className="mt-2 text-xs text-muted">
-              Đo trên BDD100K bằng CPU, ảnh 1280 px. Ngưỡng của luật rescore (0,02) và vật bị sót
-              (0,4) chỉ được đo với YOLO11s; model khác dùng tạm ngưỡng đó nên số ca gắn cờ có thể
-              lệch.
-            </p>
-          </fieldset>
-        )}
         <div className="rounded-lg border border-line p-4">
           {/* The help belongs to the heading only: wrapped around the whole block it opened
               below everything and came up while the guideline text was being typed. */}
@@ -857,11 +797,11 @@ export function ImportForm({
           )}
         </div>
       )}
-      {accepted && (
+      {choosing && (
         <ScanChoice
-          projectId={accepted.id}
-          ready={accepted.ready}
-          onDone={() => (onImported ? onImported() : navigate(`/projects/${accepted.id}`))}
+          rescoreByDefault={rescoreByDefault}
+          onConfirm={start}
+          onCancel={() => setChoosing(false)}
         />
       )}
     </form>

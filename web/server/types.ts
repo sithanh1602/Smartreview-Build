@@ -9,7 +9,7 @@ export type Connection = PoolConnection;
 export type Rows = RowDataPacket[];
 export type Result = ResultSetHeader;
 
-// An account is a leader, who creates projects, or a member, who joins them with an invite code.
+// An account is a leader, who creates projects, or a member, whom a leader adds to them.
 export type Role = 'leader' | 'member';
 export type MemberRole = 'reviewer' | 'annotator';
 // What a user is inside one project.

@@ -191,3 +191,25 @@ Các project cũ cần “Chấm lại bằng engine hiện tại”; nếu scen
 - `orientation.frame1_reference`: cùng object ID ở frame đầu segment (UI frame 1, index 0). So hướng world đã bù pose ego; chỉ xe đứng yên với mọi tâm quan sát cách mốc ≤ 0.5 m, mốc và hiện tại ≥ 20 điểm. Lệch > 0.6 rad tạo risk 30 điểm. Mốc chưa được xác nhận đúng; cần kiểm tra cả hai frame. Không áp dụng cho xe di chuyển/rẽ hoặc thiếu mốc.
 - Không ép xe cùng hướng LiDAR/ego: xe ngược chiều và giao lộ hợp lệ.
 - Cần import lại để có lidarAxis; rescore không đo lại cloud. Rule frame 1 vẫn chạy trên scene cũ. Ngưỡng mới chưa được hiệu chỉnh trên bộ nhãn thật đã kiểm duyệt, không kết luận chắc chắn sai.
+
+### 1.12.0: thêm năm quy tắc chặt hơn
+
+Engine `3d-1.12.0`. Cả năm quy tắc chạy trên `scene.json` đã lưu, nên "Chấm lại bằng engine hiện tại" là đủ, không cần import lại. Chưa có quy tắc nào được đo trên segment thật: ngưỡng là giá trị khởi điểm và đã được ghi vào `open_questions`.
+
+- `points.sparse_run` (30, BBOX): cùng một đối tượng có từ 4 frame liền nhau mà cuboid đều dưới 15 điểm LiDAR, trong khi cách xe không quá 40 m. Một case cho cả chuỗi, đặt ở cuboid ít điểm nhất. Đối tượng đã bị `track.never_observed` bắt (không frame nào có điểm) thì không xét.
+- `track.short` (20, EXTRA_OBJECT): đối tượng chỉ có 2–3 frame, không chạm frame đầu hay frame cuối, có lúc ở trong 40 m. Đây là phần mở rộng của `track.single_frame`. Đứng một mình thì quy tắc này không đủ điểm vào hàng đợi.
+- `track.speed` (50, TRACKING): tốc độ giữa hai frame liền nhau (hệ toàn cục, 0,1 s mỗi frame) vượt `max_speed_mps` của loại. Một cuboid lệch rồi quay lại chỉ bị gắn cờ một lần, ở chính cuboid đó. Cuboid lệch một frame thường cũng bị `track.position_jump` bắt, nên được cộng hai lần điểm. Chủ ý là để lỗi lệch xa thành rủi ro cao.
+- `track.size_spread` (30, BBOX): VEHICLE và CYCLIST có từ 5 cuboid đủ 20 điểm thì so kích thước với trung vị của cả track, lệch quá 15% là lỗi. Quy tắc này bắt kích thước trôi dần, thứ `track.size_change` (so hai frame kề) không thấy. Nó chạy sau các quy tắc so với frame kề, và bỏ qua cuboid đã bị `track.size_change` bắt.
+- `track.heading_motion` (40, BBOX): xe đi được từ 2 m trong 5 frame (khoảng 5 m/s trở lên) thì hướng cuboid ở frame giữa phải trùng hướng đi, cho phép lệch 0,5 rad và không phân biệt đầu với đuôi. Một case cho mỗi chuỗi frame lệch.
+
+### 1.13.0: bớt báo nhầm sau khi chạy trên segment thật
+
+Engine `3d-1.13.0`, chạy thử trên segment `10359308928573410754_720_000_740_000` (San Francisco, đường dốc). Với 1.12.0, segment này có 116 case, trong đó 84 case là `box.below_ground`, thuộc vỏn vẹn 11 đối tượng.
+
+- `box.below_ground`:
+  - `max_distance_m` hạ từ 50 xuống 25 m. Trên segment này không cuboid nào trong 20 m chìm quá 0,25 m, còn ở 40–50 m thì 35/40 cuboid "chìm" (trung vị −0,42 m). Mặt đường đo ở xa trên dốc bị lệch xuống, nên xa hơn 25 m để `fit.sunk` xét.
+  - Các frame liền nhau của một đối tượng giờ là **một case**. Nếu `fit.sunk` hay `fit.lowered` đã có case trên cùng đoạn, quy tắc gắn vào case đó; nếu không, nó đặt ở frame chìm sâu nhất. `evidence.frame_indexes` là cả đoạn, nên viewer vẫn tô đỏ mọi frame.
+  - Điểm chia theo độ sâu: 40 điểm (rủi ro trung bình), chìm quá `deep_m` 0,5 m thì `deep_score` 70.
+- `points.sparse_run` có thêm `types` (VEHICLE, PEDESTRIAN, CYCLIST). 4/5 case trên segment là biển báo có 0–4 điểm suốt 16–20 frame, một chuyện bình thường với biển báo.
+- Viewer: dòng lý do trong danh sách lỗi lấy lý do của finding có điểm cao nhất (finding quyết định loại lỗi), không lấy lý do đầu tiên, vốn có thể là của một cảnh báo.
+- Vẫn phải xem lại cách exporter đo mặt đường trên dốc (giới hạn độ dốc 0,15). Sửa exporter thì phải import lại.

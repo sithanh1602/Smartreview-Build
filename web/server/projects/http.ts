@@ -1,22 +1,27 @@
 import { handleFrames } from '../frames/http.ts';
 import { FrameReviewStore } from '../frames/store.ts';
 import { buildReport, HANDOFF_LOCKED } from './handoff.ts';
-import { exportCvatImages } from '../../core/exporters/cvat-images.ts';
+import { exportDataset, isExportFormat } from '../../core/exporters/formats.ts';
 import { ZipWriter, ZIP_MAX_FILES } from './zip.ts';
+import { handoffIssues, pushToCvat } from '../cvat/tasks.ts';
 import { ReviewError } from '../../shared/review.ts';
-import { listScoreModels, SCORE_MODELS } from '../ai/rescore.ts';
+import { findScoreModel, listScoreModels } from '../ai/rescore.ts';
+import { SECOND_ENGINE, VERIFIER_ENGINE } from '../../core/risk/label-verify.ts';
+import { listModels } from '../verify/models.ts';
 import { readJson, sameOrigin } from './upload.ts';
 import type { ProjectService } from './service.ts';
 import type { SourceFile } from '../../core/importers/index.ts';
 import type { Json, ProjectContext, Req, Res } from '../types.ts';
 
-// An image name as a path inside the archive: no drive, no leading slash, no "..".
-const zipPath = (name: string) =>
-  name
-    .split(/[\\/]+/)
-    .filter((part) => part && part !== '.' && part !== '..')
-    .join('/');
 const MAX_RETURN_BYTES = 12 * 1024 * 1024;
+// The models in model/Model_bbox/ a label scan can run, by step.
+async function usableModels() {
+  const models = await listModels();
+  return {
+    first: models.filter((m) => m.engine === VERIFIER_ENGINE),
+    second: models.filter((m) => m.engine === SECOND_ENGINE),
+  };
+}
 // The annotation files of a returned dataset, as text: { files: [{ name, text }] }.
 async function readFiles(req: Req): Promise<SourceFile[]> {
   if (!req.headers['content-type']?.startsWith('application/json'))
@@ -76,10 +81,11 @@ export async function handleProjects(
     json(res, 200, await listScoreModels());
     return true;
   }
-  if (url.pathname === '/api/projects/join') {
-    if (req.method !== 'POST') throw new ReviewError(405, 'Use POST.');
-    sameOrigin(req);
-    json(res, 200, await projects.members.join(await readJson(req), user));
+  // Asked before a new project exists: the scan is chosen before anything is uploaded.
+  if (url.pathname === '/api/projects/label-verify/models') {
+    if (req.method !== 'GET') throw new ReviewError(405, 'Use GET.');
+    if (user.role !== 'leader') throw new ReviewError(403, 'Chỉ Leader được tạo project.');
+    json(res, 200, await usableModels());
     return true;
   }
   const match = url.pathname.match(/^\/api\/projects\/([^/]+)(\/.*)?$/);
@@ -114,14 +120,19 @@ export async function handleProjects(
     } else throw new ReviewError(405, 'Use GET or POST.');
     return true;
   }
+  if (route === '/label-verify/models') {
+    if (req.method !== 'GET') throw new ReviewError(405, 'Use GET.');
+    leaderOnly();
+    json(res, 200, await usableModels());
+    return true;
+  }
   if (route === '/label-verify') {
     if (req.method === 'GET') json(res, 200, await projects.verify.status(id));
     else if (req.method === 'POST') {
       sameOrigin(req);
       leaderOnly();
-      // The second engine runs only when the person asks for it.
-      const { second } = (await readJson(req)) ?? {};
-      json(res, 202, await projects.verify.request(id, { second: second === true }));
+      const { model, second_model } = (await readJson(req)) ?? {};
+      json(res, 202, await projects.verify.request(id, { model, second_model }));
     } else throw new ReviewError(405, 'Use GET or POST.');
     return true;
   }
@@ -131,8 +142,7 @@ export async function handleProjects(
     leaderOnly();
     const rescoreModel = url.searchParams.get('model') || undefined;
     // Checked before the upload is read, not after it is stored.
-    if (rescoreModel && !SCORE_MODELS.some((m) => m.id === rescoreModel))
-      throw new ReviewError(400, `Không có model chấm điểm “${rescoreModel}”.`);
+    if (rescoreModel) await findScoreModel(rescoreModel);
     const imported = await projects.import(id, req, {
       rescore: url.searchParams.get('rescore') === '1',
       rescoreModel,
@@ -180,15 +190,6 @@ export async function handleProjects(
     );
     return true;
   }
-  if (route === '/invites') {
-    leaderOnly();
-    if (req.method === 'GET') json(res, 200, await projects.members.invites(id));
-    else if (req.method === 'POST') {
-      sameOrigin(req);
-      json(res, 200, await projects.members.regenerate(id, await readJson(req)));
-    } else throw new ReviewError(405, 'Use GET or POST.');
-    return true;
-  }
   if (!route || route === '/import-status') {
     if (req.method !== 'GET') throw new ReviewError(405, 'Use GET.');
     json(res, 200, {
@@ -209,11 +210,14 @@ export async function handleProjects(
       if (role === 'annotator')
         throw new ReviewError(403, 'Chỉ Leader hoặc Reviewer được hoàn thành review.');
       const input = await readJson(req);
+      if (input?.include_review !== undefined && typeof input.include_review !== 'boolean')
+        throw new ReviewError(400, 'include_review phải là true hoặc false.');
       const report = buildReport(
         { id, name: (await projects.get(id)).name },
         context.dataset,
         await context.reviews.list(),
         await new FrameReviewStore(projects.pool, context.reviews.datasetId).list(),
+        { review: input?.include_review === true },
       );
       json(
         res,
@@ -222,34 +226,38 @@ export async function handleProjects(
       );
     } else if (req.method === 'DELETE') {
       sameOrigin(req);
-      leaderOnly();
+      if (role === 'annotator')
+        throw new ReviewError(403, 'Chỉ Leader hoặc Reviewer được mở lại review.');
       await projects.handoffs.reopen(id);
       json(res, 200, { handoff: null });
     } else throw new ReviewError(405, 'Use GET, POST or DELETE.');
     return true;
   }
-  // The whole dataset as CVAT takes it: annotations.xml (CVAT for images 1.1) and images/.
+  // The whole dataset in one of the image formats (?format=, default CVAT for images 1.1):
+  // its annotation files and every image, laid out as that format's tools import it.
   if (route === '/handoff/dataset.zip') {
     if (req.method !== 'GET') throw new ReviewError(405, 'Use GET.');
     await projects.handoffs.report(id, user, role, revision);
+    const format = url.searchParams.get('format') || 'cvat-images';
+    if (!isExportFormat(format)) throw new ReviewError(400, `Không có định dạng xuất ${format}.`);
     const { normalized, assets, readAsset } = context.dataset;
     if (normalized.media.some((m) => m.type !== 'image'))
-      throw new ReviewError(422, 'Chỉ xuất được dataset ảnh rời sang CVAT for images.');
-    if (normalized.frames.length + 1 > ZIP_MAX_FILES)
+      throw new ReviewError(422, 'Chỉ xuất được dataset ảnh rời.');
+    const { files, image } = exportDataset(format, normalized);
+    if (normalized.frames.length + files.length > ZIP_MAX_FILES)
       throw new ReviewError(422, 'Dataset có quá nhiều ảnh cho một file .zip.');
-    const { xml } = exportCvatImages(normalized);
     const media = new Map(normalized.media.map((m) => [m.id, m]));
     res.writeHead(200, {
       'Content-Type': 'application/zip',
-      'Content-Disposition': `attachment; filename="smartreview-${id}-cvat.zip"`,
+      'Content-Disposition': `attachment; filename="smartreview-${id}-${format}.zip"`,
       'Cache-Control': 'no-store',
     });
     const zip = new ZipWriter(res);
     try {
-      await zip.add('annotations.xml', Buffer.from(xml));
+      for (const file of files) await zip.add(file.path, Buffer.from(file.text));
       for (const frame of normalized.frames) {
         const data = assets.has(frame.id) ? await readAsset(frame.id) : null;
-        if (data) await zip.add('images/' + zipPath(media.get(frame.media_id)!.name), data);
+        if (data) await zip.add(image(media.get(frame.media_id)!), data);
       }
       await zip.end();
       res.end();
@@ -260,6 +268,36 @@ export async function handleProjects(
     }
     return true;
   }
+  // The dataset as a task in the CVAT this server is set up with (CVAT_BASE_URL), for the
+  // annotators to fix in: one task per sent round, opened again on a second call.
+  if (route === '/handoff/cvat') {
+    if (req.method !== 'POST') throw new ReviewError(405, 'Use POST.');
+    sameOrigin(req);
+    const { handoff, report } = await projects.handoffs.report(id, user, role, revision);
+    if (handoff.status !== 'SENT')
+      throw new ReviewError(409, 'Project không ở trạng thái chờ Annotator sửa.');
+    const { normalized, assets, readAsset } = context.dataset;
+    const name = `SmartReview · ${(await projects.get(id)).name} · ${id.slice(0, 8)} · ${handoff.sent_at}`;
+    json(
+      res,
+      200,
+      await pushToCvat(
+        name.slice(0, 256),
+        normalized,
+        async (frameId) => (assets.has(frameId) ? readAsset(frameId) : null),
+        // A report of an older dataset may point at frames that are gone; those are skipped.
+        handoffIssues(report),
+      ),
+    );
+    return true;
+  }
+  // A reviewer accepts or rejects one item of the round the annotators sent back.
+  if (route === '/handoff/verdict') {
+    if (req.method !== 'POST') throw new ReviewError(405, 'Use POST.');
+    sameOrigin(req);
+    json(res, 200, await projects.judge(id, await readJson(req), user, role));
+    return true;
+  }
   if (route === '/handoff/return') {
     if (req.method !== 'POST') throw new ReviewError(405, 'Use POST.');
     sameOrigin(req);
@@ -267,7 +305,7 @@ export async function handleProjects(
     return true;
   }
   // Once sent to the annotators, the decisions are what they were sent; nobody edits them
-  // until the leader reopens the review.
+  // until a leader or reviewer reopens the review.
   if (
     !['GET', 'HEAD'].includes(req.method) &&
     /^\/(cases|frames)\/[^/]+\/review$/.test(route) &&
