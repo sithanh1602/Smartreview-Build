@@ -476,6 +476,98 @@
       border-color: #91d5ff;
       font-weight: 500;
     }
+    /* Frame Filter Toolbar */
+    .frame-filter-box {
+      background: #fafafa;
+      border: 1px solid #e8e8e8;
+      border-radius: 6px;
+      padding: 8px 10px;
+      margin: 8px 0;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .frame-filter-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+    }
+    .frame-select {
+      height: 28px;
+      padding: 0 8px;
+      border-radius: 4px;
+      border: 1px solid #d9d9d9;
+      background: #ffffff;
+      color: #262626;
+      font-size: 12px;
+      font-weight: 500;
+      outline: none;
+      flex: 1;
+      cursor: pointer;
+      min-width: 0;
+    }
+    .frame-select:focus {
+      border-color: #40a9ff;
+      box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+    }
+    .frame-nav-btns {
+      display: flex;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+    .btn-frame-nav {
+      height: 28px;
+      padding: 0 8px;
+      border-radius: 4px;
+      border: 1px solid #d9d9d9;
+      background: #ffffff;
+      color: #595959;
+      font-size: 11.5px;
+      font-weight: 500;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: all .15s;
+      white-space: nowrap;
+    }
+    .btn-frame-nav:hover:not(:disabled) {
+      background: #e6f7ff;
+      color: #1890ff;
+      border-color: #91d5ff;
+    }
+    .btn-frame-nav:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+      background: #f5f5f5;
+    }
+    .frame-status-banner {
+      font-size: 11.5px;
+      color: #595959;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-top: 2px;
+    }
+    .frame-clean-badge {
+      background: #f6ffed;
+      color: #389e0d;
+      border: 1px solid #b7eb8f;
+      border-radius: 3px;
+      padding: 1px 6px;
+      font-size: 11px;
+      font-weight: 500;
+    }
+    .frame-error-badge {
+      background: #fff2f0;
+      color: #cf1322;
+      border: 1px solid #ffccc7;
+      border-radius: 3px;
+      padding: 1px 6px;
+      font-size: 11px;
+      font-weight: 600;
+    }
     .risk p {
       margin: 5px 0 0;
       font-size: 12px;
@@ -635,6 +727,7 @@
     history: [],
     dismissedRisks: new Set(),
     hideSunkMarkers: false,
+    frameFilter: 'current',
   };
 
   const panel = $('sr-panel');
@@ -777,19 +870,85 @@
           ${hist && hist.changed === false ? ' <span class="tag same">Không đổi</span>' : ''}</p>
         ${s.dimension === '3d' ? '<p class="msg"><b>Review 3D</b> · Policy ' + esc(s.policy_version) + '</p>' : ''}
         ${(s.notes || []).map(n => '<p class="msg">' + esc(n) + '</p>').join('')}
-        ${s.skipped.length ? `<p class="msg">Bỏ qua ${s.skipped.length} mục: ${esc([...new Set(s.skipped.map((k) => k.reason))].join('; '))}</p>` : ''}
+        ${s.skipped?.length ? `<p class="msg">Bỏ qua ${s.skipped.length} mục: ${esc([...new Set(s.skipped.map((k) => k.reason))].join('; '))}</p>` : ''}
         </div>
         ${(() => {
           const allRisks = s.risks || [];
-          const policyRisks = allRisks.filter((r) => r.source !== 'ai');
-          const aiRisks = allRisks.filter((r) => r.source === 'ai');
+          const curFrame = currentFrame();
+
+          // Extract unique frames with risks, sorted ascending
+          const riskFrames = Array.from(new Set(allRisks.map(r => r.frame).filter(f => f != null))).sort((a, b) => a - b);
+          const frameCounts = {};
+          for (const r of allRisks) {
+            if (r.frame != null) frameCounts[r.frame] = (frameCounts[r.frame] || 0) + 1;
+          }
+
+          // Active frame resolution
+          let activeFrame = null;
+          if (state.frameFilter === 'current') {
+            activeFrame = curFrame != null ? curFrame : (riskFrames[0] ?? 0);
+          } else if (state.frameFilter !== 'all' && state.frameFilter != null) {
+            activeFrame = Number(state.frameFilter);
+          }
+
+          // Filter by active frame (keep frame-agnostic / general risks too if any)
+          const frameFilteredRisks = activeFrame != null
+            ? allRisks.filter(r => r.frame === activeFrame || r.frame == null || r.frame === -1)
+            : allRisks;
+
+          const policyRisks = frameFilteredRisks.filter((r) => r.source !== 'ai');
+          const aiRisks = frameFilteredRisks.filter((r) => r.source === 'ai');
           const tab = state.activeTab || 'all';
-          const displayedRisks = tab === 'policy' ? policyRisks : tab === 'ai' ? aiRisks : allRisks;
+          const displayedRisks = tab === 'policy' ? policyRisks : tab === 'ai' ? aiRisks : frameFilteredRisks;
+
+          // Navigation targets
+          const currentFrameIndex = activeFrame != null ? activeFrame : (curFrame ?? 0);
+          const prevErrorFrame = riskFrames.filter(f => f < currentFrameIndex).pop();
+          const nextErrorFrame = riskFrames.find(f => f > currentFrameIndex);
 
           return `
+            <div class="frame-filter-box">
+              <div class="frame-filter-row">
+                <span style="font-size:12px;font-weight:600;color:#262626">
+                  Frame:
+                </span>
+                <select id="sr-frame-select" class="frame-select">
+                  <option value="current" ${state.frameFilter === 'current' ? 'selected' : ''}>
+                    Frame hiện tại (${curFrame != null ? `Frame ${curFrame}` : 'Auto'})
+                  </option>
+                  <option value="all" ${state.frameFilter === 'all' ? 'selected' : ''}>
+                    Tất cả các frame (${allRisks.length} cảnh báo)
+                  </option>
+                  <optgroup label="Danh sách frame có lỗi">
+                    ${riskFrames.map(f => `
+                      <option value="${f}" ${state.frameFilter === String(f) ? 'selected' : ''}>
+                        Frame ${f} (${frameCounts[f]} lỗi)
+                      </option>
+                    `).join('')}
+                  </optgroup>
+                </select>
+                <div class="frame-nav-btns">
+                  <button class="btn-frame-nav" id="sr-prev-frame-btn" ${prevErrorFrame == null ? 'disabled' : ''} title="${prevErrorFrame != null ? `Chuyển về Frame lỗi ${prevErrorFrame}` : 'Không có frame lỗi phía trước'}">
+                    Trước
+                  </button>
+                  <button class="btn-frame-nav" id="sr-next-frame-btn" ${nextErrorFrame == null ? 'disabled' : ''} title="${nextErrorFrame != null ? `Chuyển sang Frame lỗi ${nextErrorFrame}` : 'Không có frame lỗi tiếp theo'}">
+                    Tiếp
+                  </button>
+                </div>
+              </div>
+              <div class="frame-status-banner">
+                ${activeFrame != null ? `
+                  <span>Đang xem <b>Frame ${activeFrame}</b> · <b>${frameFilteredRisks.length}</b> cảnh báo</span>
+                  ${frameFilteredRisks.length === 0 ? '<span class="frame-clean-badge">Frame sạch, không có lỗi</span>' : `<span class="frame-error-badge">${frameFilteredRisks.length} lỗi cần sửa</span>`}
+                ` : `
+                  <span>Đang xem <b>Toàn bộ Job</b> (${allRisks.length} cảnh báo trên ${riskFrames.length} frame)</span>
+                `}
+              </div>
+            </div>
+
             <div class="tabs-bar">
               <button class="tab-item ${tab === 'all' ? 'active' : ''}" data-tab="all">
-                Tất cả <span class="tab-count">${allRisks.length}</span>
+                Tất cả <span class="tab-count">${frameFilteredRisks.length}</span>
               </button>
               <button class="tab-item ${tab === 'policy' ? 'active' : ''}" data-tab="policy">
                 Lỗi Policy <span class="tab-count count-policy">${policyRisks.length}</span>
@@ -801,11 +960,11 @@
 
             <div class="risk-bar">
               <span style="font-size:12px;color:rgba(0,0,0,0.45);font-weight:500">
-                ${tab === 'policy' ? `Lỗi Policy (${policyRisks.length})` : tab === 'ai' ? `Lỗi AI quét (${aiRisks.length})` : `Tất cả cảnh báo (${allRisks.length})`}
+                ${activeFrame != null ? `Frame ${activeFrame} · ` : ''}${tab === 'policy' ? `Lỗi Policy (${policyRisks.length})` : tab === 'ai' ? `Lỗi AI quét (${aiRisks.length})` : `Cảnh báo (${frameFilteredRisks.length})`}
               </span>
               ${s.risks.some(r => getSunkenDepth(r) > 0) ? `
                 <button class="btn-subtle ${state.hideSunkMarkers ? 'active' : ''}" id="sr-toggle-all-sunk" title="Bật/tắt hiển thị box đỏ chìm đất trên toàn bộ canvas 3D">
-                  ${state.hideSunkMarkers ? '👁️ Hiện tất cả box đỏ' : '👁️ Tắt tất cả box đỏ'}
+                  ${state.hideSunkMarkers ? 'Hiện tất cả box đỏ' : 'Tắt tất cả box đỏ'}
                 </button>
               ` : ''}
             </div>
@@ -817,13 +976,12 @@
                 const rKey = getRiskKey(r);
                 const isDismissed = state.dismissedRisks.has(rKey);
                 return `
-                <li class="risk ${isDismissed ? 'resolved' : ''}" data-i="${origIndex}" title="Bấm để di chuyển camera đến đối tượng và chớp sáng cảnh báo đỏ">
+                <li class="risk ${isDismissed ? 'resolved' : ''}" data-i="${origIndex}" title="Bấm để di chuyển camera đến đối tượng">
                   <div class="top">
                     <span class="title">
                       ${r.source === 'ai' ? (r.geometry_type === 'cuboid' || r.cuboid ? '<span class="badge-pp">POINTPILLARS 3D</span>' : '<span class="badge-ai">YOLO AI</span>') : '<span class="badge-rule">POLICY</span>'}
-                      ${hasSunk ? `<span class="badge-sunk">CHÌM ĐẤT -${getSunkenDepth(r).toFixed(2)}m</span>` : ''}
                       <b>Frame ${r.frame}</b>
-                      ${r.object_id != null ? `<span class="badge-obj">#${esc(r.object_id)} ${esc(r.label)}</span>` : `<span class="badge-missing">⚠️ Chưa có box: ${esc(r.label)}</span>`}
+                      ${r.object_id != null ? `<span class="badge-obj">#${esc(r.object_id)} ${esc(r.label)}</span>` : `<span class="badge-missing">[Chưa có box: ${esc(r.label)}]</span>`}
                       ${r.confidence ? `<small style="color:rgba(0,0,0,0.45);font-size:11px">${Math.round(r.confidence * 100)}%</small>` : ''}
                     </span>
                     <span class="tag tag-${esc(r.severity)}">${esc(r.severity)} ${Math.round(r.score)}</span>
@@ -831,32 +989,75 @@
                   <p>${esc(r.reasons.join('; ') || r.check_ids.join(', '))}</p>
                   ${r.cuboid ? `<p class="msg">Cuboid 3D · tâm (${r.cuboid.center.map(v => Number(v).toFixed(2)).join(', ')}) m · kích thước ${r.cuboid.size.map(v => Number(v).toFixed(2)).join(' × ')} m · hướng ${(r.cuboid.heading * 180 / Math.PI).toFixed(1)}°</p>` : ''}
                   ${hasSunk ? `<p class="msg" style="color:${isDismissed ? '#8c8c8c' : '#cf1322'};margin-top:2px">
-                    ${isDismissed ? '✓ Đã tắt box đỏ cảnh báo trên canvas 3D.' : `⚠️ <b>Phần âm dưới đất (${getSunkenDepth(r).toFixed(2)} m)</b> được tô đỏ trong 3D & hình chiếu Side/Front.`}
+                    ${isDismissed ? 'Đã tắt box đỏ cảnh báo trên canvas 3D.' : `<b>Phần âm dưới đất (${getSunkenDepth(r).toFixed(2)} m)</b> được tô đỏ trong 3D & hình chiếu Side/Front.`}
                   </p>` : r.object_id == null ? `<p class="msg" style="color:${isDismissed ? '#8c8c8c' : '#d46b08'};margin-top:2px">
-                    ${isDismissed ? '✓ Đã xử lý (đã thêm box hoặc bỏ qua).' : `💡 Bấm vào thẻ này để camera bay đến và hiển thị khung viền cam vị trí AI phát hiện.`}
+                    ${isDismissed ? 'Đã xử lý (đã thêm box hoặc bỏ qua).' : `Bấm vào thẻ để camera bay đến vị trí AI phát hiện.`}
                   </p>` : ''}
                   ${hasSunk || r.object_id == null ? `<div class="actions">
                       ${hasSunk ? `
                         <button class="btn-sunk-toggle ${isDismissed ? 'is-resolved' : ''}" data-toggle-i="${origIndex}" title="${isDismissed ? 'Bấm để bật lại box đỏ cảnh báo' : 'Anno đã sửa xong: bấm để tắt box đỏ cảnh báo chìm đất'}">
-                          ${isDismissed ? '✓ Đã sửa (Đã tắt đỏ)' : '✕ Tắt box đỏ'}
+                          ${isDismissed ? 'Đã sửa (Tắt đỏ)' : 'Tắt box đỏ'}
                         </button>
                       ` : `
                         <button class="btn-sunk-toggle ${isDismissed ? 'is-resolved' : ''}" data-toggle-i="${origIndex}" title="${isDismissed ? 'Bấm để hiện lại cảnh báo' : 'Bấm để đánh dấu đã thêm box hoặc bỏ qua'}">
-                          ${isDismissed ? '✓ Đã thêm box' : '✕ Bỏ qua'}
+                          ${isDismissed ? 'Đã thêm box' : 'Bỏ qua'}
                         </button>
                       `}
                     </div>` : ''}
                 </li>`;
               }).join('')}</ul>`
-              : `<div class="empty-state">${tab === 'policy' ? '✓ Không phát hiện lỗi vi phạm Policy rules nào.' : tab === 'ai' ? '✓ Mô hình AI không phát hiện điểm bất thường nào.' : '✓ Không phát hiện rủi ro nào.'}</div>`
+              : `<div class="empty-state">${activeFrame != null ? `Frame ${activeFrame} sạch sẽ, không có cảnh báo nào.` : tab === 'policy' ? 'Không phát hiện lỗi vi phạm Policy rules nào.' : tab === 'ai' ? 'Mô hình AI không phát hiện điểm bất thường nào.' : 'Không phát hiện rủi ro nào.'}</div>`
             }
           `;
         })()}` : ''}`;
     $('sr-job').oninput = (e) => (e.target.value = e.target.value.replace(/\D/g, ''));
-    $('sr-scan-form').onsubmit = (e) => {
-      e.preventDefault();
-      if (!state.busy) scan();
-    };
+    const scanForm = $('sr-scan-form');
+    if (scanForm) {
+      scanForm.onsubmit = (e) => {
+        e.preventDefault();
+        if (!state.busy) scan();
+      };
+    }
+    const scanBtn = $('sr-scan');
+    if (scanBtn) scanBtn.onclick = scan;
+    const frameSelect = $('sr-frame-select');
+    if (frameSelect) {
+      frameSelect.onchange = (e) => {
+        state.frameFilter = e.target.value;
+        if (state.frameFilter !== 'all' && state.frameFilter !== 'current') {
+          setFrame(Number(state.frameFilter));
+        }
+        render();
+      };
+    }
+    const prevBtn = $('sr-prev-frame-btn');
+    if (prevBtn) {
+      prevBtn.onclick = () => {
+        const allRisks = s?.risks || [];
+        const riskFrames = Array.from(new Set(allRisks.map(r => r.frame).filter(f => f != null))).sort((a, b) => a - b);
+        const cur = currentFrame() ?? 0;
+        const target = riskFrames.filter(f => f < cur).pop();
+        if (target != null) {
+          setFrame(target);
+          if (state.frameFilter !== 'all') state.frameFilter = 'current';
+          render();
+        }
+      };
+    }
+    const nextBtn = $('sr-next-frame-btn');
+    if (nextBtn) {
+      nextBtn.onclick = () => {
+        const allRisks = s?.risks || [];
+        const riskFrames = Array.from(new Set(allRisks.map(r => r.frame).filter(f => f != null))).sort((a, b) => a - b);
+        const cur = currentFrame() ?? 0;
+        const target = riskFrames.find(f => f > cur);
+        if (target != null) {
+          setFrame(target);
+          if (state.frameFilter !== 'all') state.frameFilter = 'current';
+          render();
+        }
+      };
+    }
     root.querySelectorAll('.tab-item').forEach((btn) => {
       btn.onclick = () => {
         state.activeTab = btn.dataset.tab;
@@ -966,7 +1167,7 @@
   style.textContent = `
     @keyframes sr-pulse { 0%,100% { stroke-width: 2px; filter: drop-shadow(0 0 0 #ff4d6d); } 50% { stroke-width: 5px; filter: drop-shadow(0 0 10px #ff4d6d); } }
     .sr-flash { stroke: #ff4d6d !important; stroke-width: 4px !important; fill: rgba(255,77,109,.18) !important; animation: sr-pulse .8s ease-in-out 1; }
-    .sr-flash-missing { stroke: #faad14 !important; stroke-width: 3px !important; stroke-dasharray: 6 3 !important; fill: rgba(250,173,20,.22) !important; animation: sr-pulse .8s ease-in-out 1; }
+    .sr-flash-missing { stroke: #faad14 !important; stroke-width: 3px !important; stroke-dasharray: 6 3 !important; fill: rgba(250,173,20,.22) !important; animation: sr-pulse .8s ease-in-out 3; }
     @keyframes sr-pulse-border {
       0% { box-shadow: 0 0 0 0 rgba(255, 24, 68, 0); border-color: rgba(0,0,0,0.12); }
       25% { box-shadow: 0 0 14px 4px rgba(255, 24, 68, 0.85); border-color: #ff1844; }
@@ -1013,7 +1214,11 @@
       return 0;
     }
   }
-  function findShape(bbox) {
+  function findShape(bbox, objectId) {
+    if (objectId != null) {
+      const direct = document.getElementById('cvat_canvas_shape_' + objectId);
+      if (direct) return direct;
+    }
     const off = canvasOffset();
     let best = null;
     document.querySelectorAll('#cvat_canvas_content [id^="cvat_canvas_shape_"]').forEach((el) => {
@@ -1027,12 +1232,14 @@
       const err = Math.abs(b.x - off - bbox[0]) + Math.abs(b.y - off - bbox[1]) + Math.abs(b.width - bbox[2]) + Math.abs(b.height - bbox[3]);
       if (!best || err < best.err) best = { el, err };
     });
-    return best && best.err < 6 ? best.el : null;
+    return best && best.err < 30 ? best.el : null;
   }
   function highlightMissing(bbox) {
     const off = canvasOffset();
     const content = document.getElementById('cvat_canvas_content');
     if (!content || !bbox) return;
+    const old = document.getElementById('sr-temp-missing-box');
+    if (old) old.remove();
     const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
     rect.setAttribute('x', String(bbox[0] + off));
     rect.setAttribute('y', String(bbox[1] + off));
@@ -1041,7 +1248,7 @@
     rect.setAttribute('class', 'sr-flash-missing');
     rect.id = 'sr-temp-missing-box';
     content.appendChild(rect);
-    setTimeout(() => rect.remove(), 1200);
+    setTimeout(() => { if (rect.parentNode) rect.remove(); }, 2500);
   }
 
   function highlight(el, risk) {
@@ -1661,16 +1868,23 @@
       state.error = 'Chưa mở màn annotate của CVAT nên không nhảy frame được.';
       return render();
     }
+    const sub = $('sr-sub');
+    if (sub) {
+      sub.textContent = `Frame ${risk.frame} · #${risk.object_id ?? 'AI'} ${risk.label || ''} · ${risk.reasons?.[0] || ''}`;
+    }
     if (risk.geometry_type === 'cuboid' || risk.cuboid || document.querySelector('.cvat-canvas3d-perspective')) {
       await show3D(risk);
       return;
     }
     if (!risk.bbox) return;
-    if (risk.object_id == null) { highlight(null, risk); return; }
     for (let i = 0; i < 40; i++) {
       await sleep(150);
       if (currentFrame() !== risk.frame) continue;
-      const el = findShape(risk.bbox);
+      if (risk.object_id == null) {
+        highlight(null, risk);
+        return;
+      }
+      const el = findShape(risk.bbox, risk.object_id);
       if (el) return highlight(el, risk);
     }
   }
@@ -1688,7 +1902,7 @@
     await show(pending.risk);
   })();
 
-  // Watch for frame changes to ensure sunken boxes stay rendered on active frame
+  // Watch for frame changes to ensure sunken boxes stay rendered on active frame and panel frame filter updates
   let lastObservedFrame = null;
   setInterval(() => {
     if (state.scan?.risks?.length) {
@@ -1697,8 +1911,14 @@
         lastObservedFrame = cur;
         const c3d = getCanvas3DInstance();
         if (c3d) updateSunkMarkersForCurrentFrame(c3d, state.scan);
+        if (panel.classList.contains('open') && !state.busy && state.frameFilter === 'current') {
+          const jobInput = $('sr-job');
+          if (!jobInput || document.activeElement !== jobInput) {
+            render();
+          }
+        }
       }
     }
-  }, 400);
+  }, 250);
 })();
 

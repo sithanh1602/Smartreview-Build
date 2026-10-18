@@ -3,8 +3,8 @@ import { promisify } from 'node:util';
 const derive = promisify<string, string, number, typeof options, Buffer>(scrypt);
 const options = { N: 131072, r: 8, p: 1, maxmem: 256 * 1024 * 1024 };
 export function usernameValue(value: unknown) {
-  if (typeof value !== 'string' || !/^[a-zA-Z0-9_.-]{3,64}$/.test(value))
-    throw new Error('Tên đăng nhập cần 3–64 ký tự: chữ, số, _, . hoặc -.');
+  if (typeof value !== 'string' || !/^[a-zA-Z0-9_.-]{2,64}$/.test(value))
+    throw new Error('Tên đăng nhập cần 2–64 ký tự: chữ, số, _, . hoặc -.');
   return value.toLowerCase();
 }
 export async function hashPassword(password: unknown) {

@@ -2,6 +2,27 @@
 
 Ghi lại mỗi lần sửa xong một chức năng hoặc thay đổi lớn ở frontend. Mục mới nhất ở trên cùng.
 
+## 2026-10-18 · Gộp `main` vào TuanAnhBranch; sửa lưu scan 2D và thông tin quét trên CVAT panel
+
+Gộp 17 commit của `main` (PointPillars, frame filter của panel, Docker có torch, CSRF/domain cho CVAT, tài liệu kiến trúc). Không có conflict.
+
+### Đã làm
+
+- `server/cvat/scans.ts`: câu INSERT của scan 2D có 10 tham số nhưng chỉ truyền 9 (mất `duration`), nên mọi lần quét 2D lỗi ở bước lưu. Thêm lại `duration`.
+- `cvat-panel/panel.js`: bản trên `main` bỏ khối Job/Engine, "Annotation đã đổi/Không đổi", ghi chú (`notes`, giờ server ghi cả trạng thái YOLO 2D) và "Bỏ qua N mục". Hiện lại khối này dưới ô thống kê, trên bộ lọc frame.
+
+### Cần nhóm xem (chưa sửa)
+
+- Migration `012_handoff_sent_at_utc.sql` bị sửa sau khi có: DB nào đã ghi 012 với checksum cũ sẽ không khởi động (`Applied migration changed`).
+- `core/risk/ai-compare.ts`: `canonicalLabel` hạ chữ thường mọi nhãn và thêm alias (`van→truck`…), đổi kết quả mà `ENGINE_VERSION` vẫn 7.1.0.
+- `scans.ts`: YOLO 2D chỉ quét tối đa 30 frame mỗi job.
+- `Dockerfile`: image cài torch (nặng); không chép `model/Model_rescore/`, nên chạy Docker thì bảng chọn model chấm điểm trống nếu không mount thư mục đó.
+
+### Đã kiểm tra
+
+- `npm run typecheck`; test risk, risk_v7, risk3d, cvat3d, score-models, guideline, guideline-rules, guideline-waivers, core, ai-check đều qua.
+- CVAT giả lập (Playwright + Chromium): panel đã gộp vẫn gõ được ô đăng nhập, Enter đăng nhập được; khối thông tin quét hiện trên bộ lọc frame. Lưu scan 2D chưa chạy với DB thật.
+
 ## 2026-10-18 · setup.sh tải bản fine-tune yolo26s từ GitHub Release
 
 ### Đã làm

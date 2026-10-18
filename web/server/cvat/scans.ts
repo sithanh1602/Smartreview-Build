@@ -148,11 +148,18 @@ export class CvatScans {
       ),
     );
 
+    const startF = data.job.start_frame ?? 0;
+    const stopF = data.job.stop_frame ?? startF;
+    const totalJobFrames = Math.max(1, stopF - startF + 1);
+    const allJobFrames = Array.from({ length: Math.min(totalJobFrames, 30) }, (_, i) => startF + i);
+    const unannotatedFrames = allJobFrames.filter((f) => !annotatedFrames.includes(f));
+    const targetFrames = Array.from(new Set([...annotatedFrames, ...unannotatedFrames])).slice(0, 30);
+
     // 2. Run YOLO inference on frames
     setScanProgress(jobId, 25, 'Đang tải hình ảnh và khởi chạy mô hình YOLO AI...', 'ai');
     const yolo = await runYoloOnJobFrames(
       jobId,
-      annotatedFrames.length ? annotatedFrames : [0],
+      targetFrames.length ? targetFrames : [startF],
       (f) => `cvat-${jobId}-frame-${f}:0`,
       (done, total) => {
         const pct = 25 + Math.round((done / total) * 45);
@@ -259,7 +266,17 @@ export class CvatScans {
         dataset.annotations.length,
         risks.length,
         duration,
-        JSON.stringify({ skipped, risks, ai_model: yolo.available ? yolo.model : null }),
+        JSON.stringify({
+          skipped,
+          risks,
+          ai_model: yolo.available ? yolo.model : null,
+          dimension: '2d',
+          notes: [
+            yolo.available
+              ? `YOLO 2D (${yolo.model}): đã quét ${targetFrames.length} frame, AI thấy ${yolo.predictions.length} vật thể.`
+              : 'YOLO 2D: chưa kích hoạt (chỉ kiểm tra bộ quy tắc Policy 2D).',
+          ],
+        }),
         user.username,
       ],
     );

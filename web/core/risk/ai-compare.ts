@@ -67,7 +67,7 @@ export const AI_THRESHOLDS = Object.freeze({
   extraMinSide: 16,
 });
 const MAX_FRAME_ANNOTATIONS = 50;
-// Dataset label names that mean the same thing as a model class (BDD100K, Cityscapes, ...).
+// Dataset label names that mean the same thing as a model class (BDD100K, Cityscapes, Waymo, ...).
 // "traffic sign" is deliberately absent: COCO only has "stop sign", which is a different class.
 const LABEL_ALIASES: Readonly<Record<string, string>> = Object.freeze({
   bike: 'bicycle',
@@ -75,13 +75,25 @@ const LABEL_ALIASES: Readonly<Record<string, string>> = Object.freeze({
   motorbike: 'motorcycle',
   rider: 'person',
   pedestrian: 'person',
+  ped: 'person',
+  people: 'person',
+  cyclist: 'bicycle',
+  bicyclist: 'bicycle',
+  motorcyclist: 'motorcycle',
+  vehicle: 'car',
+  veh: 'car',
+  automobile: 'car',
+  auto: 'car',
+  van: 'truck',
 });
 const CONFUSABLE_GROUPS = [
   ['car', 'truck', 'bus'],
   ['bicycle', 'motorcycle'],
 ];
-export const canonicalLabel = (label: string) =>
-  LABEL_ALIASES[String(label).toLowerCase()] ?? label;
+export const canonicalLabel = (label: string) => {
+  const lower = String(label ?? '').toLowerCase().trim();
+  return LABEL_ALIASES[lower] ?? lower;
+};
 const confusable = (a: string, b: string) =>
   CONFUSABLE_GROUPS.some((g) => g.includes(a) && g.includes(b));
 // Priority follows model confidence instead of a flat number, so a 0.66 guess ranks below a 0.95 one.

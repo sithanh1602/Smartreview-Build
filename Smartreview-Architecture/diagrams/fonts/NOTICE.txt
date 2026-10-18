@@ -1,0 +1,4 @@
+Noto Sans Regular, Bold, SemiBold, Italic — version 2.015 (installed build).
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/latin-greek-cyrillic).
+Unmodified TTF font files. Licensed under the SIL Open Font License 1.1; see OFL.txt.
+Bundled for Vietnamese glyph coverage and reproducible D2 text measurements.

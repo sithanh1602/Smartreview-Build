@@ -1,0 +1,22 @@
+...@../theme
+heading: "01 · BỐI CẢNH HỆ THỐNG" {shape: text; near: top-center; style: {font-size: 28; bold: true}}
+caption: "C4 / System Context · Các tích hợp ngoài đều là tùy chọn" {shape: text; near: bottom-center; style: {font-size: 16; font-color: "#52657E"}}
+direction: right
+people: Người sử dụng {
+  class: boundary
+  leader: "Leader\nQuản lý project và dữ liệu" {class: person}
+  member: "Reviewer / Annotator\nKiểm tra và xử lý nhãn" {class: person}
+}
+app: "SMARTREVIEW\nKiểm tra chất lượng annotation 2D / 3D\nƯu tiên rủi ro và ghi nhận đánh giá" {class: service}
+outside: Hệ thống ngoài {
+  class: boundary
+  cvat: "CVAT · tùy chọn\nĐọc job để Scan QA\nChỉnh sửa nhãn bên ngoài" {class: external}
+  dropbox: "Dropbox · tùy chọn\nKho artifacts và media" {class: external}
+  gemini: "Gemini · tùy chọn\nPhân tích văn bản guideline" {class: external}
+}
+people.leader -> app: Tạo / import / quản lý
+people.member -> app: Review / trả nhãn / Scan QA
+app -> outside.cvat: REST đọc job / nhãn / media
+app -> outside.dropbox: Đọc / ghi artifacts
+app -> outside.gemini: Gửi văn bản guideline
+people.member -> outside.cvat: Sửa nhãn qua công cụ ngoài
