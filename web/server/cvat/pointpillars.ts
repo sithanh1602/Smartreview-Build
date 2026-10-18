@@ -32,6 +32,9 @@ export async function getPointPillarsPaths() {
     process.env.SMARTREVIEW_AI_PYTHON || path.join(projectRoot, '.venv/bin/python');
   const candidateModels = [
     process.env.SMARTREVIEW_3D_MODEL,
+    path.join(projectRoot, 'ai-service/models/pointpillars_waymo.pth'),
+    path.join(projectRoot, 'ai-service/models/pointpillars_kitti.pth'),
+    path.join(projectRoot, 'ai-service/models/pointpillars_waymo_latest.pth'),
     path.join(projectRoot, '.venv/models/pointpillars_waymo.pth'),
     path.join(projectRoot, '.venv/models/pointpillars_kitti.pth'),
     path.join(projectRoot, '.venv/models/epoch_160.pth'),
@@ -161,23 +164,35 @@ export function evaluatePointPillars3DRisks(
 
       // Kiểm tra kích thước hợp lý theo class để loại bỏ false positives
       const pLabel = String(pred.label).toLowerCase();
-      if (pLabel.includes('car') || pLabel.includes('veh') || pLabel.includes('truck')) {
-        if (dx < 1.8 || dx > 16.0 || dy < 1.1 || dy > 3.6 || dz < 1.0 || dz > 4.8) continue;
-      } else if (pLabel.includes('ped') || pLabel.includes('person')) {
-        if (dx > 1.8 || dy > 1.8 || dz < 0.7 || dz > 2.5) continue;
-      } else if (pLabel.includes('cyc') || pLabel.includes('bike')) {
+      const isVeh = pLabel.includes('car') || pLabel.includes('veh') || pLabel.includes('truck') || pLabel.includes('bus');
+      const isPed = pLabel.includes('ped') || pLabel.includes('person');
+      const isCyc = pLabel.includes('cyc') || pLabel.includes('bike');
+
+      if (isVeh) {
+        if (dx < 1.5 || dx > 16.0 || dy < 1.1 || dy > 3.6 || dz < 0.9 || dz > 4.8) continue;
+      } else if (isPed) {
+        if (dx > 2.0 || dy > 2.0 || dz < 0.7 || dz > 2.5) continue;
+      } else if (isCyc) {
         if (dx > 3.2 || dy > 2.0 || dz < 0.7 || dz > 2.5) continue;
       }
 
-      // 2. Ngưỡng tự tin thích ứng theo cự ly (Adaptive Confidence)
-      // Càng xa cảm biến thì điểm phản xạ càng thưa -> cần độ tự tin cao hơn để tránh báo ảo
-      const minConf = range <= 25 ? 0.48 : range <= 45 ? 0.55 : 0.65;
+      // 2. Ngưỡng tự tin thích ứng theo class và cự ly (Adaptive Confidence)
+      // Người đi bộ & xe đạp phản xạ ít điểm LiDAR (10-30 điểm) -> ngưỡng tự tin tự nhiên từ 0.20 - 0.40
+      // Xe hơi có khối phản xạ dày đặc -> ngưỡng tự tin từ 0.32 - 0.55
+      let minConf: number;
+      if (isPed || isCyc) {
+        minConf = range <= 25 ? 0.20 : range <= 45 ? 0.24 : 0.30;
+      } else {
+        minConf = range <= 25 ? 0.32 : range <= 45 ? 0.42 : 0.52;
+      }
       if (pred.confidence < minConf) continue;
 
-      // 3. Tìm box do annotator vẽ khớp với dự đoán của AI
-      let bestDist = Infinity;
-      let matchedBox: any = null;
-      const predMaxDim = Math.max(dx, dy);
+      // 3. Khớp hộp có phân biệt class (Class-Aware Matching)
+      let matchedSameClassBox: any = null;
+      let bestSameDist = Infinity;
+
+      let matchedDiffClassBox: any = null;
+      let bestDiffDist = Infinity;
 
       for (const box of frameBoxes) {
         if (!box.center || !box.size) continue;
@@ -187,107 +202,105 @@ export function evaluatePointPillars3DRisks(
         const zDist = Math.abs(bz - pz);
         const dist = Math.hypot(hDist, zDist);
 
-        // Bán kính khớp thích ứng theo kích thước hộp của cả 2 bên
-        const boxMaxDim = Math.max(bsx, bsy);
-        const matchThreshold = Math.max(2.0, Math.min(4.5, (predMaxDim + boxMaxDim) * 0.55));
+        const bType = String(box.type || box.label || '').toUpperCase();
+        const boxIsVeh = bType.includes('VEH') || bType.includes('CAR') || bType.includes('TRUCK') || bType.includes('BUS');
+        const boxIsPed = bType.includes('PED') || bType.includes('PERSON');
+        const boxIsCyc = bType.includes('CYC') || bType.includes('BIKE');
 
-        if ((dist < matchThreshold || (hDist < 1.8 && zDist < 2.0)) && dist < bestDist) {
-          bestDist = dist;
-          matchedBox = box;
+        const isSame = (isVeh && boxIsVeh) || (isPed && boxIsPed) || (isCyc && boxIsCyc);
+
+        if (isSame) {
+          // Bán kính khớp hợp lý theo từng class: Người đi bộ nhỏ hơn xe hơi
+          const maxMatchRadius = isPed ? 1.6 : isCyc ? 2.0 : Math.max(2.2, Math.min(4.0, (Math.max(dx, dy) + Math.max(bsx, bsy)) * 0.5));
+          if (hDist <= maxMatchRadius && zDist <= 2.0 && dist < bestSameDist) {
+            bestSameDist = dist;
+            matchedSameClassBox = box;
+          }
+        } else {
+          // Khác class nhưng ở cùng vị trí (< 1.6m): Khả năng annotator vẽ nhầm nhãn (ví dụ nhầm pedestrian thành sign/vehicle)
+          if (hDist <= 1.6 && zDist <= 1.8 && dist < bestDiffDist) {
+            bestDiffDist = dist;
+            matchedDiffClassBox = box;
+          }
         }
       }
 
-      // 4. Phát hiện BỎ SÓT VẬT THỂ (Missing Object): AI phát hiện tin cậy nhưng chưa có box nào
-      if (!matchedBox) {
-        const confPercent = Math.round(pred.confidence * 100);
-        const isHighConf = pred.confidence >= 0.72;
+      // 4. Nếu đã có box cùng class -> Đã được annotator vẽ chuẩn, không bỏ sót
+      if (matchedSameClassBox) {
+        continue;
+      }
+
+      // 5. Nếu có box ở đây nhưng SAI NHÃN (Label Mismatch)
+      if (matchedDiffClassBox && pred.confidence >= (isPed ? 0.28 : 0.40)) {
+        const rawId = matchedDiffClassBox.id?.includes(':') ? matchedDiffClassBox.id.split(':')[1] : matchedDiffClassBox.id;
+        const displayLabel = matchedDiffClassBox.label || matchedDiffClassBox.type || 'Không xác định';
         risks.push({
-          id: `ai_3d:${frameNumber}:missing:${Math.round(px * 10)}_${Math.round(py * 10)}`,
+          id: `ai_3d:${frameNumber}:mismatch:${rawId || `${Math.round(px * 10)}_${Math.round(py * 10)}`}`,
           frame: frameNumber,
-          object_id: null,
-          label: pred.label,
-          severity: isHighConf ? 'error' : 'warning',
-          score: Math.min(96, Math.round(pred.confidence * 100)),
+          object_id: rawId,
+          label: displayLabel,
+          severity: 'warning',
+          score: Math.min(95, Math.round(pred.confidence * 100)),
           confidence: pred.confidence,
           reasons: [
-            `PointPillars phát hiện ${pred.label} (độ tin cậy ${confPercent}%, cự ly ${range.toFixed(1)}m) chưa được vẽ box`,
+            `Nghi vấn sai nhãn: Đối tượng #${rawId || ''} đang gắn nhãn "${displayLabel}" nhưng PointPillars phát hiện "${pred.label}" (độ tin cậy ${Math.round(pred.confidence * 100)}%, cự ly ${range.toFixed(1)}m)`,
           ],
-          check_ids: ['ai_3d.missing_object'],
+          check_ids: ['ai_3d.label_mismatch'],
           bbox: null,
           source: 'ai',
           geometry_type: 'cuboid',
           cuboid: {
-            center: pred.cuboid.center,
-            size: pred.cuboid.size,
-            heading: pred.cuboid.heading,
+            center: matchedDiffClassBox.center,
+            size: matchedDiffClassBox.size,
+            heading: matchedDiffClassBox.heading,
           },
           evidence: [
             {
-              rule: 'ai_3d.missing_object',
+              rule: 'ai_3d.label_mismatch',
               model: 'PointPillars',
-              label: pred.label,
+              anno_label: displayLabel,
+              ai_label: pred.label,
               confidence: pred.confidence,
-              range_m: Math.round(range * 10) / 10,
+              distance_m: Math.round(bestDiffDist * 10) / 10,
             },
           ],
         });
         continue;
       }
 
-      // 5. Phát hiện NGHI VẤN SAI NHÃN (Label Mismatch): Có box nhưng nhãn khác với AI
-      if (matchedBox && bestDist <= 1.8 && pred.confidence >= 0.70) {
-        const boxLabel = String(matchedBox.label || matchedBox.type || '').toLowerCase();
-        const predLabel = String(pred.label).toLowerCase();
-
-        const isVehicle =
-          (boxLabel.includes('veh') || boxLabel.includes('car') || boxLabel.includes('truck') || boxLabel.includes('bus')) &&
-          (predLabel.includes('veh') || predLabel.includes('car') || predLabel.includes('truck') || predLabel.includes('bus'));
-
-        const isPed =
-          (boxLabel.includes('ped') || boxLabel.includes('person')) &&
-          (predLabel.includes('ped') || predLabel.includes('person'));
-
-        const isCyc =
-          (boxLabel.includes('cyc') || boxLabel.includes('bike')) &&
-          (predLabel.includes('cyc') || predLabel.includes('bike'));
-
-        const isSame = isVehicle || isPed || isCyc || boxLabel === predLabel;
-
-        if (!isSame) {
-          const rawId = matchedBox.id?.includes(':') ? matchedBox.id.split(':')[1] : matchedBox.id;
-          const displayLabel = matchedBox.label || matchedBox.type || 'Không xác định';
-          risks.push({
-            id: `ai_3d:${frameNumber}:mismatch:${rawId}`,
-            frame: frameNumber,
-            object_id: rawId,
-            label: displayLabel,
-            severity: 'warning',
-            score: 75,
+      // 6. Phát hiện BỎ SÓT VẬT THỂ (Missing Object): AI phát hiện tin cậy nhưng hoàn toàn chưa có box
+      const confPercent = Math.round(pred.confidence * 100);
+      const isHighConf = isPed ? pred.confidence >= 0.28 : pred.confidence >= 0.50;
+      risks.push({
+        id: `ai_3d:${frameNumber}:missing:${Math.round(px * 10)}_${Math.round(py * 10)}`,
+        frame: frameNumber,
+        object_id: null,
+        label: pred.label,
+        severity: isHighConf ? 'high' : 'medium',
+        score: Math.min(96, Math.max(50, Math.round(pred.confidence * 100))),
+        confidence: pred.confidence,
+        reasons: [
+          `PointPillars phát hiện ${pred.label} (độ tin cậy ${confPercent}%, cự ly ${range.toFixed(1)}m) chưa được vẽ box`,
+        ],
+        check_ids: ['ai_3d.missing_object'],
+        bbox: null,
+        source: 'ai',
+        geometry_type: 'cuboid',
+        cuboid: {
+          center: pred.cuboid.center,
+          size: pred.cuboid.size,
+          heading: pred.cuboid.heading,
+        },
+        evidence: [
+          {
+            rule: 'ai_3d.missing_object',
+            model: 'PointPillars',
+            label: pred.label,
             confidence: pred.confidence,
-            reasons: [
-              `Nghi vấn sai nhãn: Anno gán "${displayLabel}" nhưng PointPillars phát hiện "${pred.label}" (${Math.round(pred.confidence * 100)}%)`,
-            ],
-            check_ids: ['ai_3d.label_mismatch'],
-            bbox: null,
-            source: 'ai',
-            geometry_type: 'cuboid',
-            cuboid: {
-              center: matchedBox.center,
-              size: matchedBox.size,
-              heading: matchedBox.heading,
-            },
-            evidence: [
-              {
-                rule: 'ai_3d.label_mismatch',
-                model: 'PointPillars',
-                anno_label: displayLabel,
-                ai_label: pred.label,
-                confidence: pred.confidence,
-              },
-            ],
-          });
-        }
-      }
+            range_m: Math.round(range * 10) / 10,
+          },
+        ],
+      });
     }
   }
 

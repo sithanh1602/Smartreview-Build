@@ -1,0 +1,10 @@
+# Merge this with the CVAT stack, not the SmartReview app compose.
+# SMARTREVIEW_REPO must be the absolute checkout path on the Docker host.
+services:
+  cvat_server:
+    environment:
+      DJANGO_SETTINGS_MODULE: cvat.settings.smartreview
+      CVAT_BASE_URL: ${CVAT_PUBLIC_URL:-https://cvat.mixi-t028.cloud}
+      SMARTREVIEW_CVAT_TRUSTED_ORIGINS: "${CVAT_PUBLIC_URL:-https://cvat.mixi-t028.cloud},http://localhost:8081,http://127.0.0.1:8081"
+    volumes:
+      - ${SMARTREVIEW_REPO:?Set SMARTREVIEW_REPO to the absolute SmartReview checkout path}/cvat-panel/cvat-settings.py:/opt/cvat/cvat/settings/smartreview.py:ro

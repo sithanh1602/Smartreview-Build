@@ -21,7 +21,15 @@ except ImportError:
     from pcd_utils import read_pcd_or_bin
 
 Z_SHIFT = float(os.environ.get("SMARTREVIEW_PP_Z_SHIFT", "1.73"))
-MIN_CONF = float(os.environ.get("SMARTREVIEW_PP_MIN_CONF", "0.35"))
+PED_CONF = float(os.environ.get("SMARTREVIEW_PP_PED_CONF", "0.18"))
+CYC_CONF = float(os.environ.get("SMARTREVIEW_PP_CYC_CONF", "0.18"))
+CAR_CONF = float(os.environ.get("SMARTREVIEW_PP_CAR_CONF", "0.25"))
+
+CLASS_MIN_CONF = {
+    'Pedestrian': PED_CONF,
+    'Cyclist': CYC_CONF,
+    'Car': CAR_CONF,
+}
 
 CLASSES = {
     0: 'Pedestrian',
@@ -48,6 +56,9 @@ def main():
     model = PointPillars(nclasses=len(CLASSES)).to(device)
     state_dict = torch.load(str(model_path), map_location=device)
     model.load_state_dict(state_dict)
+    model.score_thr = 0.10
+    model.nms_pre = 1000
+    model.max_num = 200
     model.eval()
 
     predictions = []
@@ -101,8 +112,11 @@ def main():
                 labels = res.get('labels', [])
                 scores = res.get('scores', [])
                 for i in range(len(lidar_bboxes)):
+                    lbl_idx = int(labels[i])
+                    lbl_str = CLASSES.get(lbl_idx, f"class_{lbl_idx}")
                     conf = float(scores[i])
-                    if conf < MIN_CONF:
+                    min_conf = CLASS_MIN_CONF.get(lbl_str, 0.20)
+                    if conf < min_conf:
                         continue
                     box = lidar_bboxes[i]
                     bx, by, bz = float(box[0]), float(box[1]), float(box[2])
@@ -110,7 +124,7 @@ def main():
                     cx = c * bx - s * by
                     cy = s * bx + c * by
                     frame_dets.append({
-                        "label": CLASSES.get(int(labels[i]), f"class_{int(labels[i])}"),
+                        "label": lbl_str,
                         "conf": conf,
                         "c": (cx, cy, bz + Z_SHIFT),
                         "d": (float(box[3]), float(box[4]), float(box[5])),
@@ -121,7 +135,9 @@ def main():
             frame_dets.sort(key=lambda d: -d["conf"])
             kept = []
             for d in frame_dets:
-                if any(np.hypot(d["c"][0] - o["c"][0], d["c"][1] - o["c"][1]) < 1.5 for o in kept):
+                # Class-sensitive de-duplication radius; prevent cars from suppressing nearby pedestrians
+                rad = 0.8 if d["label"] in ("Pedestrian", "Cyclist") else 1.8
+                if any(d["label"] == o["label"] and np.hypot(d["c"][0] - o["c"][0], d["c"][1] - o["c"][1]) < rad for o in kept):
                     continue
                 kept.append(d)
 

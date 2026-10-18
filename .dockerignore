@@ -3,7 +3,8 @@
 **/.local
 **/node_modules
 **/dist
-**/storage
+web/storage
+!web/server/storage
 **/datasets
 **/test-results
 **/playwright-report
