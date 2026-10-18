@@ -2,6 +2,29 @@
 
 Ghi lại mỗi lần sửa xong một chức năng hoặc thay đổi lớn ở frontend. Mục mới nhất ở trên cùng.
 
+## 2026-10-18 · setup.sh tải bản fine-tune yolo26s từ GitHub Release
+
+### Đã làm
+
+- GitHub Release `model-yolo26s-bdd100k-v1` (repo public, không đánh dấu Latest): `yolo26s.pt` (bản đã chọn của lần fine-tune BDD100K, sha256 `8d0033d3…58465a2`) và `yolo26s.pt.sha256`.
+- `setup.sh`: `--model yolo26s` (và `--all_model`) tải file đó bằng `curl` vào `model/Model_rescore/yolo26s.pt`, chỉ đặt vào khi sha256 khớp; mất mạng thì giữ phần đã tải (`.yolo26s.pt.part`) để chạy lại tải tiếp; tải xong sai sha256 thì xoá. File đã có mà khác sha256 thì cảnh báo. Bỏ thông báo "không tải được, copy tay".
+- `README.md`, `docs/confidence-checks.md`: ghi cách tải mới.
+
+### Đã kiểm tra
+
+- `bash -n setup.sh`; `./setup.sh --check --model yolo26s` nhận file đang có. Chạy đúng đoạn tải trong thư mục tạm với 5 trường hợp: tải đúng, đã có và khớp, tải về sai sha256, đã có nhưng sai, lỗi tải.
+- Tải ẩn danh từ URL của release và đối chiếu sha256.
+
+## 2026-10-18 · Bảng chọn model chấm điểm: bỏ phần mô tả từng model
+
+### Đã làm
+
+- `ScanChoice.tsx`: mỗi lựa chọn ở bước 1 chỉ còn tên model, "(mặc định)" và tên file; bỏ các dòng "Tốc độ", "Hiệu quả" và ghi chú. Dữ liệu `speed/quality/note` trong `server/ai/rescore.ts` vẫn giữ. Xoá hai mục dịch `Tốc độ:` / `Hiệu quả:` không còn dùng trong `i18n.en.ts`.
+
+### Đã kiểm tra
+
+- `npm run typecheck`. Chưa thử trên giao diện.
+
 ## 2026-10-18 · CVAT panel: gõ được ô đăng nhập, sắp lại giao diện
 
 Vấn đề: trong CVAT, ô tên đăng nhập và mật khẩu của panel SmartReview không nhận chữ. Panel nằm trong shadow DOM; phím tắt của CVAT nghe trên `document` và chỉ bỏ qua phím khi target là input, nhưng phím gõ trong shadow root tới đó với target là thẻ `div` chủ, nên CVAT coi mọi chữ là phím tắt và `preventDefault`.

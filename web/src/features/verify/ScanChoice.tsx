@@ -119,9 +119,6 @@ export function ScanChoice({
                       <strong>{m.name}</strong>
                       {m.default && <span className="ml-1 text-xs text-accent">(mặc định)</span>}
                       <span className="ml-1 text-xs text-muted">· {m.file}</span>
-                      <span className="mt-1 block text-xs">Tốc độ: {m.speed}</span>
-                      <span className="block text-xs">Hiệu quả: {m.quality}</span>
-                      <span className="mt-1 block text-xs text-muted">{m.note}</span>
                     </Choice>
                   ))}
                   <Choice name="score-model" checked={!rescore} onChange={() => setRescore('')}>

@@ -294,8 +294,6 @@ export const en: Record<string, string> = {
   'Model chạy một lần trên mỗi ảnh: mỗi box người vẽ được chấm điểm cho đúng nhãn của nó, vật model thấy mà chưa có box thành gợi ý. Không thêm, không sửa nhãn. Nên chọn khi tệp nhãn chưa có confidence. Đọc từ thư mục model/Model_rescore.':
     'The model runs once on each image: every drawn box is scored for its own label, and objects it sees without a box become hints. No label is added or changed. Pick one when the labels have no confidence. Read from the model/Model_rescore folder.',
   '(mặc định)': '(default)',
-  'Tốc độ:': 'Speed:',
-  'Hiệu quả:': 'Quality:',
   'Không chấm điểm': 'No scoring',
   'Dùng confidence có sẵn trong tệp nhãn, nếu có.':
     'Uses the confidence already in the labels, if any.',

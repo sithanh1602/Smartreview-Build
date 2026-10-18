@@ -13,8 +13,8 @@
 #
 # Model (./setup.sh --model list để xem lại):
 #   model/Model_rescore/  yolo11n yolo11s yolo11m yolo26n yolo26s-coco   (chấm điểm box khi import)
+#                         yolo26s   (bản fine-tune BDD100K, từ GitHub Release của repo)
 #   model/Model_bbox/     siglip (1,5 GB) qwen (7,5 GB)                  (đọc và xét box)
-#   yolo26s (bản fine-tune BDD100K) không tải được: copy tay vào model/Model_rescore/yolo26s.pt
 #
 # Script không đụng tới MySQL và không ghi đè web/.env đã có.
 set -euo pipefail
@@ -34,14 +34,18 @@ MODEL="$ROOT/ai-service/yolo11n.pt"
 RESCORE_DIR="$ROOT/model/Model_rescore"
 BBOX_DIR="$ROOT/model/Model_bbox"
 
-# Model tải được: tên → "thư mục|nguồn". Nguồn là file release của Ultralytics hoặc repo
-# Hugging Face; yolo26s-coco là yolo26s.pt gốc COCO, đổi tên để không trùng bản fine-tune.
-RESCORE_MODELS="yolo11n yolo11s yolo11m yolo26n yolo26s-coco"
+# Model tải được: tên → "thư mục|nguồn". Nguồn là file release của Ultralytics, repo
+# Hugging Face, hoặc (finetune) file trên GitHub Release của SmartReview, kiểm tra theo sha256;
+# yolo26s-coco là yolo26s.pt gốc COCO, đổi tên để không trùng bản fine-tune yolo26s.
+RESCORE_MODELS="yolo11n yolo11s yolo11m yolo26n yolo26s-coco yolo26s"
 BBOX_MODELS="siglip qwen"
+FINETUNE_URL="https://github.com/sithanh1602/Smartreview-Build/releases/download/model-yolo26s-bdd100k-v1/yolo26s.pt"
+FINETUNE_SHA256="8d0033d3f0faca02b5ca031f36539cbfca0604efcdff8c45b7151f5da58465a2"
 model_source() {
   case "$1" in
     yolo11n | yolo11s | yolo11m | yolo26n) echo "rescore|$1.pt" ;;
     yolo26s-coco) echo "rescore|yolo26s.pt" ;;
+    yolo26s) echo "finetune|$FINETUNE_URL" ;;
     siglip) echo "bbox|google/siglip2-base-patch16-224" ;;
     qwen) echo "bbox|Qwen/Qwen2.5-VL-3B-Instruct" ;;
     *) return 1 ;;
@@ -75,10 +79,6 @@ done
 models="$(echo "$models" | tr ',' ' ' | xargs -n1 2>/dev/null | awk '!seen[$0]++' | xargs)"
 if [ "$models" = "list" ]; then usage; exit 0; fi
 for name in $models; do
-  if [ "$name" = "yolo26s" ]; then
-    echo "yolo26s là bản fine-tune, không tải được: copy file vào model/Model_rescore/yolo26s.pt" >&2
-    exit 2
-  fi
   model_source "$name" >/dev/null || {
     echo "Không có model \"$name\". Chọn trong: $RESCORE_MODELS $BBOX_MODELS" >&2
     exit 2
@@ -98,6 +98,9 @@ version_at_least() { [ "$(printf '%s\n%s\n' "$2" "$1" | sort -V | head -n1)" = "
 env_value() { sed -n "s/^$1=//p" "$WEB/.env" 2>/dev/null | tail -n1 | sed 's/^"\(.*\)"$/\1/'; }
 # Đường dẫn trong web/.env tính từ web/.
 from_web() { case "$1" in /*) printf '%s' "$1" ;; *) printf '%s' "$WEB/$1" ;; esac; }
+sha256_of() {
+  if command -v sha256sum >/dev/null; then sha256sum "$1" | cut -d' ' -f1; else shasum -a 256 "$1" | cut -d' ' -f1; fi
+}
 has_modules() { local python="$1"; shift; "$python" -c "import $(IFS=,; echo "$*")" >/dev/null 2>&1; }
 ensure_venv() {
   command -v python3 >/dev/null || fail "Chưa có python3. Cài Python 3 rồi chạy lại ./setup.sh"
@@ -240,7 +243,31 @@ step "9. Model (model/)"
 wanted="${models:-yolo11s}"
 for name in $wanted; do
   IFS='|' read -r kind source <<<"$(model_source "$name")"
-  if [ "$kind" = rescore ]; then
+  if [ "$kind" = finetune ]; then
+    target="$RESCORE_DIR/$name.pt"
+    if [ -e "$target" ]; then
+      if [ "$(sha256_of "$target")" = "$FINETUNE_SHA256" ]; then
+        ok "$name: model/Model_rescore/$name.pt"
+      else
+        warn "$name: model/Model_rescore/$name.pt khác bản trên release (sha256). Xoá file rồi chạy lại để tải đúng bản"
+      fi
+      continue
+    fi
+    if $check_only; then lack "Chưa có model/Model_rescore/$name.pt"; continue; fi
+    command -v curl >/dev/null || { warn "$name: cần curl để tải $source"; continue; }
+    mkdir -p "$RESCORE_DIR"
+    part="$RESCORE_DIR/.$name.pt.part"
+    # Mất kết nối thì giữ phần đã tải; chạy lại lệnh để tải tiếp (-C -).
+    if ! curl -fL --retry 3 -C - -o "$part" "$source"; then
+      warn "Chưa tải xong $name. Kiểm tra mạng rồi chạy lại lệnh để tải tiếp"
+    elif [ "$(sha256_of "$part")" = "$FINETUNE_SHA256" ]; then
+      mv "$part" "$target"
+      ok "Đã tải $name vào model/Model_rescore/$name.pt (sha256 khớp)"
+    else
+      rm -f "$part"
+      warn "$name: file tải về sai sha256, đã xoá. Chạy lại lệnh"
+    fi
+  elif [ "$kind" = rescore ]; then
     target="$RESCORE_DIR/$name.pt"
     if [ -e "$target" ]; then ok "$name: model/Model_rescore/$name.pt"; continue; fi
     if $check_only; then lack "Chưa có model/Model_rescore/$name.pt"; continue; fi

@@ -53,7 +53,7 @@ Khi bấm **Tạo và nhập dữ liệu**, popup cho chọn hai loại model tr
 | `model/Model_rescore/` | Chấm điểm box, tìm vật bị sót         | `yolo11n`, `yolo11s` (mặc định), `yolo11m`, `yolo26n`, `yolo26s-coco` |
 | `model/Model_bbox/`    | Đọc phần ảnh trong box, xét đúng nhãn | `siglip` (1,5 GB, quét), `qwen` (7,5 GB, xem lại)                     |
 
-Bản fine-tune `yolo26s` (BDD100K) không tải được: copy file vào `model/Model_rescore/yolo26s.pt`. Mỗi file `.pt` khác đặt vào `Model_rescore/` cũng được popup liệt kê, dùng ngưỡng chung. Chi tiết: [web/docs/confidence-checks.md](web/docs/confidence-checks.md), [web/docs/label-verifier.md](web/docs/label-verifier.md).
+Bản fine-tune `yolo26s` (BDD100K) tải bằng `./setup.sh --model yolo26s` từ [GitHub Release `model-yolo26s-bdd100k-v1`](https://github.com/sithanh1602/Smartreview-Build/releases/tag/model-yolo26s-bdd100k-v1); script kiểm tra sha256 trước khi đặt vào `model/Model_rescore/yolo26s.pt`. Mỗi file `.pt` khác đặt vào `Model_rescore/` cũng được popup liệt kê, dùng ngưỡng chung. Chi tiết: [web/docs/confidence-checks.md](web/docs/confidence-checks.md), [web/docs/label-verifier.md](web/docs/label-verifier.md).
 
 ## Tài khoản và vai trò
 
