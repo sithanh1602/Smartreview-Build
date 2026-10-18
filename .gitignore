@@ -24,6 +24,8 @@ playwright-report/
 /web/datasets/
 /web/storage/
 *.pt
+# Fine-tuned rescore weights shared with the team (HoangBranch).
+!ai-service/yolo26s.pt
 *.pth
 # Ultralytics download in progress (or interrupted).
 *.pt.*.part
