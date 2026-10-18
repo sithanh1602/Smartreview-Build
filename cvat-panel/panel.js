@@ -41,6 +41,12 @@
     window.addEventListener('DOMContentLoaded', () => document.body.appendChild(host));
   }
   const root = host.attachShadow({ mode: 'open' });
+  // CVAT's shortcuts listen on the document and let a key through only when its target is an
+  // input. A key typed in this shadow root reaches them retargeted to the host div, so they took
+  // every letter as a shortcut and cancelled it. Keys from the panel stop at the window instead;
+  // typing is the browser's default action, so the inputs still get them, and Enter submits the forms.
+  for (const type of ['keydown', 'keypress', 'keyup'])
+    window.addEventListener(type, (e) => e.composedPath().includes(host) && e.stopImmediatePropagation(), true);
   root.innerHTML = `
   <style>
     :host { all: initial; }
@@ -53,7 +59,7 @@
       left: 52px;
       top: 54px;
       z-index: 2147483000;
-      width: 390px;
+      width: 420px;
       max-height: calc(100vh - 74px);
       display: none;
       flex-direction: column;
@@ -120,8 +126,23 @@
       overflow-y: auto;
       display: flex;
       flex-direction: column;
-      gap: 14px;
-      max-height: calc(100vh - 140px);
+      gap: 12px;
+      flex: 1;
+      min-height: 0;
+    }
+    form {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin: 0;
+    }
+    .meta {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .meta .tag {
+      margin-left: 4px;
     }
     .body::-webkit-scrollbar {
       width: 6px;
@@ -162,6 +183,7 @@
     }
     .row {
       display: flex;
+      flex-direction: row;
       gap: 8px;
       align-items: flex-end;
     }
@@ -312,15 +334,42 @@
     .risk .top {
       display: flex;
       justify-content: space-between;
-      align-items: center;
+      align-items: flex-start;
+      gap: 8px;
       font-size: 12px;
-      font-weight: 600;
     }
     .risk .title {
       color: #262626;
       display: flex;
+      flex-wrap: wrap;
       align-items: center;
-      gap: 6px;
+      gap: 4px 6px;
+      min-width: 0;
+    }
+    .risk .title b {
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .risk .title span,
+    .risk .top .tag {
+      white-space: nowrap;
+    }
+    .risk .top .tag {
+      flex-shrink: 0;
+    }
+    .badge-missing {
+      background: #fff7e6;
+      color: #d46b08;
+      border: 1px solid #ffd591;
+      border-radius: 3px;
+      padding: 0 5px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .risk .actions {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 8px;
     }
     .risk .badge-obj {
       background: #f0f0f0;
@@ -379,7 +428,6 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin: 8px 0 4px;
       padding: 0 2px;
     }
     .btn-sunk-toggle {
@@ -506,7 +554,6 @@
       padding: 3px;
       border-radius: 6px;
       gap: 2px;
-      margin: 10px 0 6px;
     }
     .tab-item {
       flex: 1;
@@ -564,7 +611,6 @@
       background: #fafafa;
       border: 1px dashed #d9d9d9;
       border-radius: 6px;
-      margin: 8px 0;
     }
   </style>
   <section class="panel" id="sr-panel" role="dialog" aria-label="SmartReview Scan QA">
@@ -676,12 +722,17 @@
     if (!state.user) {
       body.innerHTML = `
         <p class="msg">Dùng tài khoản SmartReview của bạn. Phiên đăng nhập chỉ lưu trong cookie của SmartReview, không chứa token CVAT.</p>
-        <label>Tên đăng nhập<input id="sr-u" autocomplete="username"></label>
-        <label>Mật khẩu<input id="sr-p" type="password" autocomplete="current-password"></label>
-        <button class="btn" id="sr-login">Đăng nhập</button>
+        <form id="sr-login-form">
+          <label>Tên đăng nhập<input id="sr-u" autocomplete="username" required></label>
+          <label>Mật khẩu<input id="sr-p" type="password" autocomplete="current-password" required></label>
+          <button class="btn" type="submit" id="sr-login">Đăng nhập</button>
+        </form>
         ${state.error ? `<p class="msg err">${esc(state.error)}</p>` : ''}`;
-      const go = async () => {
+      $('sr-u').focus();
+      $('sr-login-form').onsubmit = async (e) => {
+        e.preventDefault();
         state.error = '';
+        $('sr-login').disabled = true;
         try {
           await api('/auth/login', { method: 'POST', body: JSON.stringify({ username: $('sr-u').value, password: $('sr-p').value }) });
           await boot();
@@ -690,18 +741,16 @@
           render();
         }
       };
-      $('sr-login').onclick = go;
-      $('sr-p').onkeydown = (e) => e.key === 'Enter' && go();
       return;
     }
     const job = jobFromUrl();
     const s = state.scan;
     const hist = state.history.find((h) => s && h.id === s.id);
     body.innerHTML = `
-      <div class="row">
+      <form class="row" id="sr-scan-form">
         <label>Job ID CVAT<input id="sr-job" inputmode="numeric" value="${job ?? s?.job_id ?? ''}"></label>
-        <button class="btn" id="sr-scan" ${state.busy ? 'disabled' : ''}>${state.busy ? '<span class="spin"></span>Đang quét…' : s ? 'Quét lại' : 'Scan QA'}</button>
-      </div>
+        <button class="btn" type="submit" id="sr-scan" ${state.busy ? 'disabled' : ''}>${state.busy ? '<span class="spin"></span>Đang quét…' : s ? 'Quét lại' : 'Scan QA'}</button>
+      </form>
       ${state.busy ? `
         <div class="scan-progress-box">
           <div class="scan-progress-top">
@@ -722,12 +771,14 @@
           <div class="stat"><b>${s.annotation_count}</b><span>Annotation</span></div>
           <div class="stat"><b>${(s.duration_ms / 1000).toFixed(1)}<small style="font-size:11px">s</small></b><span>Thời gian</span></div>
         </div>
+        <div class="meta">
         <p class="msg">Job ${s.job_id} · Engine: <b>${esc(s.engine_version || '6.0.0')}</b>
           ${hist && hist.changed === true ? ' <span class="tag changed">Annotation đã đổi</span>' : ''}
           ${hist && hist.changed === false ? ' <span class="tag same">Không đổi</span>' : ''}</p>
         ${s.dimension === '3d' ? '<p class="msg"><b>Review 3D</b> · Policy ' + esc(s.policy_version) + '</p>' : ''}
         ${(s.notes || []).map(n => '<p class="msg">' + esc(n) + '</p>').join('')}
         ${s.skipped.length ? `<p class="msg">Bỏ qua ${s.skipped.length} mục: ${esc([...new Set(s.skipped.map((k) => k.reason))].join('; '))}</p>` : ''}
+        </div>
         ${(() => {
           const allRisks = s.risks || [];
           const policyRisks = allRisks.filter((r) => r.source !== 'ai');
@@ -771,22 +822,11 @@
                     <span class="title">
                       ${r.source === 'ai' ? (r.geometry_type === 'cuboid' || r.cuboid ? '<span class="badge-pp">POINTPILLARS 3D</span>' : '<span class="badge-ai">YOLO AI</span>') : '<span class="badge-rule">POLICY</span>'}
                       ${hasSunk ? `<span class="badge-sunk">CHÌM ĐẤT -${getSunkenDepth(r).toFixed(2)}m</span>` : ''}
-                      Frame ${r.frame}
-                      <span class="badge-obj">${r.object_id != null ? '#' + esc(r.object_id) + ' ' + esc(r.label) : '<span style="color:#d46b08;font-weight:600">[⚠️ Chưa có box: ' + esc(r.label) + ']</span>'}</span>
-                      ${r.confidence ? `<small style="color:rgba(0,0,0,0.45);font-size:11px">(${Math.round(r.confidence * 100)}%)</small>` : ''}
+                      <b>Frame ${r.frame}</b>
+                      ${r.object_id != null ? `<span class="badge-obj">#${esc(r.object_id)} ${esc(r.label)}</span>` : `<span class="badge-missing">⚠️ Chưa có box: ${esc(r.label)}</span>`}
+                      ${r.confidence ? `<small style="color:rgba(0,0,0,0.45);font-size:11px">${Math.round(r.confidence * 100)}%</small>` : ''}
                     </span>
-                    <div style="display:flex;align-items:center;gap:6px">
-                      ${hasSunk ? `
-                        <button class="btn-sunk-toggle ${isDismissed ? 'is-resolved' : ''}" data-toggle-i="${origIndex}" title="${isDismissed ? 'Bấm để bật lại box đỏ cảnh báo' : 'Anno đã sửa xong: bấm để tắt box đỏ cảnh báo chìm đất'}">
-                          ${isDismissed ? '✓ Đã sửa (Đã tắt đỏ)' : '✕ Tắt box đỏ'}
-                        </button>
-                      ` : r.object_id == null ? `
-                        <button class="btn-sunk-toggle ${isDismissed ? 'is-resolved' : ''}" data-toggle-i="${origIndex}" title="${isDismissed ? 'Bấm để hiện lại cảnh báo' : 'Bấm để đánh dấu đã thêm box hoặc bỏ qua'}">
-                          ${isDismissed ? '✓ Đã thêm box' : '✕ Bỏ qua'}
-                        </button>
-                      ` : ''}
-                      <span class="tag tag-${esc(r.severity)}">${esc(r.severity)} ${Math.round(r.score)}</span>
-                    </div>
+                    <span class="tag tag-${esc(r.severity)}">${esc(r.severity)} ${Math.round(r.score)}</span>
                   </div>
                   <p>${esc(r.reasons.join('; ') || r.check_ids.join(', '))}</p>
                   ${r.cuboid ? `<p class="msg">Cuboid 3D · tâm (${r.cuboid.center.map(v => Number(v).toFixed(2)).join(', ')}) m · kích thước ${r.cuboid.size.map(v => Number(v).toFixed(2)).join(' × ')} m · hướng ${(r.cuboid.heading * 180 / Math.PI).toFixed(1)}°</p>` : ''}
@@ -795,6 +835,17 @@
                   </p>` : r.object_id == null ? `<p class="msg" style="color:${isDismissed ? '#8c8c8c' : '#d46b08'};margin-top:2px">
                     ${isDismissed ? '✓ Đã xử lý (đã thêm box hoặc bỏ qua).' : `💡 Bấm vào thẻ này để camera bay đến và hiển thị khung viền cam vị trí AI phát hiện.`}
                   </p>` : ''}
+                  ${hasSunk || r.object_id == null ? `<div class="actions">
+                      ${hasSunk ? `
+                        <button class="btn-sunk-toggle ${isDismissed ? 'is-resolved' : ''}" data-toggle-i="${origIndex}" title="${isDismissed ? 'Bấm để bật lại box đỏ cảnh báo' : 'Anno đã sửa xong: bấm để tắt box đỏ cảnh báo chìm đất'}">
+                          ${isDismissed ? '✓ Đã sửa (Đã tắt đỏ)' : '✕ Tắt box đỏ'}
+                        </button>
+                      ` : `
+                        <button class="btn-sunk-toggle ${isDismissed ? 'is-resolved' : ''}" data-toggle-i="${origIndex}" title="${isDismissed ? 'Bấm để hiện lại cảnh báo' : 'Bấm để đánh dấu đã thêm box hoặc bỏ qua'}">
+                          ${isDismissed ? '✓ Đã thêm box' : '✕ Bỏ qua'}
+                        </button>
+                      `}
+                    </div>` : ''}
                 </li>`;
               }).join('')}</ul>`
               : `<div class="empty-state">${tab === 'policy' ? '✓ Không phát hiện lỗi vi phạm Policy rules nào.' : tab === 'ai' ? '✓ Mô hình AI không phát hiện điểm bất thường nào.' : '✓ Không phát hiện rủi ro nào.'}</div>`
@@ -802,7 +853,10 @@
           `;
         })()}` : ''}`;
     $('sr-job').oninput = (e) => (e.target.value = e.target.value.replace(/\D/g, ''));
-    $('sr-scan').onclick = scan;
+    $('sr-scan-form').onsubmit = (e) => {
+      e.preventDefault();
+      if (!state.busy) scan();
+    };
     root.querySelectorAll('.tab-item').forEach((btn) => {
       btn.onclick = () => {
         state.activeTab = btn.dataset.tab;
