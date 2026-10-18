@@ -8,6 +8,10 @@ Thành viên: Cầm Vũ Ngọc Thạch, Nguyễn Việt Hoàng, Lê Sĩ Thành, 
 
 **https://mixi-t028.cloud/login**
 
+## Video demo
+
+**https://drive.google.com/drive/folders/1cYjGLSy9JRY-CokygAeUP3pCPVomBCme**
+
 ## Nội dung folder
 
 | Mục | File | Nội dung |
@@ -16,5 +20,6 @@ Thành viên: Cầm Vũ Ngọc Thạch, Nguyễn Việt Hoàng, Lê Sĩ Thành, 
 | Slide | [slide-SmartReview-T028.pdf](slide-SmartReview-T028.pdf) | Slide thuyết trình, 29 trang 16:9 |
 | Weekly logs | [weekly-logs.md](weekly-logs.md) | Tiến độ theo tuần, 02/10 – 18/10/2026 |
 | Test plan | [test-plan.md](test-plan.md) | Kế hoạch và kết quả kiểm thử |
+| Video demo | [Google Drive](https://drive.google.com/drive/folders/1cYjGLSy9JRY-CokygAeUP3pCPVomBCme) | Video quay demo sản phẩm |
 
 Mã nguồn của sản phẩm nằm ở thư mục gốc của repo: `web/` (giao diện, API, Risk Engine), `ai-service/` (model và benchmark), `cvat-panel/` (panel QA trong CVAT).
