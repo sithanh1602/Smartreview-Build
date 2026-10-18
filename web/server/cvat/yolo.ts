@@ -63,9 +63,10 @@ import { queueService } from '../queue/index.ts';
 export async function runYoloOnJobFrames(
   jobId: number,
   frameNumbers: number[],
-  frameIdBuilder: (frameNumber: number) => string,
+  frameIdBuilder?: (frameNumber: number) => string,
   onProgress?: (done: number, total: number) => void,
 ): Promise<YoloResult> {
+  const buildFrameId = frameIdBuilder || ((f: number) => `cvat-${jobId}-frame-${f}:0`);
   const { python, model, available } = await getYoloPaths();
   if (!available) {
     return { predictions: [], labels: [], model: 'none', available: false };
@@ -94,7 +95,7 @@ export async function runYoloOnJobFrames(
             await fs.writeFile(framePath, buffer);
           }
           manifestFrames.push({
-            id: frameIdBuilder(frameNum),
+            id: buildFrameId(frameNum),
             index: frameNum,
             path: framePath,
           });
