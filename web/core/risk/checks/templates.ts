@@ -346,6 +346,39 @@ export const TEMPLATES: Record<string, Template> = {
       );
     },
   },
+  // A guideline's bound on a score, either way: `source` confidence (a model draft's own score)
+  // or rescore (attributes.rescore of any box), flagged above `above` or below `below`. Only a
+  // guideline patch writes it; a box without that score is skipped, not flagged.
+  score_range: {
+    scope: 'box',
+    unsupported: ({ params: { source, above, below } }) =>
+      source !== 'confidence' && source !== 'rescore'
+        ? 'source must be "confidence" or "rescore"'
+        : typeof above !== 'number' && typeof below !== 'number'
+          ? 'needs `above` or `below`'
+          : null,
+    test(rule, { current, box }: StaticContext) {
+      const { source, above, below } = rule.params;
+      const value = source === 'rescore' ? current.attributes?.rescore : box.confidence;
+      if (typeof value !== 'number')
+        return skip(source === 'rescore' ? 'missing_rescore' : 'missing_confidence');
+      const out =
+        (typeof above === 'number' && value > above) ||
+        (typeof below === 'number' && value < below);
+      return (
+        out &&
+        hit(
+          rule,
+          { value },
+          {
+            [source]: value,
+            ...(typeof above === 'number' && { above }),
+            ...(typeof below === 'number' && { below }),
+          },
+        )
+      );
+    },
+  },
   // The model saw an object but is unsure which; the right name is most likely the runner-up.
   // With `confusable_with` only a runner-up from that list counts. A pair file asks about one
   // rival instead: `second_opinion` names it, and `margin_below` may be negative (the rival has

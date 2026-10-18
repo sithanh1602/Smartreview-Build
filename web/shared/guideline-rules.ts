@@ -16,6 +16,7 @@ export type RunTemplate =
   | 'required_attribute'
   | 'required_track'
   | 'low_confidence'
+  | 'score_range'
   | 'max_gap';
 export interface RunField {
   key: string;
@@ -108,6 +109,25 @@ export const RUN_TEMPLATES: Record<
     fields: [{ key: 'below', label: 'Ngưỡng (0–1)', kind: 'number', min: 0, max: 1 }],
     model: true,
   },
+  // Either way and on either score, for any box that has it (a person's box has a rescore).
+  score_range: {
+    name: 'Điểm của box ngoài khoảng cho phép',
+    quantities: ['box.rescore'],
+    error: 'CLASS',
+    fields: [
+      {
+        key: 'source',
+        label: 'Điểm',
+        kind: 'choice',
+        options: [
+          ['rescore', 'Rescore (model chấm lại box)'],
+          ['confidence', 'Confidence của model'],
+        ],
+      },
+      { key: 'above', label: 'Gắn cờ khi lớn hơn', kind: 'number', min: 0, max: 1, optional: true },
+      { key: 'below', label: 'Gắn cờ khi nhỏ hơn', kind: 'number', min: 0, max: 1, optional: true },
+    ],
+  },
   max_gap: {
     name: 'Track biến mất quá số frame',
     quantities: ['track.frame_gap'],
@@ -164,9 +184,39 @@ export function ruleLabels(classes: unknown): string[] {
 const numbers = (condition: string) =>
   [...condition.matchAll(/\d+(?:[.,]\d+)?/g)].map((m) => Number(m[0].replace(',', '.')));
 const share = (n: number | undefined) => (n === undefined ? undefined : n > 1 ? n / 100 : n);
+// Which way a rule's condition (worded as what gets flagged) bounds its number: "lớn hơn 0.3"
+// flags above, "dưới 40%" below. The lower-side words are looked for first, so "<" wins over
+// "<=" reading as both.
+export function directionOf(condition: string): 'above' | 'below' | null {
+  const c = condition.toLowerCase();
+  if (/nhỏ hơn|bé hơn|thấp hơn|dưới|kém hơn|ít hơn|<|below|less|lower|under/.test(c))
+    return 'below';
+  if (/lớn hơn|cao hơn|nhiều hơn|trên|vượt|quá|>|above|greater|higher|more|over/.test(c))
+    return 'above';
+  return null;
+}
+// Which score a rule speaks of: the rescore of a box, or a model's own confidence.
+const scoreOf = (rule: Pick<GuidelineRule, 'quantities' | 'condition'>) =>
+  rule.quantities.includes('box.rescore') || /rescore/i.test(rule.condition)
+    ? 'rescore'
+    : rule.quantities.includes('box.confidence') || /confidence|độ tin cậy/i.test(rule.condition)
+      ? 'confidence'
+      : null;
 // A first guess at how to run a rule, from the quantities the model named and the numbers in
 // its condition. A person checks it before it counts.
 export function guessRun(rule: GuidelineRule, classes: Attributes = []): RunSpec | null {
+  // A bound on a score: low_confidence only flags a draft's confidence below its number, so a
+  // rescore, or a confidence above a number, runs as score_range in the condition's direction.
+  const score = scoreOf(rule),
+    direction = directionOf(rule.condition);
+  if (score === 'rescore' || (score === 'confidence' && direction === 'above')) {
+    const bound = share(numbers(rule.condition)[0]);
+    return {
+      template: 'score_range',
+      params: { source: score, [direction ?? 'below']: bound },
+      score: RUN_SCORE,
+    };
+  }
   const template = (Object.keys(RUN_TEMPLATES) as RunTemplate[]).find((t) =>
     RUN_TEMPLATES[t].quantities.some((q) => rule.quantities.includes(q)),
   );
@@ -234,6 +284,16 @@ export function runProblem(spec: unknown): string | null {
     return 'Cần ít nhất một đầu của khoảng.';
   if (template === 'position_band' && given.min_y === undefined && given.max_y === undefined)
     return 'Cần ít nhất một đầu của dải.';
+  if (template === 'score_range') {
+    if (given.above === undefined && given.below === undefined)
+      return 'Cần ngưỡng “lớn hơn” hoặc “nhỏ hơn”.';
+    if (
+      typeof given.above === 'number' &&
+      typeof given.below === 'number' &&
+      given.above < given.below
+    )
+      return '“Lớn hơn” phải từ “nhỏ hơn” trở lên, nếu không mọi box đều bị gắn cờ.';
+  }
   return null;
 }
 
@@ -381,3 +441,54 @@ export const stableJson = (value: unknown): string =>
           .map((k) => `${JSON.stringify(k)}:${stableJson((value as Record<string, unknown>)[k])}`)
           .join(',')}}`
       : JSON.stringify(value);
+
+const num = (v: unknown) => String(v).replace('.', ',');
+// What a run does, in words a reviewer checks against the guideline's own sentence.
+export function describeRun(spec: RunSpec): string {
+  const p = spec.params;
+  const what = (() => {
+    switch (spec.template) {
+      case 'score_range': {
+        const name = p.source === 'confidence' ? 'confidence' : 'rescore';
+        const sides = [
+          p.above !== undefined && `${name} > ${num(p.above)}`,
+          p.below !== undefined && `${name} < ${num(p.below)}`,
+        ].filter(Boolean);
+        return `box có ${sides.join(' hoặc ') || name + ' (chưa có ngưỡng)'}`;
+      }
+      case 'low_confidence':
+        return `box nháp của model có confidence < ${num(p.below ?? '?')}`;
+      case 'min_size':
+        return `box có cạnh ${p.side === 'height' ? 'cao' : p.side === 'width' ? 'rộng' : 'dài'} dưới ${num(p.px ?? '?')} px`;
+      case 'aspect_ratio':
+        return `box có tỉ lệ cạnh ngoài khoảng ${num(p.min ?? '…')}–${num(p.max ?? '…')}`;
+      case 'max_gap':
+        return `track biến mất quá ${num(p.frames ?? '?')} frame`;
+      default:
+        return RUN_TEMPLATES[spec.template].name.toLowerCase();
+    }
+  })();
+  return `Gắn cờ ${what} (+${spec.score} điểm).`;
+}
+// Where a run says the opposite of its rule: another score, or the other side of the number.
+export function runMismatch(
+  rule: Pick<GuidelineRule, 'quantities' | 'condition'>,
+  spec: RunSpec,
+): string | null {
+  const said = scoreOf(rule),
+    direction = directionOf(rule.condition);
+  const runs =
+    spec.template === 'score_range'
+      ? { score: spec.params.source, above: spec.params.above, below: spec.params.below }
+      : spec.template === 'low_confidence'
+        ? { score: 'confidence', above: undefined, below: spec.params.below }
+        : null;
+  if (!runs) return null;
+  if (said && runs.score && said !== runs.score)
+    return `Guideline nói về ${said}, nhưng check này đo ${runs.score}.`;
+  if (direction === 'above' && runs.above === undefined && runs.below !== undefined)
+    return 'Guideline gắn cờ khi điểm LỚN HƠN ngưỡng, nhưng check này gắn cờ khi NHỎ HƠN.';
+  if (direction === 'below' && runs.below === undefined && runs.above !== undefined)
+    return 'Guideline gắn cờ khi điểm NHỎ HƠN ngưỡng, nhưng check này gắn cờ khi LỚN HƠN.';
+  return null;
+}

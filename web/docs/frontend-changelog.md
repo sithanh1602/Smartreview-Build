@@ -2,6 +2,43 @@
 
 Ghi lại mỗi lần sửa xong một chức năng hoặc thay đổi lớn ở frontend. Mục mới nhất ở trên cùng.
 
+## 2026-10-18 · Sửa: bấm "Phân tích" trong pop-up Gemini key không còn mở bảng chọn mode xử lý
+
+### Đã làm
+
+- `GuidelineAnalysis.tsx`: form của pop-up nhập key được vẽ qua portal nhưng vẫn nằm trong form tạo project của `ImportForm` trong cây React, nên sự kiện submit lan lên và chạy `submit` của form tạo project (mở bảng chọn model/mode). Nay gọi `stopPropagation()` trong `onSubmit` của pop-up.
+
+### Đã kiểm tra
+
+- `npm run typecheck`. Chưa thử trên giao diện.
+
+## 2026-10-18 · Guideline: quy tắc về điểm chạy đúng đại lượng, đúng chiều, có cảnh báo khi lệch
+
+Vấn đề: project demo có guideline "Chỉ lấy những cái rescore <= 0.3" cho ra kết quả giống hệt project không có guideline. Quy tắc G-01 (gắn cờ box có rescore > 0,3) bị đoán thành `low_confidence below 0.3`: đo confidence chứ không phải rescore, gắn cờ khi nhỏ hơn chứ không phải lớn hơn, và chỉ chạy trên box nháp của model. Nó không gắn cờ box nào.
+
+### Đã làm
+
+- **Engine** `core/risk/checks/templates.ts`: template mới `score_range`. `source` là `rescore` (attributes.rescore, có ở cả box người vẽ) hoặc `confidence`; gắn cờ khi lớn hơn `above` hoặc nhỏ hơn `below`; box không có điểm đó thì bỏ qua. Chỉ guideline mới tạo ra rule dùng template này, nên điểm của project cũ và project không có guideline không đổi (vẫn engine 7.1.0).
+- **Gemini** `server/guideline/model-call.ts`: danh mục đại lượng thêm `box.rescore`, tách khỏi `box.confidence`.
+- **Đoán cách chạy** `shared/guideline-rules.ts`: `guessRun` nhận rescore (từ đại lượng hoặc chữ "rescore" trong điều kiện) và đọc chiều ("lớn hơn / trên / vượt / >" hay "nhỏ hơn / dưới / <") qua `directionOf`. Rescore, hoặc confidence lớn hơn ngưỡng, thành `score_range`; confidence nhỏ hơn ngưỡng vẫn là `low_confidence`. `runProblem` báo khi thiếu cả hai ngưỡng hoặc "lớn hơn" nhỏ hơn "nhỏ hơn".
+- **Cảnh báo** `RunEditor.tsx`: dưới mỗi quy tắc hiện "Guideline: …" cạnh "Check sẽ chạy: Gắn cờ box có rescore > 0,3 (+30 điểm)" (`describeRun`). Khi cách chạy lệch với câu guideline (khác đại lượng, ngược chiều) hiện khung vàng ⚠ (`runMismatch`). Với `score_range` có ghi chú box nào bị bỏ qua.
+- Tài liệu: `docs/policy-format.md` thêm dòng `score_range`.
+
+### Đã kiểm tra
+
+- `npm run typecheck`, `vite build`; `tests/guideline-rules.test.ts` 8/8 (thêm 2 test: đoán đúng trường hợp demo, cảnh báo cách chạy cũ, engine gắn cờ đúng box rescore 0,9 và bỏ qua box không có rescore); guideline, guideline-waivers, policy, risk, risk_v7, core, confidence, signals, label-verify, rescore-floor đều qua. Chưa thử trên giao diện.
+- Project demo cũ giữ điểm theo quy tắc cũ; phải tạo lại project có guideline.
+
+## 2026-10-18 · Viewer 3D: hết thanh cuộn của cả trang
+
+### Đã làm
+
+- `pages/Viewer3DPage.tsx`: ô cuộn của bảng bên phải và khung trang có thêm `relative`. Các ô chọn ẩn `sr-only` trong bảng (nút quyết định, checkbox) là `position: absolute`; trước đây không có cha nào được định vị nên chúng tính vị trí theo cả trang, nằm ở chỗ của mình trong danh sách dài và kéo trang dài thêm, sinh thanh cuộn và khoảng trống dưới viewer. Nay chúng nằm gọn trong ô cuộn, khung trang (`lg:h-dvh overflow-hidden`) cắt mọi thứ thừa.
+
+### Đã kiểm tra
+
+- Theo ảnh chụp màn hình 1920px của người dùng. Chưa chạy typecheck (lệnh shell bị chặn trong phiên này) và chưa kiểm tra lại trên trình duyệt.
+
 ## 2026-10-18 · Project 3D: bàn giao lỗi cho Annotator như 2D
 
 ### Đã làm

@@ -2,7 +2,9 @@ import React from 'react';
 import {
   RUN_SCORE,
   RUN_TEMPLATES,
+  describeRun,
   ruleLabels,
+  runMismatch,
   runProblem,
   type RunSpec,
   type RunTemplate,
@@ -25,6 +27,9 @@ export function RunEditor({
 }) {
   const labels = ruleLabels(rule.classes);
   const problem = spec && runProblem(spec);
+  // A run that says the opposite of the guideline (another score, the other side of the
+  // number) is flagged here, before it scores a project.
+  const mismatch = spec && !problem ? runMismatch(rule, spec) : null;
   const set = (key: string, value: unknown) =>
     spec && onChange({ ...spec, params: { ...spec.params, [key]: value } });
   return (
@@ -121,7 +126,30 @@ export function RunEditor({
           ? 'Không có nhãn nào của policy trong quy tắc này, nên check sẽ không chạy.'
           : `Áp cho nhãn: ${labels.join(', ')}.`}{' '}
         {spec && RUN_TEMPLATES[spec.template].model && 'Chỉ chạy trên box có confidence của model.'}
+        {spec?.template === 'score_range' &&
+          (spec.params.source === 'confidence'
+            ? 'Box không có confidence (box người vẽ) được bỏ qua.'
+            : 'Box chưa có rescore (chưa chấm điểm bằng model khi import) được bỏ qua.')}
       </p>
+      {spec && !problem && (
+        <dl className="mt-2 grid grid-cols-[max-content_1fr] gap-x-2 gap-y-0.5">
+          <dt className="text-muted">Guideline</dt>
+          <dd>“{rule.condition}”</dd>
+          <dt className="text-muted">Check sẽ chạy</dt>
+          <dd className="font-semibold" data-testid={`run-says-${rule.id}`}>
+            {describeRun(spec)}
+          </dd>
+        </dl>
+      )}
+      {mismatch && (
+        <p
+          className="mt-2 rounded-md border border-amber-300 bg-amber-50 px-2 py-1.5 font-semibold text-amber-900"
+          role="alert"
+          data-testid={`run-mismatch-${rule.id}`}
+        >
+          ⚠ {mismatch} Sửa cách chạy cho khớp guideline trước khi tạo project.
+        </p>
+      )}
       {problem && (
         <p className="mt-1 text-rose-700" role="alert">
           {problem} Check này chưa chạy.

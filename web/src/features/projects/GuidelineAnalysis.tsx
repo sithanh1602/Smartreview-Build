@@ -495,6 +495,9 @@ export function GuidelineAnalysis({
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();
+                    // The dialog renders in a portal but React still bubbles its submit to the
+                    // project form around this component, which would start the import.
+                    e.stopPropagation();
                     const key = apiKey.trim();
                     if (!key) return;
                     closeKey();

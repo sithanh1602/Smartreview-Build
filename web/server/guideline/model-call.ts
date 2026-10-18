@@ -17,6 +17,10 @@ export const QUANTITIES = [
   ['box.position', 'Toạ độ tâm và các mép của box'],
   ['box.yaw', 'Góc quay yaw của cuboid'],
   ['box.confidence', 'Điểm confidence của model; box do người vẽ không có'],
+  [
+    'box.rescore',
+    'Điểm rescore: model chấm lại box (kể cả box người vẽ), attributes.rescore; khác confidence',
+  ],
   ['box.second_class', 'Class đứng thứ hai của model và điểm của nó'],
   ['box.source', 'Box do model sinh ra hay do người vẽ'],
   ['pair.overlap', 'Mức chồng lấn (IoU) giữa hai box cùng frame'],

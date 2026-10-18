@@ -5,9 +5,12 @@ import { verifierRequest } from '../core/risk/label-verify.ts';
 import { buildDataset } from '../server/repository.ts';
 import {
   captionsFrom,
+  describeRun,
+  directionOf,
   guessRun,
   patchesFrom,
   rulesForLabel,
+  runMismatch,
   runProblem,
   stableJson,
   summaryFrom,
@@ -168,6 +171,76 @@ test('a guess fills the template and the numbers the condition states', () => {
   );
   assert.equal(runProblem({ ...run, score: 0 }), 'Điểm phải từ 1 tới 100.');
   assert.equal(runProblem(run), null);
+});
+
+// "Chỉ lấy những cái rescore <= 0.3": the model wrote the condition as what gets flagged.
+const rescoreRule = rule({
+  classes: ['*'],
+  quote: 'Chỉ lấy những cái rescore <= 0.3',
+  condition: 'box có điểm rescore lớn hơn 0.3',
+  quantities: ['box.confidence'],
+});
+test('a score rule runs on the score it names, in the direction its condition says', () => {
+  const guessed = guessRun(rescoreRule as any)!;
+  assert.deepEqual(guessed, {
+    template: 'score_range',
+    params: { source: 'rescore', above: 0.3 },
+    score: 30,
+  });
+  assert.equal(runMismatch(rescoreRule as any, guessed), null);
+  assert.equal(describeRun(guessed), 'Gắn cờ box có rescore > 0,3 (+30 điểm).');
+  // The run the demo project was scored with said the opposite on two counts.
+  const old = { template: 'low_confidence', params: { below: 0.3 }, score: 30 } as const;
+  assert.match(
+    runMismatch(rescoreRule as any, old)!,
+    /nói về rescore, nhưng check này đo confidence/,
+  );
+  assert.match(
+    runMismatch(rule({ condition: 'confidence lớn hơn 0.8' }) as any, old)!,
+    /LỚN HƠN ngưỡng, nhưng check này gắn cờ khi NHỎ HƠN/,
+  );
+  // A confidence above a number has no low_confidence to run as; below one still does.
+  assert.deepEqual(
+    guessRun(rule({ quantities: ['box.confidence'], condition: 'confidence trên 0.8' }) as any),
+    { template: 'score_range', params: { source: 'confidence', above: 0.8 }, score: 30 },
+  );
+  assert.equal(directionOf('rescore <= 0.3'), 'below');
+  assert.equal(
+    runProblem({ template: 'score_range', params: { source: 'rescore' }, score: 30 }),
+    'Cần ngưỡng “lớn hơn” hoặc “nhỏ hơn”.',
+  );
+  assert.match(
+    runProblem({
+      template: 'score_range',
+      params: { source: 'rescore', above: 0.2, below: 0.5 },
+      score: 30,
+    })!,
+    /mọi box đều bị gắn cờ/,
+  );
+});
+
+test('a rescore rule flags the boxes a person drew whose rescore is out of bounds', () => {
+  const drawn = scene([
+    ['car', undefined, 100, 300, 300, 450],
+    ['car', undefined, 500, 300, 700, 450],
+    ['car', undefined, 800, 300, 1000, 450],
+  ]);
+  drawn.annotations[0].attributes = { rescore: 0.9 };
+  drawn.annotations[1].attributes = { rescore: 0.1 };
+  for (const a of drawn.annotations) delete a.confidence;
+  const patches = patchesFrom({
+    rules: [rescoreRule],
+    choices: { 'G-01': 'guideline' },
+    runs: { 'G-01': guessRun(rescoreRule as any) },
+  });
+  assert.equal(patches.length, 1);
+  checkPatches(patches);
+  const report = analyzeDataset(drawn, { patches });
+  const flagged = (i: number) => report.results[i].check_ids.includes('guideline.G-01');
+  // Above 0.3 is flagged; below it is not; a box without a rescore is skipped.
+  assert.deepEqual([flagged(0), flagged(1), flagged(2)], [true, false, false]);
+  const finding = report.results[0].findings.find((f) => f.check_id === 'guideline.G-01')!;
+  assert.deepEqual(finding.evidence, { rescore: 0.9, above: 0.3 });
 });
 
 test('guideline captions join the policy captions sent to the label verifier', () => {

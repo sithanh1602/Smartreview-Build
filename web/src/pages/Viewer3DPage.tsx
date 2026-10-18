@@ -390,7 +390,7 @@ export function Viewer3DPage() {
       ? 'Project chưa sẵn sàng. Quay lại trang project để xem trạng thái.'
       : failure;
   return (
-    <div className="flex min-h-dvh flex-col lg:h-dvh lg:overflow-hidden">
+    <div className="relative flex min-h-dvh flex-col lg:h-dvh lg:overflow-hidden">
       {/* A slim header: the point cloud gets the height. The first link leaves the project. */}
       <header className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-line bg-panel px-3 py-0.5 text-xs">
         <Link to="/projects" aria-label="SmartReview">
@@ -755,7 +755,9 @@ export function Viewer3DPage() {
                 Ẩn
               </button>
             </div>
-            <div className="min-h-0 flex-1 p-4 lg:overflow-y-auto" role="tabpanel">
+            {/* relative: the panel's sr-only inputs (absolute) stay inside the scrolling box;
+                otherwise they sit at their place in the long list and stretch the page. */}
+            <div className="relative min-h-0 flex-1 p-4 lg:overflow-y-auto" role="tabpanel">
               {tab === 'review' ? (
                 <ObjectPanel
                   projectId={projectId!}
