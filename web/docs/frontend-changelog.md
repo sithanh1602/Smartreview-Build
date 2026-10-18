@@ -2,6 +2,20 @@
 
 Ghi lại mỗi lần sửa xong một chức năng hoặc thay đổi lớn ở frontend. Mục mới nhất ở trên cùng.
 
+## 2026-10-18 · CVAT panel: gõ được ô đăng nhập, sắp lại giao diện
+
+Vấn đề: trong CVAT, ô tên đăng nhập và mật khẩu của panel SmartReview không nhận chữ. Panel nằm trong shadow DOM; phím tắt của CVAT nghe trên `document` và chỉ bỏ qua phím khi target là input, nhưng phím gõ trong shadow root tới đó với target là thẻ `div` chủ, nên CVAT coi mọi chữ là phím tắt và `preventDefault`.
+
+### Đã làm
+
+- `cvat-panel/panel.js`: listener `keydown/keypress/keyup` ở pha capture của `window` dừng phím đến từ panel (`composedPath().includes(host)`), CVAT không thấy phím đó nữa; chữ vẫn vào input vì đó là hành vi mặc định của trình duyệt.
+- Đăng nhập và ô Job ID thành `<form>`: Enter gửi form (đăng nhập / quét), con trỏ tự vào ô tên đăng nhập, nút đăng nhập khoá khi đang gửi.
+- Giao diện: panel rộng 420px; dòng đầu thẻ cảnh báo cho badge xuống dòng gọn, điểm severity luôn ở góc phải, nút "Bỏ qua" / "Tắt box đỏ" có hàng riêng dưới thẻ; badge "Chưa có box" riêng; dòng Job/Engine/ghi chú gom sát nhau; bỏ khoảng trống thừa quanh tab và danh sách.
+
+### Đã kiểm tra
+
+- Trang CVAT giả lập (Playwright + Chromium, có handler phím tắt kiểu Mousetrap): trước khi sửa gõ 13 phím thì ô trống; sau khi sửa ô nhận đủ chữ, không phím tắt nào chạy, Enter đăng nhập được. Chụp màn hình panel đăng nhập và danh sách cảnh báo. Chưa thử trên CVAT thật (proxy :8081 đang tắt).
+
 ## 2026-10-18 · Sửa: bấm "Phân tích" trong pop-up Gemini key không còn mở bảng chọn mode xử lý
 
 ### Đã làm
