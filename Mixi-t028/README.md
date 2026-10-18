@@ -8,6 +8,10 @@ Thành viên: Cầm Vũ Ngọc Thạch, Nguyễn Việt Hoàng, Lê Sĩ Thành, 
 
 **https://mixi-t028.cloud/login**
 
+## Mã nguồn (GitHub)
+
+**https://github.com/sithanh1602/Smartreview-Build**
+
 ## Video demo
 
 **https://drive.google.com/drive/folders/1cYjGLSy9JRY-CokygAeUP3pCPVomBCme**
@@ -22,4 +26,4 @@ Thành viên: Cầm Vũ Ngọc Thạch, Nguyễn Việt Hoàng, Lê Sĩ Thành, 
 | Test plan | [test-plan.md](test-plan.md) | Kế hoạch và kết quả kiểm thử |
 | Video demo | [Google Drive](https://drive.google.com/drive/folders/1cYjGLSy9JRY-CokygAeUP3pCPVomBCme) | Video quay demo sản phẩm |
 
-Mã nguồn của sản phẩm nằm ở thư mục gốc của repo: `web/` (giao diện, API, Risk Engine), `ai-service/` (model và benchmark), `cvat-panel/` (panel QA trong CVAT).
+Mã nguồn của sản phẩm nằm ở thư mục gốc của repo [sithanh1602/Smartreview-Build](https://github.com/sithanh1602/Smartreview-Build): `web/` (giao diện, API, Risk Engine), `ai-service/` (model và benchmark), `cvat-panel/` (panel QA trong CVAT).
