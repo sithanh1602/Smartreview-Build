@@ -13,6 +13,7 @@ web/storage
 **/*.pt
 !ai-service/*.pt
 **/*.pth
+!ai-service/*.pth
 !ai-service/models/*.pth
 **/*.onnx
 .git
