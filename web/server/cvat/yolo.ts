@@ -80,11 +80,13 @@ export async function runYoloOnJobFrames(
 
       const manifestFrames: { id: string; index: number; path: string }[] = [];
 
-      // Limit to max 30 frames per scan for responsiveness if job is huge
-      const targetFrames = Array.from(new Set(frameNumbers)).slice(0, 30);
-
-      await Promise.all(
-        targetFrames.map(async (frameNum) => {
+      // Every requested frame is scanned. Downloads run a few at a time so a long job does
+      // not fire one request per frame at CVAT all at once.
+      const targetFrames = Array.from(new Set(frameNumbers));
+      let next = 0;
+      const download = async () => {
+        while (next < targetFrames.length) {
+          const frameNum = targetFrames[next++];
           const framePath = path.join(cacheDir, `frame_${frameNum}.jpg`);
           try {
             const stat = await fs.stat(framePath);
@@ -99,8 +101,10 @@ export async function runYoloOnJobFrames(
             index: frameNum,
             path: framePath,
           });
-        }),
-      );
+        }
+      };
+      await Promise.all(Array.from({ length: Math.min(8, targetFrames.length) }, download));
+      manifestFrames.sort((a, b) => a.index - b.index);
 
       if (!manifestFrames.length) {
         return { predictions: [], labels: [], model: path.basename(model), available: true };

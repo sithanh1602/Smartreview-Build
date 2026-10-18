@@ -864,6 +864,14 @@
           <div class="stat"><b>${s.annotation_count}</b><span>Annotation</span></div>
           <div class="stat"><b>${(s.duration_ms / 1000).toFixed(1)}<small style="font-size:11px">s</small></b><span>Thời gian</span></div>
         </div>
+        <div class="meta">
+        <p class="msg">Job ${s.job_id} · Engine: <b>${esc(s.engine_version || '6.0.0')}</b>
+          ${hist && hist.changed === true ? ' <span class="tag changed">Annotation đã đổi</span>' : ''}
+          ${hist && hist.changed === false ? ' <span class="tag same">Không đổi</span>' : ''}</p>
+        ${s.dimension === '3d' ? '<p class="msg"><b>Review 3D</b> · Policy ' + esc(s.policy_version) + '</p>' : ''}
+        ${(s.notes || []).map(n => '<p class="msg">' + esc(n) + '</p>').join('')}
+        ${s.skipped?.length ? `<p class="msg">Bỏ qua ${s.skipped.length} mục: ${esc([...new Set(s.skipped.map((k) => k.reason))].join('; '))}</p>` : ''}
+        </div>
         ${(() => {
           const allRisks = s.risks || [];
           const curFrame = currentFrame();
